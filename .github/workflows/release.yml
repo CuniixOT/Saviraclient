@@ -1,0 +1,107 @@
+# Automatic releases: raise "version" in package.json, push to main, done.
+# GitHub builds mod + launcher on Windows, signs the update and publishes
+# Savira-Setup-x.y.z.exe and latest.json as a release. Installed launchers pick it up.
+#
+# One-time setup (repository → Settings → Secrets and variables → Actions):
+#   Secret  SAVIRA_UPDATE_KEY  full content of %USERPROFILE%\.savira-release\update-private.pem
+# Optional, to keep the source private and publish to a separate public repository:
+#   Variable RELEASE_REPO      e.g. deinname/savira-releases
+#   Secret   RELEASE_TOKEN     fine-grained token with "Contents: read and write" on that repository
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths: [package.json]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  RELEASE_REPO: ${{ vars.RELEASE_REPO || github.repository }}
+
+jobs:
+  check:
+    name: Neue Version?
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      publish: ${{ steps.version.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if gh release view "v$VERSION" --repo "$RELEASE_REPO" > /dev/null 2>&1; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::v$VERSION ist bereits veröffentlicht. Für ein Update die Version in package.json erhöhen."
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::v$VERSION wird gebaut und veröffentlicht."
+          fi
+
+  release:
+    name: Bauen, signieren, veröffentlichen
+    needs: check
+    if: needs.check.outputs.publish == 'true'
+    runs-on: windows-latest
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Gradle- und Minecraft-Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            .tools/gradle-8.12.1
+          key: gradle-${{ runner.os }}-${{ hashFiles('client-mod/build.gradle', 'client-mod/gradle.properties') }}
+
+      - run: npm ci
+
+      - name: Unit-Tests
+        run: npm test
+
+      - name: Update-Adresse eintragen
+        run: node scripts/release.mjs configure "$env:RELEASE_REPO"
+
+      - name: Bauen und signieren
+        env:
+          SAVIRA_UPDATE_KEY_PEM: ${{ secrets.SAVIRA_UPDATE_KEY }}
+        run: npm run release
+
+      - name: Release veröffentlichen
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+        run: |
+          args=(--repo "$RELEASE_REPO" --title "Savira $VERSION" --notes-file release/notes.md)
+          # A separate release repository does not know this commit; its default branch gets the tag.
+          if [ "$RELEASE_REPO" = "$GITHUB_REPOSITORY" ]; then args+=(--target "$GITHUB_SHA"); fi
+          gh release create "v$VERSION" "release/Savira-Setup-$VERSION.exe" release/latest.json "${args[@]}"
+
+      - name: Zusammenfassung
+        shell: bash
+        run: |
+          echo "### Savira $VERSION veröffentlicht" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://github.com/$RELEASE_REPO/releases/tag/v$VERSION" >> "$GITHUB_STEP_SUMMARY"
+          echo "Installierte Launcher finden das Update beim nächsten Start oder spätestens nach sechs Stunden." >> "$GITHUB_STEP_SUMMARY"

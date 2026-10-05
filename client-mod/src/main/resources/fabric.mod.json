@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "savira",
+  "version": "${version}",
+  "name": "Savira Client",
+  "description": "Dein Spiel. Dein Client. Konfigurierbares PvP-HUD für Minecraft.",
+  "authors": ["Savira"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": { "client": ["gg.savira.client.SaviraClient"] },
+  "mixins": ["savira.mixins.json"],
+  "depends": { "fabricloader": ">=0.16.14", "minecraft": "1.21.1", "java": ">=21", "fabric-api": "*" }
+}

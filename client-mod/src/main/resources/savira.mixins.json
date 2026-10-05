@@ -1,0 +1,7 @@
+{
+  "required": true,
+  "package": "gg.savira.client.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": ["MouseMixin"],
+  "injectors": { "defaultRequire": 1 }
+}

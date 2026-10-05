@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="650" viewBox="0 0 1600 650">
+<defs>
+<linearGradient id="sky" x2="0" y2="1"><stop stop-color="#628d82"/><stop offset=".62" stop-color="#b3c8a4"/><stop offset="1" stop-color="#627e60"/></linearGradient>
+<linearGradient id="mist" x2="0" y2="1"><stop stop-color="#bdd6b3" stop-opacity="0"/><stop offset="1" stop-color="#a2c8b6" stop-opacity=".5"/></linearGradient>
+<linearGradient id="water" x2="1" y2="1"><stop stop-color="#80b9ac"/><stop offset="1" stop-color="#456f62"/></linearGradient>
+<g id="tree"><path d="M-5 0H7V-101H-5Z" fill="#4e5a3c"/><path d="M-42-36H43V-61H31V-84H20V-109H10V-130H-10V-107H-21V-84H-32V-61H-42Z" fill="#294d3b"/><path d="M0-130H10V-109H20V-84H31V-61H43V-36H0Z" fill="#234334"/><path d="M-42-38H0V-46H-32V-64H-21V-87H-10V-110H0V-130H-10V-107H-21V-84H-32V-61H-42Z" fill="#517050"/></g>
+<g id="grass"><path d="M0 0v-9m4 9v-13m4 13v-6" stroke="#8ca46a" stroke-width="2"/></g>
+</defs>
+<path fill="url(#sky)" d="M0 0h1600v650H0z"/>
+<path fill="#d9e3b6" opacity=".7" d="M1155 67h83v83h-83z"/>
+<g fill="#d4dfc5" opacity=".38"><path d="M800 75h118v15h72v20H771V92h29z"/><path d="M1286 107h124v19h86v19h-250v-19h40z"/><path d="M1070 29h79v12h66v16h-158V43h13z"/><path d="M443 42h184v20h49v18H404V60h39z"/></g>
+<path d="M0 302h100v-43h67v-47h61v-53h89v49h70v62h73v31h69v-76h66v-51h55v-52h61v49h34v-38h61v90h71v54h64v-35h54v-56h65v-79h55v-24h57v59h54v73h69v54h54v-66h80v-42h66v65h76v31h73V650H0Z" fill="#739780"/>
+<path d="M0 332h145v-39h69v-31h94v49h59v38h74v-17h56v-49h50v-21h74v-50h62v-19h57v57h48v33h77v38h106v-27h50v-49h47v-66h58v-30h61v37h42v60h40v48h74v35h47v-33h70v-44h69v42h55v68h100V650H0Z" fill="#547760"/>
+<g fill="#a2b69a" opacity=".6"><path d="M628 212h55v-19h57v30h-30v17h-44v-10h-38z"/><path d="M1047 179v-30h61v37h42v28h-39v-20h-39v-15z"/></g>
+<path fill="url(#mist)" d="M0 223h1600v390H0z"/>
+<path d="M0 460l454-61 261 27 234-65 304 70 347-37v256H0Z" fill="#436d53"/>
+<path d="M859 396h124v18h86v18h-95v21H842v17h-92v27h93v20h172v28h100v27H898v-21H772v-22H644v-40h63v-34h106v-30h89v-13h-43z" fill="url(#water)"/>
+<g fill="#aacbb0" opacity=".4"><path d="M860 422h75v3h-75z"/><path d="M810 456h78v3h-78z"/><path d="M691 493h82v3h-82z"/><path d="M899 538h68v3h-68z"/></g>
+<g opacity=".8"><use href="#tree" transform="translate(759 403) scale(.48)"/><use href="#tree" transform="translate(786 412) scale(.38)"/><use href="#tree" transform="translate(698 407) scale(.6)"/><use href="#tree" transform="translate(651 425) scale(.45)"/><use href="#tree" transform="translate(977 389) scale(.5)"/><use href="#tree" transform="translate(1092 415) scale(.45)"/><use href="#tree" transform="translate(1154 427) scale(.65)"/></g>
+<!-- Block-built cliff faces and grassy terraces. -->
+<path d="M1146 323l205-61 249 75v313h-373v-43h-41v-66h-40z" fill="#50604b"/>
+<path d="M1351 262l249 75v313h-249z" fill="#384b3d"/>
+<path d="M1146 323l205-61 249 75-205 66z" fill="#759361"/>
+<path d="M1146 323l249 80v29l-249-79z" fill="#4e733f"/>
+<path d="M1395 403l205-66v32l-205 63z" fill="#60824a"/>
+<g fill="#63735a"><path d="M1171 377l60 19v39l-60-19z"/><path d="M1263 405l53 18v54l-53-18z"/><path d="M1195 462l39 13v37l-39-13z"/><path d="M1288 497l57 17v32l-57-17z"/></g>
+<g fill="#2b4034"><path d="M1408 448l61-20v31l-61 20z"/><path d="M1520 424l49-16v60l-49 16z"/><path d="M1442 535l83-25v34l-83 25z"/></g>
+<path d="M1011 442l137-43 187 58-137 49z" fill="#79955f"/><path d="M1011 442l187 64v144h-82v-49h-51v-64h-54z" fill="#4f6046"/><path d="M1198 506l137-49v193h-137z" fill="#344b36"/><path d="M1011 442l187 64v21l-187-63z" fill="#58763f"/><path d="M1198 506l137-49v23l-137 48z" fill="#648a46"/>
+<g><use href="#tree" transform="translate(1293 319) scale(1.06)"/><use href="#tree" transform="translate(1419 342) scale(1.46)"/><use href="#tree" transform="translate(1530 327) scale(1.1)"/><use href="#tree" transform="translate(1491 383) scale(.9)"/><use href="#tree" transform="translate(1179 449) scale(.78)"/></g>
+<g fill="#92ad70"><path d="M1230 329l31-9 25 8-31 10z"/><path d="M1470 312l25-8 32 10-25 8z"/><path d="M1080 446l31-10 39 12-31 11z"/></g>
+<g><use href="#grass" x="1230" y="338"/><use href="#grass" x="1350" y="364"/><use href="#grass" x="1545" y="354"/><use href="#grass" x="1115" y="456"/></g>
+<!-- Small floating island. -->
+<path d="M903 186l51-16 63 19-50 18z" fill="#91ae74"/><path d="M903 186l64 21v30h-19v22h-15v-17h-17v-25h-13z" fill="#596b50"/><path d="M967 207l50-18v26h-15v21h-20v18h-15z" fill="#3e5845"/><path d="M903 186l64 21v8l-64-21z" fill="#638b48"/><use href="#tree" transform="translate(960 187) scale(.42)"/>
+<!-- Foreground blocks. -->
+<path d="M0 491l195-61 197 49 138-33 176 80-88 124H0z" fill="#2f5038"/><path d="M378 572l145-48 198 60-148 66H378z" fill="#547946"/><path d="M523 524l198 60v24l-198-61z" fill="#486739"/><path d="M378 572l145-48v24l-145 50z" fill="#6f9051"/>
+<g><use href="#tree" transform="translate(315 498) scale(1.1)"/><use href="#tree" transform="translate(146 486) scale(1.6)"/><use href="#tree" transform="translate(45 523) scale(1.1)"/><use href="#tree" transform="translate(420 552) scale(.7)"/></g>
+<g fill="#9caf75"><path d="M584 581h9v9h-9z"/><path d="M621 596h7v7h-7z"/></g><g fill="#d5cc9a"><path d="M584 574h9v9h-9z"/><path d="M621 589h7v7h-7z"/></g>
+</svg>

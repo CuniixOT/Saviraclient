@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "savira_menu_test",
+  "version": "1.0.0",
+  "name": "Savira UI Test Fixture",
+  "environment": "client",
+  "entrypoints": { "client": ["gg.savira.test.MenuSmokeTest"] },
+  "depends": { "savira": "*", "fabric-api": "*" }
+}
