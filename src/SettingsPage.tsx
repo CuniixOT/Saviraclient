@@ -69,7 +69,7 @@ export function SettingsPage({ state, locked, pending, onSave, onPickJava, onFol
 
     {tab === 'general' && <div className="tab-body" role="tabpanel">
       <section className="panel glass">
-        <header className="panel-head"><Palette size={20} /><div><h2>Akzentfarbe</h2><p>Buttons, Schalter und Markierungen. Gilt sofort, auch für das Mod-Menü im Spiel.</p></div></header>
+        <header className="panel-head"><Palette size={20} /><div><h2>Akzentfarbe</h2><p>Buttons, Schalter und Markierungen im Launcher, dazu das Savira-Hauptmenü in Minecraft. Mod-Menü und HUD bleiben in Savira-Mint.</p></div></header>
         <div className="accent-row">
           <div className="swatches" role="radiogroup" aria-label="Akzentfarbe">{(Object.keys(accents) as AccentPreset[]).map(id => <button key={id} role="radio" aria-checked={settings.accent === id} aria-label={accents[id].label} title={accents[id].label} disabled={locked} className={settings.accent === id ? 'active' : ''} style={{ background: accents[id].hex }} onClick={() => onSave({ ...settings, accent: id }, `Akzentfarbe: ${accents[id].label}.`)}>{settings.accent === id && <Check size={14} weight="bold" />}</button>)}</div>
           <button type="button" className={`custom-accent ${custom ? 'active' : ''}`} disabled={locked} onClick={() => setPicking(true)} aria-label="Eigene Akzentfarbe wählen">

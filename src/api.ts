@@ -28,7 +28,7 @@ interface Bridge {
 export type LogLevel = 'ERROR' | 'WARN' | 'INFO' | 'DEBUG' | 'TRACE';
 export type LogLine = { id: number; time: number; level: LogLevel; text: string };
 export type GameStats = { memory: number; cpu: number };
-export type GameSession = { lines: LogLine[]; profile: { id: string; name: string; version: string; loader: string; memory: number }; account: string; startedAt: number; stats: GameStats; running: boolean };
+export type GameSession = { lines: LogLine[]; profile: { id: string; name: string; version: string; loader: string; memory: number }; account: string; startedAt: number; stats: GameStats; running: boolean; starting: boolean };
 export type LogsState = { accent: Accent; session: GameSession | null };
 type LogsEvent = 'lines' | 'stats' | 'reset' | 'ended';
 interface LogsBridge {

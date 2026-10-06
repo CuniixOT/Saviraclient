@@ -13,6 +13,7 @@ export function LogWindow() {
   const [lines, setLines] = useState<LogLine[]>([]);
   const [stats, setStats] = useState<GameStats>({ memory: 0, cpu: 0 });
   const [running, setRunning] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [enabled, setEnabled] = useState<Record<LogLevel, boolean>>({ ERROR: true, WARN: true, INFO: true, DEBUG: true, TRACE: false });
   const [query, setQuery] = useState('');
   const [following, setFollowing] = useState(true);
@@ -24,7 +25,7 @@ export function LogWindow() {
 
   const load = (state: { accent: string; session: GameSession | null }) => {
     document.documentElement.style.setProperty('--accent', accentHex(state.accent as never));
-    setSession(state.session); setLines(state.session?.lines ?? []); setStats(state.session?.stats ?? { memory: 0, cpu: 0 }); setRunning(Boolean(state.session?.running));
+    setSession(state.session); setLines(state.session?.lines ?? []); setStats(state.session?.stats ?? { memory: 0, cpu: 0 }); setRunning(Boolean(state.session?.running)); setStarting(Boolean(state.session?.starting));
   };
   useEffect(() => {
     unwrap(logsApi.state()).then(load).catch(e => setError(e.message));
@@ -32,7 +33,7 @@ export function LogWindow() {
       if (event === 'lines') setLines(prev => { const next = prev.concat(payload as LogLine[]); return next.length > MAX_LINES ? next.slice(-MAX_LINES) : next; });
       if (event === 'stats') setStats(payload as GameStats);
       if (event === 'reset') { load(payload as never); setFollowing(true); }
-      if (event === 'ended') { setRunning(false); setConfirmStop(false); }
+      if (event === 'ended') { setRunning(false); setStarting(false); setConfirmStop(false); }
     });
   }, []);
   useEffect(() => { if (!running) return; const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, [running]);
@@ -98,7 +99,16 @@ export function LogWindow() {
 
       <aside className="logwin-side">
         <h2 className="pixel"><Monitor size={16} />instanz</h2>
-        {session ? <>
+        {session && starting && !running && <div className="instance-card is-starting">
+          <SkinHead skin={null} size={44} />
+          <div><strong>{session.profile.name}</strong><small>{session.account || 'Unbekannt'} · wird gestartet …</small></div>
+        </div>}
+        {!(session && (running || starting)) && <div className="instance-none">
+          <Monitor size={30} weight="thin" />
+          <strong className="pixel">keine instanz aktiv</strong>
+          <small>{session ? 'Das Spiel wurde beendet. Die Logs der letzten Sitzung bleiben links zum Nachlesen.' : 'Starte Minecraft im Launcher, dann erscheint die Instanz hier.'}</small>
+        </div>}
+        {session && running ? <>
           <div className={`instance-card ${running ? 'is-running' : ''}`}>
             <SkinHead skin={null} size={44} />
             <div><strong>{session.profile.name}</strong><small>{session.account || 'Unbekannt'} · <span className={running ? 'live' : ''}>{running ? uptime(now - session.startedAt) : 'beendet'}</span></small></div>
@@ -112,8 +122,8 @@ export function LogWindow() {
               <button className="btn btn-icon" title="Spielordner öffnen" aria-label="Spielordner öffnen" onClick={() => act(() => unwrap(logsApi.folder()))}><FolderOpen size={16} /></button>
             </div>
           </div>
-          <p className="instance-foot">{running ? '1 läuft' : 'Keine Instanz aktiv'}</p>
-        </> : <p className="instance-empty">Keine Instanz gestartet.</p>}
+          <p className="instance-foot">1 läuft</p>
+        </> : null}
       </aside>
     </div>
   </div>;

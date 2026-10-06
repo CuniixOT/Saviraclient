@@ -37,3 +37,23 @@ test('lists, reads and guards log files', async () => {
   for (const bad of [path.join(userData, 'settings.json'), path.join(logs, '..', '..', '..', 'settings.json'), 'latest.log', path.join(logs, 'sub', 'x.log')]) await assert.rejects(assertAllowed(userData, bad));
   await assert.rejects(list(userData, '../etc'));
 });
+test('reads log4j XML events from the Minecraft console', () => {
+  const { createSession } = require('../electron/gamesession.cjs');
+  const got = [];
+  const session = createSession({ profile: {}, account: '', onLines: lines => got.push(...lines), onStats: () => {} });
+  session.push('<log4j:Event logger="net.minecraft.server.MinecraftServer" timestamp="1791320112885" level="INFO" thread="Server thread">\n');
+  session.push('  <log4j:Message><![CDATA[Saving players]]></log4j:Message>\n</log4j:Event>\n');
+  session.push('<log4j:Event logger="x" timestamp="1791320112900" level="ERROR" thread="Render thread">\n  <log4j:Message><![CDATA[Failed to load\nsecond line]]></log4j:Message>\n');
+  session.push('  <log4j:Throwable><![CDATA[java.io.IOException: boom\n\tat a.b(C.java:1)]]></log4j:Throwable>\n</log4j:Event>\n');
+  session.push('plain output line\n');
+  session.end();
+  assert.deepEqual(got.map(l => [l.level, l.text]), [
+    ['INFO', '[Server thread/INFO]: Saving players'],
+    ['ERROR', '[Render thread/ERROR]: Failed to load'],
+    ['ERROR', 'second line'],
+    ['ERROR', 'java.io.IOException: boom'],
+    ['ERROR', '\tat a.b(C.java:1)'],
+    ['INFO', 'plain output line']
+  ]);
+  assert.equal(got[0].time, 1791320112885);
+});

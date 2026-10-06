@@ -90,5 +90,8 @@
     "github": "CuniixOT/Saviraclient",
     "feed": "",
     "publicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA8tupHLGMDEUZM6PC9Y/AWVAWAb9q12Z4Ge5ia1EoT5Q=\n-----END PUBLIC KEY-----\n"
+  },
+  "saviraLinks": {
+    "discord": ""
   }
 }

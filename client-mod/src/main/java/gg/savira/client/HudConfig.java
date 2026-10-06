@@ -30,6 +30,12 @@ public final class HudConfig {
     public boolean snap = true;
     /** RGB accent written by the launcher; keeps the in-game menu in the launcher's color. */
     public int accent = 0x5CCF95;
+    /** Replace the vanilla title screen with Savira's main menu. */
+    public boolean customTitleScreen = true;
+    /** Discord invite written by the launcher; only discord.gg / discord.com links are used. */
+    public String discordUrl = "";
+    /** Launcher version for the main menu footer; the jar keeps its own fixed version. */
+    public String launcherVersion = "";
     public Map<String, Placement> layout = new HashMap<>();
 
     public static final class Placement {

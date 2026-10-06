@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import type { Accent, AccentPreset } from './api';
 
-// Must match electron/settings.cjs, which hands the same colours to the Fabric mod.
+// Must match electron/settings.cjs, which hands the same colours to the mod's main menu.
 export const accents: Record<AccentPreset, { label: string; hex: string }> = {
   mint: { label: 'Mint', hex: '#5ccf95' },
   emerald: { label: 'Smaragd', hex: '#22b07d' },

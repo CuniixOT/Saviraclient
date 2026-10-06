@@ -36,7 +36,11 @@ Im Spiel öffnet **rechte Umschalttaste** das Savira-HUD-Menü. Die Taste ist au
 - **Layout resetten:** setzt Positionen und individuelle Größen zurück. ESC führt aus Modulbrowser/Editor zur Savira-Startansicht und von dort ins Spiel.
 - Positionen werden relativ zur verfügbaren Bildschirmfläche gespeichert, damit die HUD-Anzeigen bei geänderter Auflösung erreichbar bleiben. Die Spielwelt läuft während der Menübedienung weiter.
 
-Das Mod-Menü folgt dem Launcher-Look: Kategorie-Leiste links, Modulkarten mit Item-Icon und Schalter, 3D-Buttons und die im Launcher gewählte Akzentfarbe (wird beim Start in `savira.json` als `accent` geschrieben).
+Das Mod-Menü folgt dem Launcher-Look: Kategorie-Leiste links, Modulkarten mit Item-Icon und Schalter, 3D-Buttons im festen Savira-Mint. Auch die HUD-Anzeigen bleiben immer Mint.
+
+### Savira-Hauptmenü
+
+Statt des Minecraft-Titelbildschirms zeigt der Mod ein eigenes Hauptmenü: verschwommenes Panorama, Savira-Logo, Buttons für Einzelspieler, Mehrspieler, Mod-Menü und Einstellungen, oben rechts Account und Schnellzugriffe, unten rechts eine Discord-Karte. Nur dieses Hauptmenü übernimmt die im Launcher gewählte Akzentfarbe (beim Start in `savira.json` als `accent` geschrieben). Den Discord-Link trägt man in `package.json` unter `saviraLinks.discord` ein; erlaubt sind nur `https://discord.gg/…` und `https://discord.com/invite/…`. Mit `"customTitleScreen": false` in `savira.json` kommt das Minecraft-Menü zurück.
 
 ## Enthalten
 

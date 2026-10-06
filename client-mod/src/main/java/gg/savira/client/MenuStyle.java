@@ -12,7 +12,12 @@ public final class MenuStyle {
     public static final int PANEL = 0xF00D1014, SIDEBAR = 0xFF0A0C0F, SURFACE = 0xFF161A1F, SURFACE_HOVER = 0xFF1F242B, LINE = 0xFF272C34;
     private MenuStyle() {}
 
-    public static int accent() { return 0xFF000000 | (SaviraClient.config.accent & 0xFFFFFF); }
+    /** Fixed Savira mint for the mod menu and HUD: they keep the brand colour whatever the launcher uses. */
+    public static final int BRAND = 0xFF5CCF95;
+    public static int accent() { return BRAND; }
+    /** The launcher accent; only the Savira main menu (title screen) follows it. */
+    public static int launcherAccent() { return 0xFF000000 | (SaviraClient.config.accent & 0xFFFFFF); }
+    public static int launcherAccentAlpha(int alpha) { return (alpha << 24) | (launcherAccent() & 0xFFFFFF); }
     /** Darker accent for the 3D bottom edge of buttons, like the launcher. */
     public static int accentDark() { return shade(accent(), .62f); }
     /** Accent at the given alpha (0-255). */
@@ -106,5 +111,53 @@ public final class MenuStyle {
                 c.drawCenteredTextWithShadow(font, text, getX() + getWidth() / 2, getY() + getHeight() - 13, hover ? TEXT : MUTED);
             }
         };
+    }
+
+    public enum Variant { NORMAL, ACCENT, DANGER }
+
+    /** Main-menu button: item icon on the left, label centred, three colour variants. */
+    public static ButtonWidget menuButton(int x, int y, int w, int h, String label, Item icon, Variant variant, ButtonWidget.PressAction action) {
+        return new ButtonWidget(x, y, w, h, Text.literal(label), action, narration -> narration.get()) {
+            @Override
+            protected void renderWidget(DrawContext c, int mouseX, int mouseY, float delta) {
+                boolean hover = isHovered() || isFocused();
+                var font = MinecraftClient.getInstance().textRenderer;
+                int textColor = TEXT;
+                switch (variant) {
+                    case ACCENT -> { raised(c, getX(), getY(), getWidth(), getHeight(), 4, hover ? shade(launcherAccent(), 1.1f) : launcherAccent(), false); textColor = ON_ACCENT; }
+                    case DANGER -> {
+                        round(c, getX(), getY(), getWidth(), getHeight(), 4, hover ? 0xFFE5484D : 0xFF7A2A2E);
+                        raised(c, getX() + 1, getY() + 1, getWidth() - 2, getHeight() - 2, 3, hover ? 0xFFB3363B : 0xF0401B1E, false);
+                    }
+                    default -> {
+                        round(c, getX(), getY(), getWidth(), getHeight(), 4, hover ? launcherAccentAlpha(0xC0) : 0xFF2A2F37);
+                        raised(c, getX() + 1, getY() + 1, getWidth() - 2, getHeight() - 2, 3, hover ? 0xF0222831 : 0xE0121519, false);
+                    }
+                }
+                int textWidth = font.getWidth(getMessage());
+                int contentWidth = (icon != null ? 14 : 0) + textWidth;
+                int left = getX() + (getWidth() - contentWidth) / 2;
+                if (icon != null) {
+                    // Items are 16px; scale to 12px so they sit like font icons next to the label.
+                    c.getMatrices().push();
+                    c.getMatrices().translate(left, getY() + (getHeight() - 12) / 2f - 1, 0);
+                    c.getMatrices().scale(.75f, .75f, 1);
+                    c.drawItem(new ItemStack(icon), 0, 0);
+                    c.getMatrices().pop();
+                    left += 14;
+                }
+                if (variant == Variant.ACCENT) c.drawText(font, getMessage(), left, getY() + (getHeight() - 8) / 2, textColor, false);
+                else c.drawTextWithShadow(font, getMessage(), left, getY() + (getHeight() - 8) / 2, textColor);
+            }
+        };
+    }
+
+    /** The Savira pixel "S" (same shape as the launcher logo) on a 16-unit grid. */
+    public static void logo(DrawContext c, int x, int y, int unit, int color) { logo(c, x, y, unit, color, true); }
+    public static void logo(DrawContext c, int x, int y, int unit, int color, boolean shadow) {
+        int[][] rects = {{2, 1, 14, 4}, {2, 4, 5, 6}, {2, 6, 14, 9}, {11, 9, 14, 12}, {2, 12, 14, 15}};
+        int dark = shade(color, .58f);
+        if (shadow) for (int[] r : rects) c.fill(x + r[0] * unit, y + r[1] * unit + unit, x + r[2] * unit, y + r[3] * unit + unit, dark);
+        for (int[] r : rects) c.fill(x + r[0] * unit, y + r[1] * unit, x + r[2] * unit, y + r[3] * unit, color);
     }
 }

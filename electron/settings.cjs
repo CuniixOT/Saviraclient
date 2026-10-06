@@ -4,7 +4,7 @@ const defaultProfiles = [
   { id: 'savira-1-21-1', name: 'Savira 1.21.1', version: '1.21.1', loader: 'savira' },
   { id: 'vanilla-1-21-1', name: 'Vanilla 1.21.1', version: '1.21.1', loader: 'vanilla' }
 ];
-// Accent values are shared with the Fabric mod so launcher and in-game menu use the same color.
+// Accent values are handed to the Fabric mod; only its main menu (title screen) uses them.
 // Besides these presets a custom "#rrggbb" value is allowed.
 const accents = {
   mint: 0x5ccf95, emerald: 0x22b07d, teal: 0x2ec4b6, cyan: 0x22b8e6, blue: 0x4f8dff, indigo: 0x6c6cf0, violet: 0x8f72f2,

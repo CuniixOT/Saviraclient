@@ -20,6 +20,9 @@ const packageInfo = require('../package.json');
 const githubRepo = /^[\w.-]+\/[\w.-]+$/.test(packageInfo.saviraUpdate?.github || '') ? packageInfo.saviraUpdate.github : '';
 const updateFeed = process.env.SAVIRA_UPDATE_FEED || packageInfo.saviraUpdate?.feed
   || (githubRepo ? `https://github.com/${githubRepo}/releases/latest/download/latest.json` : '');
+// Discord invite for the in-game main menu; only real invite links are passed on.
+const DISCORD_INVITE = /^https:\/\/(discord\.gg|(www\.)?discord\.com\/invite)\/[A-Za-z0-9-]{2,32}$/;
+const discordUrl = () => DISCORD_INVITE.test(packageInfo.saviraLinks?.discord || '') ? packageInfo.saviraLinks.discord : '';
 const updatePublicKey = process.env.SAVIRA_UPDATE_PUBLIC_KEY || packageInfo.saviraUpdate?.publicKey || '';
 const run = promisify(execFile);
 const SAVIRA_MC = '1.21.1';
@@ -130,7 +133,7 @@ async function prepareFabric(gameRoot, minecraftVersion) {
   let inGame = {};
   try { inGame = JSON.parse(await fs.readFile(hudPath, 'utf8')) || {}; } catch { /* First launch or invalid config. */ }
   // Layout and snapping belong to the in-game editor, while launcher toggles stay authoritative.
-  await atomicWrite(hudPath, JSON.stringify({ ...settings.hud, accent: accentRgb(settings.accent), layout: inGame.layout || {}, snap: inGame.snap !== false }, null, 2));
+  await atomicWrite(hudPath, JSON.stringify({ ...settings.hud, accent: accentRgb(settings.accent), discordUrl: discordUrl(), launcherVersion: app.getVersion(), customTitleScreen: inGame.customTitleScreen !== false, layout: inGame.layout || {}, snap: inGame.snap !== false }, null, 2));
   return id;
 }
 // The title-screen panorama ships with the game assets the player already downloaded.
@@ -214,6 +217,8 @@ async function launch() {
     child.once('error', () => { busy = false; gameChild = null; log.error('Minecraft-Prozess konnte nicht ausgeführt werden'); publish({ phase: 'error', message: 'Der Minecraft-Prozess konnte nicht ausgeführt werden.', progress: 0 }); });
     gameChild = child;
     session.attach(child.pid);
+    // The log window was told "not running" while files downloaded; now the game process exists.
+    sendToLogs('logs-reset', logsState());
     log.info(`Minecraft läuft (PID ${child.pid})`);
     if (busy) {
       publish({ phase: 'running', message: 'Minecraft läuft. Viel Spaß mit Savira.', progress: 100 });
@@ -244,7 +249,8 @@ const windowOptions = { frame: false, backgroundColor: '#0b0d10', icon: path.joi
 function sendToLogs(channel, payload) { if (logWin && !logWin.isDestroyed()) logWin.webContents.send(channel, payload); }
 function logsState() {
   const snapshot = session?.snapshot();
-  return { accent: settings.accent, session: snapshot ? { ...snapshot, running: snapshot.running && Boolean(gameChild) } : null };
+  // starting: Minecraft is still being prepared/downloaded; running: the Java process exists.
+  return { accent: settings.accent, session: snapshot ? { ...snapshot, running: snapshot.running && Boolean(gameChild), starting: snapshot.running && !gameChild } : null };
 }
 function openLogWindow() {
   if (logWin && !logWin.isDestroyed()) { if (logWin.isMinimized()) logWin.restore(); logWin.show(); logWin.focus(); return; }
@@ -351,7 +357,10 @@ else {
     handle('logs-stop', () => {
       if (!gameChild) throw new Error('Minecraft läuft nicht.');
       log.warn('Minecraft über das Log-Fenster gestoppt');
-      gameChild.kill();
+      // "java" may be Oracle's javapath stub with the real JVM as a child: end the whole tree,
+      // otherwise only the stub dies and the game keeps running.
+      if (process.platform === 'win32') execFile('taskkill', ['/pid', String(gameChild.pid), '/t', '/f'], { windowsHide: true }, () => {});
+      else gameChild.kill();
     }, 'logs');
     handle('logs-folder', async () => {
       const dir = session ? path.join(root(), 'instances', session.snapshot().profile.id) : instance();
