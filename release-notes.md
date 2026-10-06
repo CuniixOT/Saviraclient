@@ -1,7 +1,7 @@
 # Release-Notizen
 
 Jede Zeile, die mit "- " beginnt, erscheint im Update-Hinweis des Launchers.
-Vor jedem Release anpassen, dann `npm run release` ausführen.
+Vor jedem Release anpassen, dann Version erhöhen und pushen.
 
-- Automatische Updates direkt im Launcher
+- Automatische Updates laden die neue Version jetzt zuverlässig über GitHub
 - Eigener Installer im Savira-Design

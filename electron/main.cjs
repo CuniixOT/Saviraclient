@@ -22,7 +22,9 @@ const run = promisify(execFile);
 const SAVIRA_MC = '1.21.1';
 const LOADER = '0.16.14';
 app.setName('Savira');
-if (process.argv.includes('--smoke-test') && process.env.SAVIRA_TEST_USER_DATA) app.setPath('userData', process.env.SAVIRA_TEST_USER_DATA);
+// Tests isolate their profile via this variable. It is inherited through updater → setup →
+// relaunch, so a test launcher never collides with a real Savira running on the same machine.
+if (process.env.SAVIRA_TEST_USER_DATA) app.setPath('userData', process.env.SAVIRA_TEST_USER_DATA);
 let win, settings = structuredClone(defaults), account = null, busy = false, loggingIn = false;
 let status = { phase: 'idle', message: 'Bereit, wenn du es bist.', progress: 0 };
 const root = () => app.getPath('userData');

@@ -73,7 +73,9 @@ function createUpdater({ app, currentVersion, feed, publicKey, allowLoopback = f
       if (text.length > 64 * 1024) throw new Error('Update-Informationen sind zu groß.');
       const next = validateManifest(JSON.parse(text), publicKey);
       if (!isNewer(next.version, currentVersion)) { manifest = null; publish({ state: 'none', version: null, notes: [], checkedAt: new Date().toISOString() }); return status; }
-      manifest = { ...next, url: checkUrl(new URL(next.file, response.url || feedUrl).href, allowLoopback).href };
+      // Resolve against the configured feed, not response.url: GitHub redirects latest.json to a
+      // signed CDN address where a relative file name points nowhere.
+      manifest = { ...next, url: checkUrl(new URL(next.file, feedUrl).href, allowLoopback).href };
       if (downloaded && downloaded.version !== manifest.version) downloaded = null;
       publish({ state: downloaded ? 'ready' : 'available', version: manifest.version, notes: manifest.notes, date: manifest.date, size: manifest.size, progress: downloaded ? 100 : 0, checkedAt: new Date().toISOString() });
     } catch (error) {

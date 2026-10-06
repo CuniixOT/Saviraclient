@@ -23,13 +23,18 @@ const { privateKey, publicKey } = generateKeyPairSync('ed25519');
 const bytes = await readFile(setupExe);
 const manifest = { version: nextVersion, file: `Savira-Setup-${nextVersion}.exe`, sha512: createHash('sha512').update(bytes).digest('hex'), size: bytes.length, date: new Date().toISOString(), notes: ['Testupdate für den automatischen Ablauf', 'Signatur und Prüfsumme werden geprüft'] };
 manifest.signature = sign(null, Buffer.from(updater.signedPayload(manifest)), privateKey).toString('base64');
+// Behaves like GitHub: /releases/latest/download/* redirects to opaque CDN addresses, so a file
+// name resolved against the redirected URL (instead of the feed) ends up as a 404.
 const server = createServer((request, response) => {
-  if (request.url === '/latest.json') { response.writeHead(200, { 'Content-Type': 'application/json' }); response.end(JSON.stringify(manifest)); }
-  else if (request.url === `/${manifest.file}`) { response.writeHead(200, { 'Content-Length': bytes.length }); response.end(bytes); }
+  const base = '/releases/latest/download/';
+  if (request.url === `${base}latest.json`) { response.writeHead(302, { Location: '/cdn/asset-1406?sig=a1' }); response.end(); }
+  else if (request.url === `${base}${manifest.file}`) { response.writeHead(302, { Location: '/cdn/asset-2913?sig=b2' }); response.end(); }
+  else if (request.url === '/cdn/asset-1406?sig=a1') { response.writeHead(200, { 'Content-Type': 'application/json' }); response.end(JSON.stringify(manifest)); }
+  else if (request.url === '/cdn/asset-2913?sig=b2') { response.writeHead(200, { 'Content-Length': bytes.length }); response.end(bytes); }
   else { response.writeHead(404); response.end(); }
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-const feed = `http://127.0.0.1:${server.address().port}/latest.json`;
+const feed = `http://127.0.0.1:${server.address().port}/releases/latest/download/latest.json`;
 
 // "Installed" copy in a sandbox, laid out exactly like the setup leaves it.
 const sandbox = await mkdtemp(path.join(tools, 'update-sandbox-'));
