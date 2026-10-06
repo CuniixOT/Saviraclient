@@ -17,7 +17,7 @@ delete env.ELECTRON_RUN_AS_NODE;
   const app = await electron.launch({ executablePath: path.join(root, 'release/win-unpacked/Savira.exe'), args: ['--smoke-test'], env: { ...env, SAVIRA_TEST_USER_DATA: userData }, timeout: 60000 });
   try {
     const page = await app.firstWindow();
-    await expect(page.getByLabel(/3D-Skin von/)).toBeVisible({ timeout: 30000 });
+    await expect(page.getByLabel(/3D-Figur von/)).toBeVisible({ timeout: 30000 });
     const result = await page.evaluate(() => window.savira.state());
     expect(result.ok).toBe(true);
     expect(result.data.version).toBe(version);

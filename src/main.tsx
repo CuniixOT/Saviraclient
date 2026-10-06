@@ -1,7 +1,5 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import '@fontsource/pixelify-sans/400.css';
-import '@fontsource/pixelify-sans/600.css';
 import '@fontsource-variable/geist';
 import { App } from './App';
 import { Setup } from './Setup';

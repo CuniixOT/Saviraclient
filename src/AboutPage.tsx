@@ -27,6 +27,6 @@ export function AboutPage({ version }: { version: string }) {
         <ul className="checklist muted">{planned.map(text => <li key={text}><Circle size={18} />{text}</li>)}</ul>
       </section>
     </div>
-    <p className="legal"><ShieldCheck size={15} />Optisch inspiriert vom NoRisk Client. Eigenständige Umsetzung ohne NoRisk-Quellcode oder -Assets. Savira ist nicht mit NoRiskClient, Mojang oder Microsoft verbunden. <GithubLogo size={15} /> Lizenz: MIT</p>
+    <p className="legal"><ShieldCheck size={15} />Optisch inspiriert vom NoRisk Client, ohne NoRisk-Quellcode. Schriften aus dem NoRisk-Launcher: „Minecraft“ von Pwnage_Block (CC BY-SA 3.0) und „Minecraft NRC SmallCaps“ (GPL-3.0), Details in THIRD_PARTY_NOTICES.md im Installationsordner. Savira ist nicht mit NoRiskClient, Mojang oder Microsoft verbunden. <GithubLogo size={15} /> Lizenz: MIT</p>
   </div>;
 }

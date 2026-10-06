@@ -1,10 +1,11 @@
 import { Check, Eyedropper, FolderOpen, GameController, Palette, Sparkle, ToggleLeft } from '@phosphor-icons/react';
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { isDesktop, type AccentPreset, type BackgroundMode, type Settings, type State } from './api';
 import { PageHeader, Toggle, accentHex, accents, isCustomAccent } from './ui';
 import { BackgroundPreview } from './Background';
 import { UpdatePanel, type useUpdates } from './Update';
 import { DebugPanel } from './DebugPanel';
+import { ColorPicker } from './ColorPicker';
 
 type Tab = 'general' | 'background' | 'advanced' | 'debug';
 type Draft = Pick<Settings, 'memory' | 'javaPath' | 'fullscreen'>;
@@ -50,18 +51,12 @@ export function SettingsPage({ state, locked, pending, onSave, onPickJava, onFol
   const memoryShare = (draft.memory - 2) / Math.max(1, state.maxMemory - 2);
   const accent = accentHex(settings.accent);
   const custom = isCustomAccent(settings.accent);
-  const picker = useRef<HTMLInputElement>(null);
+  const [picking, setPicking] = useState(false);
+  // The picker previews by recolouring the whole launcher; cancelling puts the saved colour back.
+  const previewAccent = useCallback((hex: string) => document.documentElement.style.setProperty('--accent', hex), []);
+  const closePicker = useCallback(() => { setPicking(false); previewAccent(accent); }, [accent, previewAccent]);
 
   useEffect(() => { try { localStorage.setItem('savira-settings-tab', tab); } catch { /* Convenience only. */ } }, [tab]);
-  // Native colour input: preview live while dragging, save once when the picker closes.
-  useEffect(() => {
-    const input = picker.current;
-    if (!input) return;
-    const preview = () => document.documentElement.style.setProperty('--accent', input.value);
-    const commit = () => onSave({ ...settings, accent: input.value.toLowerCase() as `#${string}` }, `Eigene Akzentfarbe: ${input.value}.`);
-    input.addEventListener('input', preview); input.addEventListener('change', commit);
-    return () => { input.removeEventListener('input', preview); input.removeEventListener('change', commit); };
-  }, [settings, onSave, tab]);
 
   return <div className="page page-enter settings">
     <PageHeader kicker="launcher" title="einstellungen">
@@ -77,13 +72,14 @@ export function SettingsPage({ state, locked, pending, onSave, onPickJava, onFol
         <header className="panel-head"><Palette size={20} /><div><h2>Akzentfarbe</h2><p>Buttons, Schalter und Markierungen. Gilt sofort, auch für das Mod-Menü im Spiel.</p></div></header>
         <div className="accent-row">
           <div className="swatches" role="radiogroup" aria-label="Akzentfarbe">{(Object.keys(accents) as AccentPreset[]).map(id => <button key={id} role="radio" aria-checked={settings.accent === id} aria-label={accents[id].label} title={accents[id].label} disabled={locked} className={settings.accent === id ? 'active' : ''} style={{ background: accents[id].hex }} onClick={() => onSave({ ...settings, accent: id }, `Akzentfarbe: ${accents[id].label}.`)}>{settings.accent === id && <Check size={14} weight="bold" />}</button>)}</div>
-          <label className={`custom-accent ${custom ? 'active' : ''}`} title="Eigene Farbe wählen">
+          <button type="button" className={`custom-accent ${custom ? 'active' : ''}`} disabled={locked} onClick={() => setPicking(true)} aria-label="Eigene Akzentfarbe wählen">
             <span className="custom-swatch" style={{ background: custom ? accent : 'conic-gradient(#e5566b, #e8a33d, #5ccf95, #4f8dff, #8f72f2, #e5566b)' }} />
-            <span><strong>Eigene</strong><small>{custom ? accent : 'Farbwähler'}</small></span>
+            <span><strong>Eigene</strong><small>{custom ? accent.toUpperCase() : 'Farbwähler'}</small></span>
             <Eyedropper size={16} />
-            <input ref={picker} type="color" value={accent} disabled={locked} aria-label="Eigene Akzentfarbe" />
-          </label>
+          </button>
         </div>
+        {picking && <ColorPicker value={accent} onPreview={previewAccent} onCancel={closePicker}
+          onApply={hex => { setPicking(false); onSave({ ...settings, accent: hex as `#${string}` }, `Eigene Akzentfarbe: ${hex.toUpperCase()}.`); }} />}
       </section>
 
       <section className="panel glass">

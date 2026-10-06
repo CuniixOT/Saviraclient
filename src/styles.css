@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* NoRisk-Client fonts, see THIRD_PARTY_NOTICES.md. MinecraftTen has no umlauts, so every stack
+   that starts with it falls back to SmallCaps for the missing glyphs, as NoRisk does. */
+@font-face { font-family: "MinecraftTen"; src: url("./assets/fonts/MinecraftTen.woff2") format("woff2"); font-display: block; }
+@font-face { font-family: "SmallCaps"; src: url("./assets/fonts/SmallCaps.ttf") format("truetype"); font-display: block; }
+
 /* ---------- Tokens ---------- */
 :root {
   --accent: #5ccf95;
@@ -23,8 +28,10 @@
   --z-popover: 30;
   --z-modal: 40;
   --z-toast: 50;
+  /* Small descriptions stay in Geist: pixel fonts at 12px are hard to read. */
   --font-body: 'Geist Variable', 'Segoe UI', sans-serif;
-  --font-pixel: 'Pixelify Sans', 'Segoe UI', monospace;
+  --font-pixel: 'SmallCaps', 'Segoe UI', monospace;
+  --font-display: 'MinecraftTen', 'SmallCaps', 'Segoe UI', sans-serif;
   color-scheme: dark;
   font-family: var(--font-body);
   color: var(--text);
@@ -48,7 +55,11 @@ kbd { padding: 1px 6px; border-radius: 5px; background: rgb(255 255 255 / .08); 
 ::-webkit-scrollbar { width: 10px; }
 ::-webkit-scrollbar-thumb { background: rgb(255 255 255 / .1); border-radius: 10px; border: 3px solid transparent; background-clip: padding-box; }
 
-.pixel { font-family: var(--font-pixel); text-transform: lowercase; letter-spacing: .02em; }
+/* SmallCaps draws lowercase letters as small capitals: the NoRisk look for labels, tabs and buttons. */
+.pixel { font-family: var(--font-pixel); text-transform: lowercase; letter-spacing: .06em; font-weight: 400; }
+/* Titles and names use the Minecraft font, like the NoRisk launcher. */
+h1, h2, h3, strong, .logo .pixel, .page-head h1, .setup-copy h1, .play-label, .nametag, .value, .setup-percent { font-family: var(--font-display); font-weight: 400; letter-spacing: .01em; }
+.page-head h1, .setup-copy h1, .play-label, .logo .pixel { text-transform: none; }
 .glass {
   background: var(--glass);
   backdrop-filter: blur(22px) saturate(1.25);
@@ -169,15 +180,16 @@ select.input { padding-right: 30px; }
 .toggle.on span { transform: translateX(20px); background: #fff; }
 
 /* ---------- Home ---------- */
-.home { flex: 1; min-height: 560px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(270px, 320px); gap: 24px; }
+.home { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) clamp(260px, 24vw, 380px); gap: clamp(14px, 2vw, 28px); }
 .stage { position: relative; display: flex; flex-direction: column; align-items: center; min-height: 0; }
-.skin-stage { position: relative; flex: 1; width: min(420px, 100%); min-height: 280px; }
-.skin-stage canvas { position: absolute; inset: 34px 0 0; width: 100%; height: calc(100% - 34px); cursor: grab; }
-.skin-stage canvas:active { cursor: grabbing; }
-.nametag { position: absolute; left: 50%; top: 6px; transform: translateX(-50%); padding: 3px 10px 4px; background: rgb(0 0 0 / .42); color: #fff; font-size: 20px; text-transform: none; white-space: nowrap; z-index: 1; }
-.skin-shadow { position: absolute; left: 50%; bottom: 4%; width: 46%; height: 26px; transform: translateX(-50%); background: radial-gradient(closest-side, rgb(0 0 0 / .55), transparent); }
+.skin-stage { position: relative; flex: 1; width: 100%; min-height: 220px; }
+/* The model and its name tag are drawn in 3D and fitted to this box at any window size. */
+.skin-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; outline: none; touch-action: none; }
+.skin-stage canvas.is-dragging { cursor: grabbing; }
+.skin-stage canvas:focus-visible { outline: 2px solid var(--accent-line); outline-offset: -2px; border-radius: 16px; }
+.skin-shadow { position: absolute; left: 50%; bottom: 2%; width: min(46%, 220px); aspect-ratio: 6; transform: translateX(-50%); background: radial-gradient(closest-side, rgb(0 0 0 / .5), transparent); pointer-events: none; }
 
-.launch-area { width: min(660px, 100%); display: grid; gap: 12px; padding-bottom: 6px; }
+.launch-area { width: min(clamp(560px, 52vw, 760px), 100%); display: grid; gap: 12px; padding-bottom: 6px; }
 .launch-bar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 1.15fr) 64px; gap: 10px; height: 68px; }
 .profile-picker { position: relative; min-width: 0; }
 .picker-button { width: 100%; height: 100%; display: flex; align-items: center; gap: 12px; padding: 0 16px 0 10px; border-radius: 14px; text-align: left; transition: background .2s, border-color .2s; }
@@ -582,3 +594,59 @@ select.input { padding-right: 30px; }
 .instance-foot { font-family: var(--font-pixel); font-size: 13px; color: var(--text-3); text-transform: lowercase; }
 .instance-empty { color: var(--text-3); font-size: 13px; }
 @media (max-width: 900px) { .logwin-body { grid-template-columns: 1fr; } .logwin-side { display: none; } .switch-grid { grid-template-columns: 1fr; } }
+
+/* NoRisk-style labels: buttons, tabs, filters and small meta text in SmallCaps. */
+.btn, .mods-nav > button, .segmented button, .subtabs button, .rail-tip, .tag, .tag-plain, .chip, .count, .launch-meta, .account-chip small, .select-field, .news-card p, .file-meta, .update-chip, .picker-manage, .save-bar span { font-family: var(--font-pixel); letter-spacing: .05em; }
+.btn, .mods-nav > button, .segmented button, .subtabs button, .tag, .tag-plain, .chip, .count, .launch-meta, .select-field, .news-card p, .update-chip, .picker-manage, .save-bar span { text-transform: lowercase; }
+.btn { font-size: 13px; font-weight: 400; }
+.btn.pixel { font-size: 15px; }
+
+/* Responsive home: compact when the window is low, roomier on big screens. */
+@media (max-height: 820px) {
+  .launch-bar { height: 60px; }
+  .play-label { font-size: 26px; }
+  .launch-area { gap: 8px; }
+  .news-card img, .news-art { height: 72px; }
+}
+@media (max-height: 720px) {
+  .launch-meta { display: none; }
+  .news-list .news-card:nth-child(3) { display: none; }
+}
+@media (min-width: 1700px) and (min-height: 950px) {
+  .launch-bar { height: 76px; }
+  .play-label { font-size: 34px; }
+  .picker-copy strong { font-size: 16px; }
+}
+@media (max-width: 1240px) {
+  .picker-icon { width: 38px; height: 38px; }
+  .picker-copy small { display: none; }
+}
+
+/* ---------- Colour picker ---------- */
+button.custom-accent { text-align: left; background: none; }
+.color-modal { width: min(640px, 100%); padding: 0; overflow: hidden; border-bottom: 2px solid var(--pick); }
+.color-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 14px 22px; border-bottom: 1px solid var(--line); background: rgb(255 255 255 / .03); }
+.color-head h2 { font-size: 17px; font-family: var(--font-pixel); }
+.color-body { display: grid; grid-template-columns: minmax(0, 1fr) 30px; gap: 16px; padding: 20px 22px 0; }
+.sv-field { position: relative; height: clamp(170px, 30vh, 230px); border-radius: 10px; cursor: crosshair; touch-action: none; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); outline: none; }
+.sv-field:focus-visible { box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08), 0 0 0 2px var(--pick); }
+.sv-field i { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }
+.sv-white { background: linear-gradient(90deg, #fff, rgb(255 255 255 / 0)); }
+.sv-black { background: linear-gradient(0deg, #000, rgb(0 0 0 / 0)); }
+.sv-handle { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 4px; border: 2px solid #fff; background: var(--pick); box-shadow: 0 0 0 1px rgb(0 0 0 / .45), 0 4px 10px rgb(0 0 0 / .45); pointer-events: none; }
+.hue-bar { position: relative; border-radius: 8px; cursor: ns-resize; touch-action: none; outline: none; background: linear-gradient(180deg, #f00 0%, #ff0 16.66%, #0f0 33.33%, #0ff 50%, #00f 66.66%, #f0f 83.33%, #f00 100%); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .1); }
+.hue-bar:focus-visible { box-shadow: 0 0 0 2px var(--pick); }
+.hue-handle { position: absolute; left: -4px; right: -4px; height: 8px; margin-top: -4px; border-radius: 3px; border: 2px solid #fff; box-shadow: 0 0 0 1px rgb(0 0 0 / .45), 0 2px 6px rgb(0 0 0 / .4); pointer-events: none; }
+.color-inputs { display: grid; grid-template-columns: 1.4fr repeat(3, 1fr) auto; gap: 12px; align-items: end; padding: 18px 22px 0; }
+.color-input { display: grid; gap: 6px; }
+.color-input span { font-family: var(--font-display); font-size: 15px; color: var(--text-2); }
+.color-input .input { height: 40px; font-family: var(--font-display); font-size: 16px; letter-spacing: .03em; }
+.color-input.hex .input { text-transform: uppercase; }
+.color-input input[type=number]::-webkit-inner-spin-button { opacity: .4; }
+.color-dropper { height: 40px; width: 40px; }
+.color-foot { display: flex; align-items: center; gap: 12px; margin: 18px 22px 22px; padding: 12px; border-radius: 12px; background: rgb(0 0 0 / .25); border: 1px solid var(--line); }
+.color-preview { width: 44px; height: 44px; border-radius: 9px; background: var(--pick); box-shadow: inset 0 -3px 0 rgb(0 0 0 / .22), 0 0 0 1px rgb(255 255 255 / .1); flex-shrink: 0; }
+.color-current { flex: 1; min-width: 0; }
+.color-current small { display: block; font-size: 12px; color: var(--text-3); }
+.color-current strong { display: block; font-size: 17px; margin-top: 2px; }
+@media (max-width: 640px) { .color-inputs { grid-template-columns: repeat(3, 1fr); } .color-input.hex { grid-column: 1 / -1; } }

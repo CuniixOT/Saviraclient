@@ -18,13 +18,13 @@ async function start() {
   app = await electron.launch({ args: [root, '--smoke-test'], env, timeout: 60000 });
   page = await app.firstWindow();
   page.on('pageerror', error => errors.push(error.message));
-  await expect(page.getByLabel('3D-Skin von Steve, mit der Maus drehbar')).toBeVisible();
+  await expect(page.getByLabel(/3D-Figur von Steve/)).toBeVisible();
 }
 try {
   await start();
   const bridge = await page.evaluate(() => ({ bridge: Boolean(window.savira), node: typeof window.require }));
   expect(bridge).toEqual({ bridge: true, node: 'undefined' });
-  expect(await page.getByLabel('3D-Skin von Steve, mit der Maus drehbar').evaluate(canvas => canvas.width > 1 && canvas.height > 1)).toBe(true);
+  expect(await page.getByLabel(/3D-Figur von Steve/).evaluate(canvas => canvas.width > 1 && canvas.height > 1)).toBe(true);
   const launchButton = page.getByRole('button', { name: 'anmelden', exact: true });
   await expect(launchButton).toBeVisible();
   const launchBox = await launchButton.boundingBox();

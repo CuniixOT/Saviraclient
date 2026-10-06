@@ -43,7 +43,7 @@ Das Mod-Menü folgt dem Launcher-Look: Kategorie-Leiste links, Modulkarten mit I
 - Eigene deutschsprachige Desktop-Oberfläche mit gezeichneter Vektorlandschaft und Savira-Branding.
 - Microsoft-/Xbox-/Minecraft-Anmeldung über MSMC. Keine Offline-Account-Funktion im Launcher.
 - Der aktive Minecraft-Skin wird ausschließlich von Mojangs `textures.minecraft.net` geladen, als PNG geprüft, lokal zwischengespeichert und als drehbares 3D-Modell auf der Startseite angezeigt. Ohne Account nutzt Savira eine lokale Standardfigur.
-- Oberfläche im Stil moderner PvP-Clients: Pixel-Schrift (Pixelify Sans, OFL) für Überschriften und Buttons, Geist (OFL) für Fließtext, Glas-Panels, schmale Icon-Navigation, 3D-Skin mit Nametag und großer Spielen-Button mit Fortschrittsanzeige.
+- Oberfläche im Stil des NoRisk Clients: dessen Schriften „Minecraft“ (Titel) und „SmallCaps“ (Beschriftungen, Buttons), Geist (OFL) für kleine Beschreibungstexte, Glas-Panels, schmale Icon-Navigation, 3D-Skin mit Nametag und großer Spielen-Button mit Fortschrittsanzeige.
 - Darstellung unter Einstellungen: fünf Akzentfarben und drei Hintergründe (Panorama, Partikel, Schlicht). Das Panorama stammt aus den bereits heruntergeladenen Minecraft-Assets einer Instanz; vor dem ersten Spielstart zeigt Savira die eigene Vektorlandschaft.
 - Refresh-Token verschlüsselt mit Electron `safeStorage` (Windows DPAPI); keine Tokens im Renderer.
 - Eigener Minecraft-Installer auf Basis offizieller Mojang-Manifeste, SHA-1-Prüfung, begrenzte Download-Parallelität und Wiederholungsversuche.
@@ -174,6 +174,6 @@ Er öffnet die tatsächlichen Minecraft-Menüs und prüft Schalter, Suche, Liste
 
 ## Referenzen und Lizenzen
 
-Das Funktionskonzept wurde anhand von https://github.com/NoRiskClient/noriskclient-launcher und https://github.com/NoRiskClient betrachtet. Savira enthält keine kopierten NoRisk-Quellcodedateien oder NoRisk-Assets. Die GPL-Lizenz des NoRisk-Launchers ist zu beachten, falls später Code daraus übernommen wird.
+Das Funktionskonzept wurde anhand von https://github.com/NoRiskClient/noriskclient-launcher und https://github.com/NoRiskClient betrachtet. Savira enthält keinen NoRisk-Quellcode. Übernommen sind nur die beiden Launcher-Schriften aus dem NoRisk-Repository: „Minecraft“ von Pwnage_Block (CC BY-SA 3.0) und „Minecraft NRC SmallCaps“ (unter der GPL-3.0 des Repositorys). Herkunft und Lizenzen stehen in `THIRD_PARTY_NOTICES.md`, der GPL-Text in `licenses/GPL-3.0.txt`. Beides wird mit dem Installer ausgeliefert.
 
 Der eigenständig erstellte Savira-Code und die lokalen Vektorgrafiken stehen unter MIT (`LICENSE`). Abhängigkeiten behalten ihre jeweiligen Lizenzen, darunter Electron (MIT), React (MIT), MSMC (MIT), Fabric Loader (Apache-2.0), Fabric API (Apache-2.0) und Phosphor Icons (MIT). Minecraft-Dateien bleiben Eigentum von Mojang/Microsoft und werden nicht mit dem Installer verteilt. Savira ist nicht mit NoRiskClient, Mojang oder Microsoft verbunden.
