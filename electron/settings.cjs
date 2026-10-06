@@ -6,7 +6,7 @@ const defaultProfiles = [
 ];
 // Accent values are shared with the Fabric mod so launcher and in-game menu use the same color.
 const accents = { mint: 0x5ccf95, blue: 0x4f8dff, rose: 0xe5566b, amber: 0xe8a33d, violet: 0x8f72f2 };
-const backgrounds = ['panorama', 'particles', 'plain'];
+const backgrounds = ['panorama', 'particles', 'plain', 'grid', 'aurora', 'stars', 'glyphs', 'waves', 'blocks'];
 const defaults = {
   memory: Math.min(4, maxMemory), javaPath: 'java', selectedProfileId: defaultProfiles[0].id, profiles: defaultProfiles, fullscreen: false,
   accent: 'mint', background: 'panorama', autoUpdate: true,

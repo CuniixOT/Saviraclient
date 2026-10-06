@@ -80,7 +80,8 @@ export function App() {
 
   return <div className="app">
     <a className="skip-link" href="#main">Zum Inhalt springen</a>
-    <Background mode={state?.settings.background || 'panorama'} panorama={panorama} accent={accent} />
+    {/* No animation while Minecraft runs: the launcher should not take GPU time from the game. */}
+    <Background mode={state?.settings.background || 'panorama'} panorama={panorama} accent={accent} paused={phase === 'running'} />
 
     <header className="topbar">
       <div className="topbar-brand"><Logo /><span className="chip">v{state?.version || '0.1.0'}</span>{!isDesktop && <span className="chip chip-warn">Browser-Vorschau</span>}</div>

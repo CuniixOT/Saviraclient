@@ -1,7 +1,8 @@
-import { Check, FolderOpen, GameController, HardDrives, Image, Palette, Sparkle, Square } from '@phosphor-icons/react';
+import { Check, FolderOpen, GameController, HardDrives, Palette } from '@phosphor-icons/react';
 import { useState, type CSSProperties } from 'react';
 import { isDesktop, type Accent, type BackgroundMode, type Settings, type State } from './api';
 import { PageHeader, Toggle, accents } from './ui';
+import { BackgroundPreview } from './Background';
 import { UpdatePanel, type useUpdates } from './Update';
 
 type Draft = Pick<Settings, 'memory' | 'javaPath' | 'fullscreen'>;
@@ -16,10 +17,16 @@ type Props = {
   gameRunning: boolean;
 };
 
-const backgrounds: { id: BackgroundMode; label: string; detail: string; icon: typeof Image }[] = [
-  { id: 'panorama', label: 'Panorama', detail: 'Minecraft-Titelbild, nach dem ersten Start', icon: Image },
-  { id: 'particles', label: 'Partikel', detail: 'Aufsteigende Pixel in deiner Farbe', icon: Sparkle },
-  { id: 'plain', label: 'Schlicht', detail: 'Ruhiger Farbverlauf', icon: Square }
+const backgrounds: { id: BackgroundMode; label: string; detail: string }[] = [
+  { id: 'panorama', label: 'Panorama', detail: 'Minecraft-Titelbild, nach dem ersten Start' },
+  { id: 'grid', label: 'Retro-Grid', detail: 'Leuchtender Gitterboden mit Horizont' },
+  { id: 'aurora', label: 'Nordlicht', detail: 'Weiche, wabernde Farbschleier' },
+  { id: 'stars', label: 'Sternenhimmel', detail: 'Funkelnde Sterne und Sternschnuppen' },
+  { id: 'glyphs', label: 'Verzauberung', detail: 'Fallende Runen wie am Zaubertisch' },
+  { id: 'blocks', label: 'Blöcke', detail: 'Schwebende Pixel-Würfel' },
+  { id: 'waves', label: 'Wellen', detail: 'Fließende Linien' },
+  { id: 'particles', label: 'Partikel', detail: 'Aufsteigende Pixel' },
+  { id: 'plain', label: 'Schlicht', detail: 'Ruhiger Farbverlauf' }
 ];
 
 export function SettingsPage({ state, locked, pending, onSave, onPickJava, onFolder, updates, gameRunning }: Props) {
@@ -40,8 +47,8 @@ export function SettingsPage({ state, locked, pending, onSave, onPickJava, onFol
         <div className="swatches" role="radiogroup" aria-label="Akzentfarbe">{(Object.keys(accents) as Accent[]).map(id => <button key={id} role="radio" aria-checked={settings.accent === id} aria-label={accents[id].label} title={accents[id].label} disabled={locked} className={settings.accent === id ? 'active' : ''} style={{ background: accents[id].hex }} onClick={() => onSave({ ...settings, accent: id }, `Akzentfarbe: ${accents[id].label}.`)}>{settings.accent === id && <Check size={14} weight="bold" />}</button>)}</div>
       </div>
       <div className="setting stacked">
-        <div><h3>Hintergrund</h3><p>Was hinter dem Launcher liegt.</p></div>
-        <div className="choice-grid" role="radiogroup" aria-label="Hintergrund">{backgrounds.map(item => <button key={item.id} role="radio" aria-checked={settings.background === item.id} disabled={locked} className={settings.background === item.id ? 'active' : ''} onClick={() => onSave({ ...settings, background: item.id }, `Hintergrund: ${item.label}.`)}><item.icon size={20} /><strong>{item.label}</strong><small>{item.detail}</small></button>)}</div>
+        <div><h3>Hintergrund</h3><p>Was hinter dem Launcher liegt. Animationen pausieren, solange Minecraft läuft.</p></div>
+        <div className="choice-grid with-thumbs" role="radiogroup" aria-label="Hintergrund">{backgrounds.map(item => <button key={item.id} role="radio" aria-checked={settings.background === item.id} disabled={locked} className={settings.background === item.id ? 'active' : ''} onClick={() => onSave({ ...settings, background: item.id }, `Hintergrund: ${item.label}.`)}><span className={`bg-thumb thumb-${item.id}`} aria-hidden="true">{item.id === 'panorama' && <img src="./landscape.svg" alt="" />}<BackgroundPreview mode={item.id} accent={accents[settings.accent].hex} /></span><strong>{item.label}</strong><small>{item.detail}</small></button>)}</div>
       </div>
     </section>
 

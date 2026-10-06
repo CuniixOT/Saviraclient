@@ -3,5 +3,7 @@
 Jede Zeile, die mit "- " beginnt, erscheint im Update-Hinweis des Launchers.
 Vor jedem Release anpassen, dann Version erhöhen und pushen.
 
-- Automatische Updates laden die neue Version jetzt zuverlässig über GitHub
-- Eigener Installer im Savira-Design
+- Sechs neue Hintergründe: Retro-Grid, Nordlicht, Sternenhimmel, Verzauberung, Blöcke und Wellen
+- Vorschau für jeden Hintergrund in den Einstellungen
+- Animationen pausieren, solange Minecraft läuft
+- Schriften werden wieder vollständig geladen

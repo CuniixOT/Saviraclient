@@ -1,7 +1,7 @@
 export type Hud = { fps: boolean; cps: boolean; keystrokes: boolean; coordinates: boolean; ping: boolean; armor: boolean; potions: boolean; sprint: boolean; zoom: boolean; ram: boolean; scale: number };
 export type GameProfile = { id: string; name: string; version: string; loader: 'savira' | 'vanilla' };
 export type Accent = 'mint' | 'blue' | 'rose' | 'amber' | 'violet';
-export type BackgroundMode = 'panorama' | 'particles' | 'plain';
+export type BackgroundMode = 'panorama' | 'particles' | 'plain' | 'grid' | 'aurora' | 'stars' | 'glyphs' | 'waves' | 'blocks';
 export type Settings = { memory: number; javaPath: string; selectedProfileId: string; profiles: GameProfile[]; fullscreen: boolean; accent: Accent; background: BackgroundMode; autoUpdate: boolean; hud: Hud };
 export type Account = { name: string; uuid: string; skin: string | null };
 export type Status = { phase: 'idle' | 'preparing' | 'installing' | 'running' | 'error'; message: string; progress: number };

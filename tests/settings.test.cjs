@@ -30,3 +30,6 @@ test('fills appearance defaults for settings saved before 0.2', () => {
   assert.equal(result.background, 'panorama');
   assert.equal(result.autoUpdate, true);
 });
+test('accepts every launcher background effect', () => {
+  for (const background of ['panorama', 'particles', 'plain', 'grid', 'aurora', 'stars', 'glyphs', 'waves', 'blocks']) assert.equal(validateSettings({ ...defaults, background }).background, background);
+});
