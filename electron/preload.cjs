@@ -9,6 +9,27 @@ contextBridge.exposeInMainWorld('savira', {
   openFolder: () => ipcRenderer.invoke('folder'),
   selectJava: () => ipcRenderer.invoke('java'),
   window: (action) => ipcRenderer.invoke('window', action),
+  logs: {
+    open: () => ipcRenderer.invoke('logs-open'),
+    state: () => ipcRenderer.invoke('logs-state'),
+    clear: () => ipcRenderer.invoke('logs-clear'),
+    stop: () => ipcRenderer.invoke('logs-stop'),
+    folder: () => ipcRenderer.invoke('logs-folder'),
+    window: (action) => ipcRenderer.invoke('logs-window', action),
+    on: (callback) => {
+      const channels = ['logs-lines', 'logs-stats', 'logs-reset', 'logs-ended'];
+      const listeners = channels.map(channel => [channel, (_event, payload) => callback(channel.slice(5), payload)]);
+      listeners.forEach(([channel, listener]) => ipcRenderer.on(channel, listener));
+      return () => listeners.forEach(([channel, listener]) => ipcRenderer.removeListener(channel, listener));
+    }
+  },
+  debug: {
+    list: (kind) => ipcRenderer.invoke('debug-list', kind),
+    read: (file) => ipcRenderer.invoke('debug-read', file),
+    open: (file) => ipcRenderer.invoke('debug-open', file),
+    reveal: (file) => ipcRenderer.invoke('debug-reveal', file),
+    folder: () => ipcRenderer.invoke('debug-folder')
+  },
   update: {
     state: () => ipcRenderer.invoke('update-state'),
     check: () => ipcRenderer.invoke('update-check'),

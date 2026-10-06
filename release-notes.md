@@ -3,7 +3,8 @@
 Jede Zeile, die mit "- " beginnt, erscheint im Update-Hinweis des Launchers.
 Vor jedem Release anpassen, dann Version erhöhen und pushen.
 
-- Sechs neue Hintergründe: Retro-Grid, Nordlicht, Sternenhimmel, Verzauberung, Blöcke und Wellen
-- Vorschau für jeden Hintergrund in den Einstellungen
-- Animationen pausieren, solange Minecraft läuft
-- Schriften werden wieder vollständig geladen
+- Einstellungen mit Kategorien: Allgemein, Hintergrund, Erweitert und Debug
+- Neues Log-Fenster mit Live-Ausgabe, Filtern, Suche sowie RAM- und CPU-Anzeige
+- Debug-Bereich mit Launcher-Logs, Minecraft-Logs und Crash-Reports
+- 13 Akzentfarben und eine eigene Farbe per Farbwähler
+- Optionen: Launcher beim Spielstart ausblenden, Logs automatisch öffnen, Animationen aus

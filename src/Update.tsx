@@ -68,7 +68,7 @@ export function UpdateChip({ updates, gameRunning }: { updates: Updates; gameRun
   </div>;
 }
 
-export function UpdatePanel({ updates, version, autoUpdate, locked, gameRunning, onAutoUpdate }: { updates: Updates; version: string; autoUpdate: boolean; locked: boolean; gameRunning: boolean; onAutoUpdate: () => void }) {
+export function UpdatePanel({ updates, version, autoUpdate, locked, gameRunning, onAutoUpdate }: { updates: Updates; version: string; autoUpdate: boolean; locked: boolean; gameRunning: boolean; onAutoUpdate?: () => void }) {
   const { status } = updates;
   const line = {
     idle: 'Noch nicht gesucht.', disabled: status.error, checking: 'Suche nach Updates …', none: `Savira ist aktuell${status.checkedAt ? ` · geprüft ${new Date(status.checkedAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr` : ''}.`,
@@ -76,10 +76,10 @@ export function UpdatePanel({ updates, version, autoUpdate, locked, gameRunning,
   }[status.state];
   return <section className="panel glass">
     <header className="panel-head"><ArrowCircleUp size={20} /><div><h2>Updates</h2><p>Installierte Version {version}</p></div></header>
-    <div className="setting">
+    {onAutoUpdate && <div className="setting">
       <div><h3>Automatisch nach Updates suchen</h3><p>Beim Start und alle sechs Stunden. Installiert wird erst nach deinem Klick.</p></div>
       <Toggle label="Automatisch nach Updates suchen" disabled={locked} value={autoUpdate} onChange={onAutoUpdate} />
-    </div>
+    </div>}
     <div className="setting stacked">
       <div className="setting-row">
         <p className={`update-line ${status.state === 'error' ? 'is-error' : ''}`} role="status">{status.state === 'none' && <CheckCircle size={15} weight="fill" />}{status.state === 'error' && <Warning size={15} weight="fill" />}{line}</p>

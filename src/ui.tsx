@@ -1,13 +1,24 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import type { Accent } from './api';
+import type { Accent, AccentPreset } from './api';
 
-export const accents: Record<Accent, { label: string; hex: string }> = {
+// Must match electron/settings.cjs, which hands the same colours to the Fabric mod.
+export const accents: Record<AccentPreset, { label: string; hex: string }> = {
   mint: { label: 'Mint', hex: '#5ccf95' },
+  emerald: { label: 'Smaragd', hex: '#22b07d' },
+  teal: { label: 'Türkis', hex: '#2ec4b6' },
+  cyan: { label: 'Cyan', hex: '#22b8e6' },
   blue: { label: 'Ozean', hex: '#4f8dff' },
+  indigo: { label: 'Indigo', hex: '#6c6cf0' },
+  violet: { label: 'Amethyst', hex: '#8f72f2' },
+  pink: { label: 'Pink', hex: '#e36bb5' },
   rose: { label: 'Rubin', hex: '#e5566b' },
+  red: { label: 'Redstone', hex: '#e5484d' },
+  orange: { label: 'Orange', hex: '#f07f2d' },
   amber: { label: 'Bernstein', hex: '#e8a33d' },
-  violet: { label: 'Amethyst', hex: '#8f72f2' }
+  slate: { label: 'Schiefer', hex: '#8b9dc3' }
 };
+export const isCustomAccent = (accent: string): accent is `#${string}` => /^#[0-9a-f]{6}$/i.test(accent);
+export const accentHex = (accent: Accent | undefined) => !accent ? accents.mint.hex : isCustomAccent(accent) ? accent : accents[accent]?.hex ?? accents.mint.hex;
 
 export function Logo({ wordmark = true }: { wordmark?: boolean }) {
   return <span className="logo">

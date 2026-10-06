@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { CheckCircle, CornersOut, GearSix, Info, Minus, Play, PuzzlePiece, ShieldCheck, SignOut, Stack, WindowsLogo, X } from '@phosphor-icons/react';
-import { api, isDesktop, unwrap, type Settings, type State } from './api';
+import { api, isDesktop, logsApi, unwrap, type Settings, type State } from './api';
 import { Background } from './Background';
 import { LauncherHome } from './LauncherHome';
 import { ProfilesPage } from './ProfilesPage';
 import { ModsPage } from './ModsPage';
 import { SettingsPage } from './SettingsPage';
 import { AboutPage } from './AboutPage';
-import { Logo, SkinHead, accents } from './ui';
+import { Logo, SkinHead, accentHex } from './ui';
 import { UpdateChip, useUpdates } from './Update';
 
 type Page = 'home' | 'profiles' | 'mods' | 'settings' | 'about';
@@ -40,7 +40,7 @@ export function App() {
     if (panorama || phase === 'installing' || phase === 'preparing') return;
     api.panorama().then(result => { if (result.ok && result.data) setPanorama(result.data); }).catch(() => { /* Fallback art stays. */ });
   }, [phase, panorama]);
-  const accent = accents[state?.settings.accent || 'mint'].hex;
+  const accent = accentHex(state?.settings.accent);
   useEffect(() => { document.documentElement.style.setProperty('--accent', accent); }, [accent]);
   useEffect(() => { if (!notice) return; const timer = setTimeout(() => setNotice(''), 4000); return () => clearTimeout(timer); }, [notice]);
   useEffect(() => {
@@ -81,7 +81,7 @@ export function App() {
   return <div className="app">
     <a className="skip-link" href="#main">Zum Inhalt springen</a>
     {/* No animation while Minecraft runs: the launcher should not take GPU time from the game. */}
-    <Background mode={state?.settings.background || 'panorama'} panorama={panorama} accent={accent} paused={phase === 'running'} />
+    <Background mode={state?.settings.background || 'panorama'} panorama={panorama} accent={accent} paused={phase === 'running' || state?.settings.animations === false} />
 
     <header className="topbar">
       <div className="topbar-brand"><Logo /><span className="chip">v{state?.version || '0.1.0'}</span>{!isDesktop && <span className="chip chip-warn">Browser-Vorschau</span>}</div>
@@ -117,12 +117,12 @@ export function App() {
     <main id="main" className="content" tabIndex={-1}>
       {error && <div className="alert glass" role="alert"><Info size={18} weight="fill" /><span>{error}</span><button className="btn btn-icon" aria-label="Meldung schließen" onClick={() => setError('')}><X size={16} /></button></div>}
       {!state ? <div className="loading" aria-busy="true"><div className="skeleton stage-skeleton" /><div className="skeleton news-skeleton" />{error && <button className="btn" onClick={() => location.reload()}>Erneut laden</button>}</div> : <>
-        {page === 'home' && <LauncherHome state={state} pending={pending} locked={locked} active={active} onProfiles={() => setPage('profiles')} onFolder={openFolder} panorama={panorama}
+        {page === 'home' && <LauncherHome state={state} pending={pending} locked={locked} active={active} onProfiles={() => setPage('profiles')} onFolder={openFolder} onLogs={() => unwrap(logsApi.open()).catch(e => setError(e.message))} panorama={panorama}
           onLaunch={() => state.account ? action('launch', async () => { await unwrap(api.launch()); }) : login()}
           onProfile={selectedProfileId => save({ ...state.settings, selectedProfileId }, 'Profil gewechselt.')} />}
         {page === 'profiles' && <ProfilesPage settings={state.settings} locked={locked} onSave={async (next, message) => save(next, message)} onUse={launchProfile} />}
         {page === 'mods' && <ModsPage settings={state.settings} locked={locked} onSave={save} />}
-        {page === 'settings' && <SettingsPage state={state} locked={locked} pending={pending} onSave={save} onFolder={openFolder} updates={updates} gameRunning={active}
+        {page === 'settings' && <SettingsPage state={state} locked={locked} pending={pending} onSave={save} onFolder={openFolder} onNotice={setNotice} onError={setError} updates={updates} gameRunning={active}
           onPickJava={async () => { try { return await unwrap(api.selectJava()); } catch (e) { setError(e instanceof Error ? e.message : 'Java konnte nicht ausgewählt werden.'); return null; } }} />}
         {page === 'about' && <AboutPage version={state.version} />}
       </>}

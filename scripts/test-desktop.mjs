@@ -63,10 +63,14 @@ try {
   await shot('mods');
 
   await page.getByRole('button', { name: 'Einstellungen', exact: true }).click();
+  await page.getByRole('tab', { name: 'erweitert' }).click();
   await page.getByLabel('Java-Pfad', { exact: true }).fill(javaPath);
   await shot('settings-dirty');
   await page.getByRole('button', { name: 'speichern' }).click();
   await expect(page.getByRole('button', { name: 'speichern' })).toHaveCount(0);
+  await page.getByRole('tab', { name: 'allgemein' }).click();
+  await page.getByRole('switch', { name: 'Logs nach Start öffnen' }).click();
+  await expect(page.getByRole('switch', { name: 'Logs nach Start öffnen' })).toHaveAttribute('aria-checked', 'true');
   await page.getByRole('radio', { name: 'Ozean' }).click();
   await expect(page.getByRole('radio', { name: 'Ozean' })).toHaveAttribute('aria-checked', 'true');
   await shot('settings');
@@ -94,6 +98,7 @@ try {
   const persisted = await page.evaluate(() => window.savira.state());
   expect(persisted.data.settings.javaPath).toBe(javaPath);
   expect(persisted.data.settings.accent).toBe('blue');
+  expect(persisted.data.settings.logsOnLaunch).toBe(true);
   expect(persisted.data.settings.hud.coordinates).toBe(true);
   expect(persisted.data.settings.profiles.some(profile => profile.name === 'Test 1.8.9' && profile.version === '1.8.9')).toBe(true);
   expect(errors).toEqual([]);

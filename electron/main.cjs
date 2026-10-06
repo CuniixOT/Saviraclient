@@ -6,7 +6,10 @@ const { promisify } = require('node:util');
 const { createHash } = require('node:crypto');
 const { Client } = require('./minecraft.cjs');
 const { Auth } = require('msmc');
-const { accents, defaults, maxMemory, validateSettings } = require('./settings.cjs');
+const { accentRgb, defaults, maxMemory, validateSettings } = require('./settings.cjs');
+const log = require('./logger.cjs');
+const logfiles = require('./logfiles.cjs');
+const { createSession } = require('./gamesession.cjs');
 const { normalizeSkinUrl, validSkinPng } = require('./skin.cjs');
 const setup = require('./setup.cjs');
 const { createUpdater } = require('./updater.cjs');
@@ -25,7 +28,9 @@ app.setName('Savira');
 // Tests isolate their profile via this variable. It is inherited through updater → setup →
 // relaunch, so a test launcher never collides with a real Savira running on the same machine.
 if (process.env.SAVIRA_TEST_USER_DATA) app.setPath('userData', path.resolve(process.env.SAVIRA_TEST_USER_DATA));
-let win, settings = structuredClone(defaults), account = null, busy = false, loggingIn = false;
+let win, logWin = null, settings = structuredClone(defaults), account = null, busy = false, loggingIn = false;
+// The running (or last) Minecraft process and its log buffer for the log window.
+let session = null, gameChild = null;
 let status = { phase: 'idle', message: 'Bereit, wenn du es bist.', progress: 0 };
 const root = () => app.getPath('userData');
 const selectedProfile = () => settings.profiles.find(profile => profile.id === settings.selectedProfileId) || settings.profiles[0];
@@ -89,6 +94,7 @@ async function authenticate(interactive) {
   if (mc.isDemo()) throw new Error('Dieses Microsoft-Konto besitzt keine Minecraft Java Edition.');
   await saveAccount(xbox);
   account = await publicAccount(mc);
+  log.info(`Angemeldet als ${account.name}${interactive ? ' (Microsoft-Fenster)' : ' (gespeicherte Sitzung)'}`);
   return mc;
 }
 async function prepareFabric(gameRoot, minecraftVersion) {
@@ -124,7 +130,7 @@ async function prepareFabric(gameRoot, minecraftVersion) {
   let inGame = {};
   try { inGame = JSON.parse(await fs.readFile(hudPath, 'utf8')) || {}; } catch { /* First launch or invalid config. */ }
   // Layout and snapping belong to the in-game editor, while launcher toggles stay authoritative.
-  await atomicWrite(hudPath, JSON.stringify({ ...settings.hud, accent: accents[settings.accent], layout: inGame.layout || {}, snap: inGame.snap !== false }, null, 2));
+  await atomicWrite(hudPath, JSON.stringify({ ...settings.hud, accent: accentRgb(settings.accent), layout: inGame.layout || {}, snap: inGame.snap !== false }, null, 2));
   return id;
 }
 // The title-screen panorama ships with the game assets the player already downloaded.
@@ -173,15 +179,28 @@ async function launch() {
     await fs.mkdir(gameRoot, { recursive: true });
     const custom = profile.loader === 'savira' ? await prepareFabric(gameRoot, profile.version) : undefined;
     publish({ phase: 'installing', message: 'Minecraft-Dateien werden geprüft und geladen …', progress: 10 });
+    log.info(`Start: ${profile.name} (Minecraft ${profile.version}, ${profile.loader}, ${settings.memory} GB)`);
     const launcher = new Client();
     launcher.on('progress', e => publish({ message: `Minecraft: ${e.type} (${e.task}/${e.total})`, progress: e.total ? Math.min(95, 10 + Math.round(e.task / e.total * 85)) : 10 }));
+    session = createSession({
+      profile: { id: profile.id, name: profile.name, version: profile.version, loader: profile.loader, memory: settings.memory }, account: account?.name || '',
+      onLines: lines => sendToLogs('logs-lines', lines),
+      onStats: stats => sendToLogs('logs-stats', stats)
+    });
+    sendToLogs('logs-reset', logsState());
+    if (settings.logsOnLaunch) openLogWindow();
     let lastError = '';
-    // Debug messages can contain access tokens; never forward or persist them.
+    // Only game output goes to the log window; MCLC's 'debug' events contain the access token.
     launcher.on('data', line => {
-      if (/\b(ERROR|Exception)\b/.test(line)) lastError = String(line).replace(/(?:eyJ|M\.R3)[\w.\-]+/g, '[redacted]').slice(0, 350);
+      session?.push(line);
+      if (/\b(ERROR|Exception)\b/.test(line)) lastError = log.redact(line).slice(0, 350);
     });
     launcher.on('close', code => {
-      busy = false;
+      busy = false; gameChild = null;
+      session?.end();
+      sendToLogs('logs-ended', { code });
+      log[code === 0 ? 'info' : 'warn'](`Minecraft beendet (Code ${code})`, code === 0 ? undefined : lastError);
+      if (settings.hideOnLaunch && win && !win.isDestroyed()) { win.show(); win.focus(); }
       publish({ phase: code === 0 ? 'idle' : 'error', message: code === 0 ? 'Minecraft wurde beendet. Bis zur nächsten Runde.' : `Minecraft wurde mit Code ${code} beendet. ${lastError || 'Details stehen im Spielordner unter logs/latest.log.'}`, progress: 0 });
     });
     const child = await launcher.launch({
@@ -192,24 +211,48 @@ async function launch() {
       overrides: { detached: false }, timeout: 60000
     });
     if (!child || !child.pid) throw new Error('Minecraft konnte nicht gestartet werden. Prüfe Java und die Internetverbindung.');
-    child.once('error', () => { busy = false; publish({ phase: 'error', message: 'Der Minecraft-Prozess konnte nicht ausgeführt werden.', progress: 0 }); });
-    if (busy) publish({ phase: 'running', message: 'Minecraft läuft. Viel Spaß mit Savira.', progress: 100 });
+    child.once('error', () => { busy = false; gameChild = null; log.error('Minecraft-Prozess konnte nicht ausgeführt werden'); publish({ phase: 'error', message: 'Der Minecraft-Prozess konnte nicht ausgeführt werden.', progress: 0 }); });
+    gameChild = child;
+    session.attach(child.pid);
+    log.info(`Minecraft läuft (PID ${child.pid})`);
+    if (busy) {
+      publish({ phase: 'running', message: 'Minecraft läuft. Viel Spaß mit Savira.', progress: 100 });
+      if (settings.hideOnLaunch) win?.hide();
+    }
   } catch (error) {
     busy = false;
+    log.error('Start fehlgeschlagen', error);
     publish({ phase: 'error', message: error instanceof Error ? error.message : 'Anmeldung oder Download fehlgeschlagen. Bitte erneut anmelden und versuchen.', progress: 0 });
     throw new Error(status.message);
   }
 }
-function handle(channel, callback) {
+// scope 'main': only the launcher window; 'logs': launcher or the log window.
+function handle(channel, callback, scope = 'main') {
   ipcMain.handle(channel, async (event, ...args) => {
-    if (event.sender !== win?.webContents || event.senderFrame !== win.webContents.mainFrame) throw new Error('Unzulässiger Aufruf.');
+    const allowed = [win, ...(scope === 'logs' ? [logWin] : [])].filter(w => w && !w.isDestroyed()).map(w => w.webContents);
+    const sender = allowed.find(contents => contents === event.sender);
+    if (!sender || event.senderFrame !== sender.mainFrame) throw new Error('Unzulässiger Aufruf.');
     try { return { ok: true, data: await callback(...args) }; }
     catch (e) { return { ok: false, error: e instanceof Error ? e.message : 'Microsoft-Anmeldung fehlgeschlagen oder abgebrochen. Bitte erneut versuchen.' }; }
   });
 }
-function loadRenderer(query) {
-  if (process.argv.includes('--dev')) return win.loadURL(`http://127.0.0.1:5173/?${new URLSearchParams(query)}`);
-  return win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { query });
+function loadRenderer(query, target = win) {
+  if (process.argv.includes('--dev')) return target.loadURL(`http://127.0.0.1:5173/?${new URLSearchParams(query)}`);
+  return target.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { query });
+}
+const windowOptions = { frame: false, backgroundColor: '#0b0d10', icon: path.join(__dirname, '..', 'dist', 'icon.png'), webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true } };
+function sendToLogs(channel, payload) { if (logWin && !logWin.isDestroyed()) logWin.webContents.send(channel, payload); }
+function logsState() {
+  const snapshot = session?.snapshot();
+  return { accent: settings.accent, session: snapshot ? { ...snapshot, running: snapshot.running && Boolean(gameChild) } : null };
+}
+function openLogWindow() {
+  if (logWin && !logWin.isDestroyed()) { if (logWin.isMinimized()) logWin.restore(); logWin.show(); logWin.focus(); return; }
+  logWin = new BrowserWindow({ ...windowOptions, width: 1200, height: 780, minWidth: 820, minHeight: 520, title: 'Minecraft Logs' });
+  logWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  logWin.webContents.on('will-navigate', event => event.preventDefault());
+  logWin.on('closed', () => { logWin = null; });
+  loadRenderer({ mode: 'logs' }, logWin);
 }
 function startSetup(mode) {
   // Uninstall must not keep the install folder busy as working directory.
@@ -259,10 +302,12 @@ else if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on('second-instance', () => { win?.restore(); win?.focus(); });
   app.whenReady().then(async () => {
+    log.init(path.join(root(), 'logs'));
     try { settings = validateSettings(JSON.parse(await fs.readFile(path.join(root(), 'settings.json'), 'utf8'))); } catch { /* Use validated defaults. */ }
-    win = new BrowserWindow({ width: 1380, height: 900, minWidth: 960, minHeight: 700, frame: false, backgroundColor: '#0b0d10', title: 'Savira', icon: path.join(__dirname, '..', 'dist', 'icon.png'), webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true } });
+    win = new BrowserWindow({ ...windowOptions, width: 1380, height: 900, minWidth: 960, minHeight: 700, title: 'Savira' });
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.webContents.on('will-navigate', event => event.preventDefault());
+    win.on('closed', () => { if (logWin && !logWin.isDestroyed()) logWin.close(); });
     handle('state', () => ({ settings, account, status, maxMemory, gameDirectory: instance(), version: app.getVersion() }));
     handle('save', async input => {
       if (busy) throw new Error('Einstellungen können nach dem Beenden von Minecraft geändert werden.');
@@ -274,7 +319,7 @@ else {
     handle('login', async () => {
       if (loggingIn || busy) throw new Error('Ein Vorgang läuft bereits.');
       loggingIn = true;
-      try { await authenticate(true); return account; } finally { loggingIn = false; }
+      try { await authenticate(true); return account; } catch (error) { log.warn('Anmeldung fehlgeschlagen', error); throw error; } finally { loggingIn = false; }
     });
     handle('logout', async () => {
       if (busy || loggingIn) throw new Error('Ein Vorgang läuft bereits.');
@@ -298,6 +343,35 @@ else {
         win.close();
       }
     });
+
+    // Log window: live game output, process stats, stop button.
+    handle('logs-open', () => { openLogWindow(); });
+    handle('logs-state', logsState, 'logs');
+    handle('logs-clear', () => { session?.clear(); }, 'logs');
+    handle('logs-stop', () => {
+      if (!gameChild) throw new Error('Minecraft läuft nicht.');
+      log.warn('Minecraft über das Log-Fenster gestoppt');
+      gameChild.kill();
+    }, 'logs');
+    handle('logs-folder', async () => {
+      const dir = session ? path.join(root(), 'instances', session.snapshot().profile.id) : instance();
+      await fs.mkdir(dir, { recursive: true });
+      const error = await shell.openPath(dir); if (error) throw new Error(error);
+    }, 'logs');
+    handle('logs-window', action => {
+      if (!logWin || logWin.isDestroyed()) return;
+      if (action === 'minimize') logWin.minimize();
+      if (action === 'maximize') logWin.isMaximized() ? logWin.unmaximize() : logWin.maximize();
+      if (action === 'close') logWin.close();
+    }, 'logs');
+
+    // Debug tab: launcher logs, Minecraft logs and crash reports.
+    handle('debug-list', kind => logfiles.list(root(), kind));
+    handle('debug-read', file => logfiles.read(root(), file));
+    handle('debug-open', async file => { const error = await shell.openPath(await logfiles.assertAllowed(root(), file)); if (error) throw new Error(error); });
+    handle('debug-reveal', async file => { shell.showItemInFolder(await logfiles.assertAllowed(root(), file)); });
+    handle('debug-folder', async () => { const dir = log.logDir(); await fs.mkdir(dir, { recursive: true }); const error = await shell.openPath(dir); if (error) throw new Error(error); });
+
     const updates = createUpdater({
       app, currentVersion: app.getVersion(), feed: updateFeed, publicKey: updatePublicKey,
       // Loopback http is only for the package test, which always sets its own feed.
@@ -311,7 +385,7 @@ else {
     handle('update-download', () => updates.download());
     handle('update-cancel', () => updates.cancel());
     handle('update-install', () => updates.install());
-    try { if (safeStorage.isEncryptionAvailable()) await authenticate(false); } catch { account = null; }
+    try { if (safeStorage.isEncryptionAvailable() && existsSync(tokenPath())) await authenticate(false); } catch (error) { account = null; log.warn('Gespeicherte Anmeldung ungültig', error); }
     await loadRenderer({});
     // Read the setting when the timer fires, so switching it on later takes effect without a restart.
     const autoCheck = () => { if (settings.autoUpdate) updates.check({ quiet: true }); };

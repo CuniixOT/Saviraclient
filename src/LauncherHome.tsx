@@ -1,4 +1,4 @@
-import { ArrowClockwise, ArrowRight, CaretUp, Check, CheckCircle, Cube, FolderOpen, Newspaper, Package, Play, Warning } from '@phosphor-icons/react';
+import { ArrowClockwise, ArrowRight, CaretUp, Check, CheckCircle, Cube, FolderOpen, Newspaper, Package, Play, Terminal, Warning } from '@phosphor-icons/react';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { SkinStage } from './SkinStage';
 import type { State } from './api';
@@ -12,6 +12,7 @@ type Props = {
   onProfile: (profileId: string) => void;
   onProfiles: () => void;
   onFolder: () => void;
+  onLogs: () => void;
   panorama: string[] | null;
 };
 
@@ -21,7 +22,7 @@ const news = [
   { kicker: 'Module', date: '07. Sep', title: 'Zoom, Effekte und RAM im Blick.', body: 'Drei neue Anzeigen im Savira-Profil, einzeln schaltbar.', crop: '84%' }
 ];
 
-export function LauncherHome({ state, pending, locked, active, onLaunch, onProfile, onProfiles, onFolder, panorama }: Props) {
+export function LauncherHome({ state, pending, locked, active, onLaunch, onProfile, onProfiles, onFolder, onLogs, panorama }: Props) {
   const [picker, setPicker] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
   const name = state.account?.name || 'Steve';
@@ -72,7 +73,10 @@ export function LauncherHome({ state, pending, locked, active, onLaunch, onProfi
             <span className="play-label pixel">{failed ? <ArrowClockwise size={26} weight="bold" /> : phase === 'running' ? <CheckCircle size={26} weight="fill" /> : !loading && <Play size={26} weight="fill" />}{label}</span>
           </button>
 
-          <button className="glass icon-square" aria-label="Spielordner öffnen" title="Spielordner öffnen" onClick={onFolder}><FolderOpen size={22} /></button>
+          <div className="icon-stack">
+            <button className="glass icon-square" aria-label="Log-Fenster öffnen" title="Log-Fenster öffnen" onClick={onLogs}><Terminal size={20} /></button>
+            <button className="glass icon-square" aria-label="Spielordner öffnen" title="Spielordner öffnen" onClick={onFolder}><FolderOpen size={20} /></button>
+          </div>
         </div>
 
         <p className="launch-meta"><span className={`dot ${state.account ? 'ok' : ''}`} />{state.account ? 'Microsoft verbunden' : 'Anmeldung erforderlich'}<i />{state.settings.memory} GB RAM<i />Java 21</p>

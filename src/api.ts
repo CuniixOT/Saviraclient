@@ -1,8 +1,10 @@
 export type Hud = { fps: boolean; cps: boolean; keystrokes: boolean; coordinates: boolean; ping: boolean; armor: boolean; potions: boolean; sprint: boolean; zoom: boolean; ram: boolean; scale: number };
 export type GameProfile = { id: string; name: string; version: string; loader: 'savira' | 'vanilla' };
-export type Accent = 'mint' | 'blue' | 'rose' | 'amber' | 'violet';
+export type AccentPreset = 'mint' | 'emerald' | 'teal' | 'cyan' | 'blue' | 'indigo' | 'violet' | 'pink' | 'rose' | 'red' | 'orange' | 'amber' | 'slate';
+/** A preset name or a custom "#rrggbb" colour. */
+export type Accent = AccentPreset | `#${string}`;
 export type BackgroundMode = 'panorama' | 'particles' | 'plain' | 'grid' | 'aurora' | 'stars' | 'glyphs' | 'waves' | 'blocks';
-export type Settings = { memory: number; javaPath: string; selectedProfileId: string; profiles: GameProfile[]; fullscreen: boolean; accent: Accent; background: BackgroundMode; autoUpdate: boolean; hud: Hud };
+export type Settings = { memory: number; javaPath: string; selectedProfileId: string; profiles: GameProfile[]; fullscreen: boolean; accent: Accent; background: BackgroundMode; autoUpdate: boolean; animations: boolean; hideOnLaunch: boolean; logsOnLaunch: boolean; hud: Hud };
 export type Account = { name: string; uuid: string; skin: string | null };
 export type Status = { phase: 'idle' | 'preparing' | 'installing' | 'running' | 'error'; message: string; progress: number };
 export type State = { settings: Settings; account: Account | null; status: Status; maxMemory: number; gameDirectory: string; version: string };
@@ -20,6 +22,32 @@ interface Bridge {
   onStatus(callback: (status: Status) => void): () => void;
   setup?: SetupBridge;
   update?: UpdateBridge;
+  logs?: LogsBridge;
+  debug?: DebugBridge;
+}
+export type LogLevel = 'ERROR' | 'WARN' | 'INFO' | 'DEBUG' | 'TRACE';
+export type LogLine = { id: number; time: number; level: LogLevel; text: string };
+export type GameStats = { memory: number; cpu: number };
+export type GameSession = { lines: LogLine[]; profile: { id: string; name: string; version: string; loader: string; memory: number }; account: string; startedAt: number; stats: GameStats; running: boolean };
+export type LogsState = { accent: Accent; session: GameSession | null };
+type LogsEvent = 'lines' | 'stats' | 'reset' | 'ended';
+interface LogsBridge {
+  open(): Promise<Result<void>>;
+  state(): Promise<Result<LogsState>>;
+  clear(): Promise<Result<void>>;
+  stop(): Promise<Result<void>>;
+  folder(): Promise<Result<void>>;
+  window(action: 'minimize' | 'maximize' | 'close'): Promise<Result<void>>;
+  on(callback: (event: LogsEvent, payload: unknown) => void): () => void;
+}
+export type LogFileKind = 'launcher' | 'minecraft' | 'crash';
+export type LogFile = { name: string; path: string; size: number; modified: number; instance: string | null };
+interface DebugBridge {
+  list(kind: LogFileKind): Promise<Result<LogFile[]>>;
+  read(file: string): Promise<Result<string>>;
+  open(file: string): Promise<Result<void>>;
+  reveal(file: string): Promise<Result<void>>;
+  folder(): Promise<Result<void>>;
 }
 export type UpdateStatus = { state: 'idle' | 'disabled' | 'checking' | 'none' | 'available' | 'downloading' | 'ready' | 'installing' | 'error'; version: string | null; notes: string[]; date: string | null; size: number; progress: number; error: string; checkedAt: string | null };
 interface UpdateBridge {
@@ -32,7 +60,7 @@ interface UpdateBridge {
 }
 declare global { interface Window { savira?: Bridge } }
 export const isDesktop = Boolean(window.savira);
-export const defaultSettings: Settings = { memory: 4, javaPath: 'java', selectedProfileId: 'savira-1-21-1', profiles: [{ id: 'savira-1-21-1', name: 'Savira 1.21.1', version: '1.21.1', loader: 'savira' }, { id: 'vanilla-1-21-1', name: 'Vanilla 1.21.1', version: '1.21.1', loader: 'vanilla' }], fullscreen: false, accent: 'mint', background: 'panorama', autoUpdate: true, hud: { fps: true, cps: true, keystrokes: true, coordinates: false, ping: true, armor: true, potions: true, sprint: true, zoom: false, ram: true, scale: 1 } };
+export const defaultSettings: Settings = { memory: 4, javaPath: 'java', selectedProfileId: 'savira-1-21-1', profiles: [{ id: 'savira-1-21-1', name: 'Savira 1.21.1', version: '1.21.1', loader: 'savira' }, { id: 'vanilla-1-21-1', name: 'Vanilla 1.21.1', version: '1.21.1', loader: 'vanilla' }], fullscreen: false, accent: 'mint', background: 'panorama', autoUpdate: true, animations: true, hideOnLaunch: false, logsOnLaunch: false, hud: { fps: true, cps: true, keystrokes: true, coordinates: false, ping: true, armor: true, potions: true, sprint: true, zoom: false, ram: true, scale: 1 } };
 const unavailable = async <T,>(): Promise<Result<T>> => ({ ok: false, error: 'Diese Funktion ist im Desktop-Launcher verfügbar. Starte Savira mit „npm run dev“.' });
 export const api: Bridge = window.savira ?? {
   state: async () => {
@@ -85,4 +113,13 @@ export const updateApi: UpdateBridge = window.savira?.update ?? {
   check: async () => ({ ok: true, data: updateOffline }),
   download: unavailable, cancel: unavailable, install: unavailable,
   onStatus: () => () => {}
+};
+
+export const logsApi: LogsBridge = window.savira?.logs ?? {
+  open: unavailable, clear: unavailable, stop: unavailable, folder: unavailable, window: unavailable,
+  state: async () => ({ ok: true, data: { accent: 'mint', session: null } }),
+  on: () => () => {}
+};
+export const debugApi: DebugBridge = window.savira?.debug ?? {
+  list: async () => ({ ok: true, data: [] }), read: unavailable, open: unavailable, reveal: unavailable, folder: unavailable
 };

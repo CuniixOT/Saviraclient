@@ -33,3 +33,13 @@ test('fills appearance defaults for settings saved before 0.2', () => {
 test('accepts every launcher background effect', () => {
   for (const background of ['panorama', 'particles', 'plain', 'grid', 'aurora', 'stars', 'glyphs', 'waves', 'blocks']) assert.equal(validateSettings({ ...defaults, background }).background, background);
 });
+test('accepts preset and custom accents, rejects anything else', () => {
+  assert.equal(validateSettings({ ...defaults, accent: 'teal' }).accent, 'teal');
+  assert.equal(validateSettings({ ...defaults, accent: '#AbCdEf' }).accent, '#abcdef');
+  for (const accent of ['#12345', '#1234567', 'red;', 'url(x)', '#ggg000', 42]) assert.throws(() => validateSettings({ ...defaults, accent }));
+});
+test('validates launcher behaviour switches', () => {
+  const result = validateSettings({ ...defaults, hideOnLaunch: true, logsOnLaunch: true, animations: false });
+  assert.deepEqual([result.hideOnLaunch, result.logsOnLaunch, result.animations], [true, true, false]);
+  for (const key of ['hideOnLaunch', 'logsOnLaunch', 'animations']) assert.throws(() => validateSettings({ ...defaults, [key]: 'yes' }));
+});
