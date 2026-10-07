@@ -37,6 +37,29 @@ public final class HudConfig {
     /** Launcher version for the main menu footer; the jar keeps its own fixed version. */
     public String launcherVersion = "";
     public Map<String, Placement> layout = new HashMap<>();
+    /** Per-module look: background style, colours, corners and text template. */
+    public Map<String, Style> styles = new HashMap<>();
+
+    public static final class Style {
+        public String background = HudBackground.DARK_PANEL.name();
+        public int backgroundColor = 0xB4101318;
+        public int radius = 3;
+        public int textColor = 0xFFEEF1F4;
+        public boolean textShadow = true;
+        /** Text template for text modules; null means the module's default. */
+        public String text;
+    }
+
+    public Style style(HudModule module) {
+        if (styles == null) styles = new HashMap<>();
+        Style s = styles.computeIfAbsent(module.name(), key -> new Style());
+        s.background = HudBackground.parse(s.background).name();
+        s.radius = Math.clamp(s.radius, 0, 8);
+        if ((s.backgroundColor >>> 24) < 0x10) s.backgroundColor = (s.backgroundColor & 0xFFFFFF) | 0x10000000;
+        s.textColor |= 0xFF000000;
+        if (s.text != null && (s.text.isBlank() || s.text.length() > 48)) s.text = null;
+        return s;
+    }
 
     public static final class Placement {
         public float x, y, size = 1f;

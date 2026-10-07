@@ -133,7 +133,7 @@ async function prepareFabric(gameRoot, minecraftVersion) {
   let inGame = {};
   try { inGame = JSON.parse(await fs.readFile(hudPath, 'utf8')) || {}; } catch { /* First launch or invalid config. */ }
   // Layout and snapping belong to the in-game editor, while launcher toggles stay authoritative.
-  await atomicWrite(hudPath, JSON.stringify({ ...settings.hud, accent: accentRgb(settings.accent), discordUrl: discordUrl(), launcherVersion: app.getVersion(), customTitleScreen: inGame.customTitleScreen !== false, layout: inGame.layout || {}, snap: inGame.snap !== false }, null, 2));
+  await atomicWrite(hudPath, JSON.stringify({ ...settings.hud, accent: accentRgb(settings.accent), discordUrl: discordUrl(), launcherVersion: app.getVersion(), customTitleScreen: inGame.customTitleScreen !== false, layout: inGame.layout || {}, styles: inGame.styles || {}, snap: inGame.snap !== false }, null, 2));
   return id;
 }
 // The title-screen panorama ships with the game assets the player already downloaded.

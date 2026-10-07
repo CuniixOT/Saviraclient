@@ -23,6 +23,30 @@ public enum HudModule {
         this.title = title; this.category = category; this.description = description;
         this.icon = icon; this.x = x; this.y = y; this.width = width; this.height = height;
     }
+    /** Single-line modules whose text can be customised; others draw their own layout. */
+    public boolean textual() { return defaultText() != null; }
+    public String defaultText() {
+        return switch (this) {
+            case FPS -> "{value} FPS";
+            case CPS -> "{left} | {right} CPS";
+            case PING -> "{value} ms";
+            case SPRINT -> "{value}";
+            case ZOOM -> "Zoom: {value}";
+            case RAM -> "{value} MB";
+            default -> null;
+        };
+    }
+    /** Placeholders the template understands, shown as help in the settings. */
+    public String placeholders() { return this == CPS ? "{left} {right}" : "{value}"; }
+    /** Widest typical value, so the box does not jump in size while numbers change. */
+    public String sample(String placeholder) {
+        return switch (this) {
+            case FPS -> "9999"; case PING -> "999"; case SPRINT -> "SCHLEICHEN";
+            case ZOOM -> "BEREIT (C)"; case RAM -> "9999 / 9999";
+            case CPS -> "20";
+            default -> "";
+        };
+    }
     public boolean enabled() {
         HudConfig c = SaviraClient.config;
         return switch (this) {

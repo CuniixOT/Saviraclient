@@ -3,8 +3,8 @@
 Jede Zeile, die mit "- " beginnt, erscheint im Update-Hinweis des Launchers.
 Vor jedem Release anpassen, dann Version erhöhen und pushen.
 
-- Neues Savira-Hauptmenü in Minecraft mit Panorama, Schnellzugriffen und Discord-Karte
-- Das Hauptmenü übernimmt deine Akzentfarbe, Mod-Menü und HUD bleiben in Savira-Mint
-- Log-Fenster zeigt RAM und CPU des Spiels, Stopp beendet Minecraft zuverlässig
-- Log-Zeilen sind jetzt lesbar und richtig nach Fehlern, Warnungen und Infos sortiert
-- Nach dem Beenden zeigt das Log-Fenster wieder „Keine Instanz aktiv“
+- Neues Mod-Menü im Spiel (Shift): Suche, scrollbare Modul-Karten und Schnellzugriffe unten
+- Rechtsklick auf ein Modul öffnet seine Einstellungen mit Live-Vorschau
+- Jedes HUD-Element bekommt einen eigenen Hintergrund: Dark Panel, Vanilla, Tooltip, Blur, Farbe, Outline oder keiner
+- Hintergrundfarbe, Deckkraft, Ecken, Textfarbe, Schatten und eigener Text pro Modul einstellbar
+- Cosmetics, Savira Plus, Emotes und Friends haben schon ihren Platz im Menü
