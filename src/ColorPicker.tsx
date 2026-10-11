@@ -69,7 +69,7 @@ export function ColorPicker({ value, onPreview, onApply, onCancel }: Props) {
   return createPortal(<div className="modal-backdrop" onMouseDown={onCancel}>
     <section className="modal glass color-modal" role="dialog" aria-modal="true" aria-labelledby="color-title" onMouseDown={e => e.stopPropagation()} style={{ '--pick': hex } as CSSProperties}>
       <header className="color-head">
-        <h2 id="color-title" className="pixel">farbwähler</h2>
+        <h2 id="color-title" className="pixel">Farbwähler</h2>
         <button className="btn btn-icon" aria-label="Schließen" onClick={onCancel}><X size={16} /></button>
       </header>
 

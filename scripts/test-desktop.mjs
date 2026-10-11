@@ -18,14 +18,14 @@ async function start() {
   app = await electron.launch({ args: [root, '--smoke-test'], env, timeout: 60000 });
   page = await app.firstWindow();
   page.on('pageerror', error => errors.push(error.message));
-  await expect(page.getByLabel(/3D-Figur von Steve/)).toBeVisible();
+  await expect(page.getByLabel(/3D-Figur von /)).toBeVisible();
 }
 try {
   await start();
   const bridge = await page.evaluate(() => ({ bridge: Boolean(window.savira), node: typeof window.require }));
   expect(bridge).toEqual({ bridge: true, node: 'undefined' });
   expect(await page.getByLabel(/3D-Figur von Steve/).evaluate(canvas => canvas.width > 1 && canvas.height > 1)).toBe(true);
-  const launchButton = page.getByRole('button', { name: 'anmelden', exact: true });
+  const launchButton = page.getByRole('button', { name: 'Anmelden', exact: true });
   await expect(launchButton).toBeVisible();
   const launchBox = await launchButton.boundingBox();
   const viewportHeight = await page.evaluate(() => innerHeight);
@@ -73,7 +73,27 @@ try {
   await expect(page.getByRole('switch', { name: 'Logs nach Start öffnen' })).toHaveAttribute('aria-checked', 'true');
   await page.getByRole('radio', { name: 'Ozean' }).click();
   await expect(page.getByRole('radio', { name: 'Ozean' })).toHaveAttribute('aria-checked', 'true');
+  await page.getByRole('switch', { name: 'Discord-Präsenz' }).click();
+  await expect(page.getByRole('switch', { name: 'Discord-Präsenz' })).toHaveAttribute('aria-checked', 'false');
   await shot('settings');
+  // Corner radius: live while moving, saved on release, applied to the whole launcher.
+  const radius = page.getByLabel('Rundung');
+  const cornerOf = selector => page.locator(selector).first().evaluate(el => getComputedStyle(el).borderTopLeftRadius);
+  await radius.focus();
+  await page.keyboard.press('End');
+  await expect(page.locator('output[for="radius"]')).toHaveText('20 px');
+  await expect.poll(() => cornerOf('.panel')).toBe('30px');
+  await expect(page.locator('.toast')).toContainText('Eckenradius: 20 px.');
+  await page.waitForTimeout(400);
+  await shot('radius-20');
+  await page.keyboard.press('Home');
+  await expect.poll(() => cornerOf('.panel')).toBe('0px');
+  await expect.poll(() => cornerOf('.btn')).toBe('0px');
+  await page.waitForTimeout(400);
+  await shot('radius-0');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(() => cornerOf('.panel')).toBe('3px');
   const invalid = await page.evaluate(async () => {
     const result = await window.savira.state();
     return window.savira.save({ ...result.data.settings, profiles: [{ ...result.data.settings.profiles[0], id: '../escape' }], selectedProfileId: '../escape' });
@@ -85,7 +105,8 @@ try {
   await page.getByRole('button', { name: 'Über Savira' }).click();
   await expect(page.getByRole('heading', { name: 'über savira' })).toBeVisible();
   await page.locator('.account-chip').click();
-  await expect(page.getByRole('dialog', { name: 'Account' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Minecraft-Konten' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'mit microsoft anmelden' })).toBeVisible();
   await shot('account');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -93,16 +114,42 @@ try {
   await page.waitForTimeout(800);
   await shot('desktop-blue');
 
+  // Two saved accounts (fake tokens, encrypted like real ones) for the account switcher.
+  await app.evaluate(({ safeStorage, app: electronApp }) => {
+    const fs = process.mainModule.require('node:fs');
+    const path = process.mainModule.require('node:path');
+    const data = { active: '0'.repeat(31) + '1', list: [{ uuid: '0'.repeat(31) + '1', name: 'HawaiiCunix', token: 'fake-1' }, { uuid: '0'.repeat(31) + '2', name: 'Zweitkonto', token: 'fake-2' }] };
+    fs.writeFileSync(path.join(electronApp.getPath('userData'), 'accounts.bin'), safeStorage.encryptString(JSON.stringify(data)));
+  });
   await app.close(); app = null;
   await start();
+  await page.locator('.account-chip').click();
+  const accounts = page.getByRole('list', { name: 'Gespeicherte Konten' });
+  await expect(accounts.getByRole('listitem')).toHaveCount(2);
+  await expect(page.locator('.account-chip')).toContainText('HawaiiCunix');
+  await accounts.locator('.account-pick', { hasText: 'Zweitkonto' }).click();
+  await expect(page.locator('.account-chip')).toContainText('Zweitkonto');
+  await expect(accounts.locator('.account-pick', { hasText: 'Zweitkonto' })).toHaveAttribute('aria-current', 'true');
+  await expect(page.getByRole('button', { name: 'konto hinzufügen' })).toBeVisible();
+  await shot('accounts');
+  await page.getByRole('button', { name: 'HawaiiCunix entfernen' }).click();
+  await expect(accounts.getByRole('listitem')).toHaveCount(1);
+  const switched = await page.evaluate(() => window.savira.switchAccount('../../settings'));
+  expect(switched.ok).toBe(false);
+  await page.keyboard.press('Escape');
   const persisted = await page.evaluate(() => window.savira.state());
   expect(persisted.data.settings.javaPath).toBe(javaPath);
   expect(persisted.data.settings.accent).toBe('blue');
   expect(persisted.data.settings.logsOnLaunch).toBe(true);
   expect(persisted.data.settings.hud.coordinates).toBe(true);
+  expect(persisted.data.settings.radius).toBe(2);
+  expect(persisted.data.settings.discordPresence).toBe(false);
+  expect(persisted.data.accounts.map(account => account.name)).toEqual(['Zweitkonto']);
+  expect(persisted.data.account.name).toBe('Zweitkonto');
+  expect(JSON.stringify(persisted.data)).not.toContain('fake-2');
   expect(persisted.data.settings.profiles.some(profile => profile.name === 'Test 1.8.9' && profile.version === '1.8.9')).toBe(true);
   expect(errors).toEqual([]);
-  console.log('Desktop-Smoke-Test erfolgreich: sichere Bridge, Profile, Module, Darstellung, Validierung, Startschutz, Account-Menü und Persistenz.');
+  console.log('Desktop-Smoke-Test erfolgreich: sichere Bridge, Profile, Module, Darstellung, Validierung, Startschutz, Eckenradius, Discord-Schalter, Kontenwechsel und Persistenz.');
   console.log(`Screenshots: ${path.join(tools, 'savira-*.png')}`);
 } finally {
   if (app) await app.close();

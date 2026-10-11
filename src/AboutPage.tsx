@@ -12,7 +12,7 @@ const planned = ['Automatische Updates', 'Cosmetics und Capes', 'Freundesliste',
 
 export function AboutPage({ version }: { version: string }) {
   return <div className="page page-enter about">
-    <PageHeader kicker={`version ${version} · early access`} title="über savira" />
+    <PageHeader kicker={`version ${version} · early access`} title="Über Savira" />
     <section className="about-hero glass">
       <Logo />
       <p>Ein unabhängiger Minecraft-Launcher mit eigenem Fabric-PvP-HUD. Keine Kampfvorteile, nur Anzeigen, die dir beim Spielen helfen.</p>

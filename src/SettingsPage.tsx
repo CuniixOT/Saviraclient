@@ -1,5 +1,5 @@
-import { Check, Eyedropper, FolderOpen, GameController, Palette, Sparkle, ToggleLeft } from '@phosphor-icons/react';
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { ArrowCounterClockwise, BoundingBox, Check, Eyedropper, FolderOpen, GameController, Palette, Sparkle, ToggleLeft } from '@phosphor-icons/react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { isDesktop, type AccentPreset, type BackgroundMode, type Settings, type State } from './api';
 import { PageHeader, Toggle, accentHex, accents, isCustomAccent } from './ui';
 import { BackgroundPreview } from './Background';
@@ -20,6 +20,7 @@ type Props = {
   onError: (message: string) => void;
   updates: ReturnType<typeof useUpdates>;
   gameRunning: boolean;
+  onRadiusPreview: (radius: number | null) => void;
 };
 
 const tabs: { id: Tab; label: string }[] = [{ id: 'general', label: 'allgemein' }, { id: 'background', label: 'hintergrund' }, { id: 'advanced', label: 'erweitert' }, { id: 'debug', label: 'debug' }];
@@ -34,14 +35,15 @@ const backgrounds: { id: BackgroundMode; label: string; detail: string }[] = [
   { id: 'particles', label: 'Partikel', detail: 'Aufsteigende Pixel' },
   { id: 'plain', label: 'Schlicht', detail: 'Ruhiger Farbverlauf' }
 ];
-const switches: { key: 'autoUpdate' | 'hideOnLaunch' | 'logsOnLaunch'; label: string; help: string; on: string; off: string }[] = [
+const switches: { key: 'autoUpdate' | 'hideOnLaunch' | 'logsOnLaunch' | 'discordPresence'; label: string; help: string; on: string; off: string }[] = [
   { key: 'autoUpdate', label: 'Automatische Updates', help: 'Beim Start und alle sechs Stunden nach neuen Versionen suchen.', on: 'Automatische Update-Suche an.', off: 'Automatische Update-Suche aus.' },
   { key: 'hideOnLaunch', label: 'Fenster beim Start ausblenden', help: 'Der Launcher verschwindet, solange Minecraft läuft, und kommt danach zurück.', on: 'Launcher wird beim Spielstart ausgeblendet.', off: 'Launcher bleibt beim Spielstart sichtbar.' },
+  { key: 'discordPresence', label: 'Discord-Präsenz', help: 'Zeigt in deinem Discord-Profil, was du im Launcher machst und welches Profil und welche Version du spielst.', on: 'Discord-Präsenz an.', off: 'Discord-Präsenz aus.' },
   { key: 'logsOnLaunch', label: 'Logs nach Start öffnen', help: 'Öffnet beim Spielstart automatisch das Log-Fenster. Nützlich zur Fehlersuche.', on: 'Log-Fenster öffnet sich beim Spielstart.', off: 'Log-Fenster öffnet sich nicht mehr automatisch.' }
 ];
 const readTab = (): Tab => { try { const t = localStorage.getItem('savira-settings-tab'); return tabs.some(x => x.id === t) ? t as Tab : 'general'; } catch { return 'general'; } };
 
-export function SettingsPage({ state, locked, pending, onSave, onPickJava, onFolder, onNotice, onError, updates, gameRunning }: Props) {
+export function SettingsPage({ state, locked, pending, onSave, onPickJava, onFolder, onNotice, onError, updates, gameRunning, onRadiusPreview }: Props) {
   const { settings } = state;
   const [tab, setTab] = useState<Tab>(readTab);
   const initial = (): Draft => ({ memory: settings.memory, javaPath: settings.javaPath, fullscreen: settings.fullscreen });
@@ -57,9 +59,17 @@ export function SettingsPage({ state, locked, pending, onSave, onPickJava, onFol
   const closePicker = useCallback(() => { setPicking(false); previewAccent(accent); }, [accent, previewAccent]);
 
   useEffect(() => { try { localStorage.setItem('savira-settings-tab', tab); } catch { /* Convenience only. */ } }, [tab]);
+  // The slider reshapes the whole launcher while dragging; it is saved once on release.
+  const [radius, setRadius] = useState(settings.radius);
+  const dragging = useRef(false);
+  const previewRadius = (value: number) => { setRadius(value); onRadiusPreview(value); };
+  const commitRadius = (value = radius) => { if (value !== settings.radius) onSave({ ...settings, radius: value }, `Eckenradius: ${value} px.`); };
+  useEffect(() => () => onRadiusPreview(null), [onRadiusPreview]);
+  // A value chosen while another save was running is saved as soon as that one is done.
+  useEffect(() => { if (!pending && !dragging.current && radius !== settings.radius) commitRadius(); }, [pending, settings.radius]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <div className="page page-enter settings">
-    <PageHeader kicker="launcher" title="einstellungen">
+    <PageHeader kicker="launcher" title="Einstellungen">
       <button className="btn" onClick={onFolder}><FolderOpen size={16} />Verzeichnis öffnen</button>
     </PageHeader>
 
@@ -80,6 +90,18 @@ export function SettingsPage({ state, locked, pending, onSave, onPickJava, onFol
         </div>
         {picking && <ColorPicker value={accent} onPreview={previewAccent} onCancel={closePicker}
           onApply={hex => { setPicking(false); onSave({ ...settings, accent: hex as `#${string}` }, `Eigene Akzentfarbe: ${hex.toUpperCase()}.`); }} />}
+      </section>
+
+      <section className="panel glass">
+        <header className="panel-head"><BoundingBox size={20} /><div><h2>Eckenradius</h2><p>Wie rund Karten, Buttons und Fenster im Launcher sind. Das Spiel bleibt unverändert.</p></div>
+          {radius !== 12 && <div className="panel-head-side"><button className="btn" disabled={locked} onClick={() => { previewRadius(12); commitRadius(12); }}><ArrowCounterClockwise size={15} />Standard</button></div>}
+        </header>
+        <div className="setting stacked radius-setting">
+          <div className="setting-row"><div><h3><label htmlFor="radius">Rundung</label></h3><p>Live-Vorschau im ganzen Launcher, gespeichert beim Loslassen.</p></div><output htmlFor="radius" className="value pixel">{radius} px</output></div>
+          <input id="radius" className="range" type="range" min={0} max={20} step={1} value={radius} disabled={gameRunning} style={{ '--fill': `${radius / 20 * 100}%` } as CSSProperties}
+            onChange={e => previewRadius(Number(e.target.value))} onPointerDown={() => { dragging.current = true; }} onPointerUp={e => { dragging.current = false; commitRadius(Number(e.currentTarget.value)); }} onKeyUp={e => commitRadius(Number(e.currentTarget.value))} onBlur={() => commitRadius()} />
+          <div className="range-labels"><span>0 px · eckig</span><span>20 px · rund</span></div>
+        </div>
       </section>
 
       <section className="panel glass">

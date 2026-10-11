@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { CheckCircle, CornersOut, GearSix, Info, Minus, Play, PuzzlePiece, ShieldCheck, SignOut, Stack, WindowsLogo, X } from '@phosphor-icons/react';
-import { api, isDesktop, logsApi, unwrap, type Settings, type State } from './api';
+import { Check, CheckCircle, CornersOut, GearSix, Info, Minus, Play, Plus, PuzzlePiece, ShieldCheck, Stack, Trash, WindowsLogo, X } from '@phosphor-icons/react';
+import { api, isDesktop, logsApi, unwrap, type Accounts, type Settings, type State } from './api';
 import { Background } from './Background';
 import { LauncherHome } from './LauncherHome';
 import { ProfilesPage } from './ProfilesPage';
@@ -42,6 +42,12 @@ export function App() {
   }, [phase, panorama]);
   const accent = accentHex(state?.settings.accent);
   useEffect(() => { document.documentElement.style.setProperty('--accent', accent); }, [accent]);
+  // While the settings slider moves, its preview wins over the saved value.
+  const [radiusPreview, setRadiusPreview] = useState<number | null>(null);
+  const radius = radiusPreview ?? state?.settings.radius ?? 12;
+  useEffect(() => { document.documentElement.style.setProperty('--rk', String(radius / 12)); }, [radius]);
+  // Discord shows which launcher page is open.
+  useEffect(() => { api.presence(page).catch(() => { /* Presence is optional. */ }); }, [page]);
   useEffect(() => { if (!notice) return; const timer = setTimeout(() => setNotice(''), 4000); return () => clearTimeout(timer); }, [notice]);
   useEffect(() => {
     if (!accountOpen) return;
@@ -64,16 +70,17 @@ export function App() {
   });
   const active = phase === 'running' || phase === 'installing' || phase === 'preparing';
   const locked = Boolean(pending) || active;
-  const login = () => action('login', async () => { const account = await unwrap(api.login()); setState(s => s ? { ...s, account } : s); setNotice(`Willkommen, ${account.name}.`); setAccountOpen(false); });
-  const logout = () => action('logout', async () => { await unwrap(api.logout()); setState(s => s ? { ...s, account: null } : s); setAccountOpen(false); setNotice('Du bist abgemeldet.'); });
+  const applyAccounts = (next: Accounts) => setState(s => s ? { ...s, ...next } : s);
+  const login = () => action('login', async () => { const next = await unwrap(api.login()); applyAccounts(next); setNotice(`Willkommen, ${next.account?.name}.`); setAccountOpen(false); });
+  const switchAccount = (uuid: string) => action('account', async () => { const next = await unwrap(api.switchAccount(uuid)); applyAccounts(next); setNotice(`Aktives Konto: ${next.account?.name}.`); });
+  const removeAccount = (uuid: string, name: string) => action('account', async () => { const next = await unwrap(api.logout(uuid)); applyAccounts(next); setNotice(`${name} wurde entfernt.`); });
   const openFolder = () => action('folder', async () => { await unwrap(api.openFolder()); });
   const launchProfile = (selectedProfileId: string) => action('profile-launch', async () => {
     if (!state) return;
     const settings = await unwrap(api.save({ ...state.settings, selectedProfileId }));
     setState(current => current ? { ...current, settings } : current); setPage('home');
     if (!state.account) {
-      const account = await unwrap(api.login());
-      setState(current => current ? { ...current, account } : current);
+      applyAccounts(await unwrap(api.login()));
     }
     await unwrap(api.launch());
   });
@@ -92,11 +99,20 @@ export function App() {
             <SkinHead skin={state?.account?.skin || null} size={26} />
             <span><strong>{state?.account?.name || 'Nicht angemeldet'}</strong><small className={state?.account ? 'ok' : ''}>{state?.account ? 'online' : 'Microsoft-Login'}</small></span>
           </button>
-          {accountOpen && <section className="account-menu glass" role="dialog" aria-label="Account">
-            <div className="account-head"><SkinHead skin={state?.account?.skin || null} size={48} /><div><strong className="pixel">{state?.account?.name || 'Hey.'}</strong><small>{state?.account ? 'Microsoft-Konto verbunden' : 'Melde dich mit dem Konto an, das Minecraft Java besitzt.'}</small></div></div>
-            {state?.account
-              ? <button className="btn w-full" disabled={locked} onClick={logout}><SignOut size={17} />Abmelden</button>
-              : <button className="btn btn-accent pixel w-full" disabled={locked} onClick={login}><WindowsLogo size={17} weight="fill" />{pending === 'login' ? 'läuft …' : 'mit microsoft anmelden'}</button>}
+          {accountOpen && <section className="account-menu glass" role="dialog" aria-label="Minecraft-Konten">
+            <header className="account-menu-head"><span className="pixel">minecraft-konten</span><button className="btn btn-icon" aria-label="Kontenmenü schließen" onClick={() => setAccountOpen(false)}><X size={14} /></button></header>
+            {state?.accounts.length
+              ? <ul className="account-list" aria-label="Gespeicherte Konten">{state.accounts.map(entry => {
+                const current = entry.uuid === state.account?.uuid;
+                return <li key={entry.uuid} className={current ? 'active' : ''}>
+                  <button className="account-pick" disabled={locked || current} aria-current={current ? 'true' : undefined} onClick={() => switchAccount(entry.uuid)}>
+                    <SkinHead skin={entry.skin} size={32} /><span><strong>{entry.name}</strong><small>{current ? 'Aktiv' : 'Zum Wechseln klicken'}</small></span>{current && <Check size={15} weight="bold" />}
+                  </button>
+                  <button className="btn btn-icon account-remove" aria-label={`${entry.name} entfernen`} title="Konto entfernen" disabled={locked} onClick={() => removeAccount(entry.uuid, entry.name)}><Trash size={15} /></button>
+                </li>;
+              })}</ul>
+              : <div className="account-head"><SkinHead skin={null} size={48} /><div><strong className="pixel">Hey.</strong><small>Melde dich mit dem Konto an, das Minecraft Java besitzt.</small></div></div>}
+            <button className="btn btn-accent pixel w-full" disabled={locked} onClick={login}>{state?.accounts.length ? <Plus size={16} weight="bold" /> : <WindowsLogo size={17} weight="fill" />}{pending === 'login' ? 'läuft …' : state?.accounts.length ? 'konto hinzufügen' : 'mit microsoft anmelden'}</button>
             <p className="fine"><ShieldCheck size={14} />Die Anmeldung läuft direkt über Microsoft. Savira sieht dein Passwort nicht.</p>
           </section>}
         </div>
@@ -122,7 +138,7 @@ export function App() {
           onProfile={selectedProfileId => save({ ...state.settings, selectedProfileId }, 'Profil gewechselt.')} />}
         {page === 'profiles' && <ProfilesPage settings={state.settings} locked={locked} onSave={async (next, message) => save(next, message)} onUse={launchProfile} />}
         {page === 'mods' && <ModsPage settings={state.settings} locked={locked} onSave={save} />}
-        {page === 'settings' && <SettingsPage state={state} locked={locked} pending={pending} onSave={save} onFolder={openFolder} onNotice={setNotice} onError={setError} updates={updates} gameRunning={active}
+        {page === 'settings' && <SettingsPage state={state} locked={locked} pending={pending} onSave={save} onFolder={openFolder} onNotice={setNotice} onError={setError} updates={updates} gameRunning={active} onRadiusPreview={setRadiusPreview}
           onPickJava={async () => { try { return await unwrap(api.selectJava()); } catch (e) { setError(e instanceof Error ? e.message : 'Java konnte nicht ausgewählt werden.'); return null; } }} />}
         {page === 'about' && <AboutPage version={state.version} />}
       </>}

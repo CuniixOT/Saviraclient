@@ -74,7 +74,7 @@ export function Setup({ mode }: { mode: Mode }) {
       <section className="setup-copy page-enter" key={phase}>
         {phase === 'welcome' && (uninstalling ? <>
           <p className="kicker pixel">schade, dass du gehst</p>
-          <h1 className="pixel">savira entfernen</h1>
+          <h1 className="pixel">Savira entfernen</h1>
           <p className="setup-text">Entfernt den Launcher, die Verknüpfungen und den Eintrag in „Apps & Features“.</p>
           {info?.launcherRunning && <div className="setup-alert" role="alert"><Warning size={18} weight="fill" />Savira läuft noch. Schließe den Launcher, dann dieses Fenster neu öffnen.</div>}
           <label className="setup-option danger">
@@ -82,18 +82,18 @@ export function Setup({ mode }: { mode: Mode }) {
             <Toggle value={removeData} label="Auch meine Daten löschen" onChange={() => setRemoveData(!removeData)} />
           </label>
           <div className="setup-actions">
-            <button className="play-button setup-cta danger" disabled={!info || info.launcherRunning} onClick={() => run()}><span className="play-label pixel"><Trash size={22} weight="bold" />entfernen</span></button>
+            <button className="play-button setup-cta danger" disabled={!info || info.launcherRunning} onClick={() => run()}><span className="play-label pixel"><Trash size={22} weight="bold" />Entfernen</span></button>
             <button className="btn" onClick={() => api.window('close')}>Abbrechen</button>
           </div>
         </> : <>
           <p className="kicker pixel">{update ? 'update verfügbar' : 'willkommen'}</p>
-          <h1 className="pixel">{update ? 'savira aktualisieren' : 'savira installieren'}</h1>
+          <h1 className="pixel">{update ? 'Savira aktualisieren' : 'Savira installieren'}</h1>
           <p className="setup-text">{update ? 'Die neue Version ersetzt deine bisherige Installation. Profile, Einstellungen und Welten bleiben erhalten.' : 'Launcher, Fabric-Client und HUD-Mod in einem. Minecraft selbst lädt Savira beim ersten Start direkt von Mojang.'}</p>
           <button className="setup-path glass" onClick={() => setPhase('options')}>
             <FolderOpen size={20} /><span><small>Installationsort</small><strong>{target || '…'}</strong></span><em>ändern</em>
           </button>
           <div className="setup-actions">
-            <button className="play-button setup-cta" disabled={!info} onClick={() => run()}><span className="play-label pixel"><Play size={24} weight="fill" />{update ? 'aktualisieren' : 'installieren'}</span></button>
+            <button className="play-button setup-cta" disabled={!info} onClick={() => run()}><span className="play-label pixel"><Play size={24} weight="fill" />{update ? 'Aktualisieren' : 'Installieren'}</span></button>
             <span className="setup-size">{info ? `ca. ${info.sizeMb} MB` : ''}</span>
           </div>
           <p className="setup-legal">Mit der Installation akzeptierst du die <button onClick={() => setLicense(!license)}>MIT-Lizenz</button>. Savira ist nicht mit Mojang oder Microsoft verbunden.</p>
@@ -102,7 +102,7 @@ export function Setup({ mode }: { mode: Mode }) {
 
         {phase === 'options' && <>
           <p className="kicker pixel">optionen</p>
-          <h1 className="pixel">wohin damit?</h1>
+          <h1 className="pixel">Wohin damit?</h1>
           <div className="setup-field">
             <span>Installationsordner</span>
             <div className="input-row"><input className="input" value={target} spellCheck={false} aria-label="Installationsordner" onChange={e => setTarget(e.target.value)} /><button className="btn" onClick={chooseDir}><FolderOpen size={17} />Durchsuchen</button></div>
@@ -127,22 +127,22 @@ export function Setup({ mode }: { mode: Mode }) {
 
         {phase === 'done' && (uninstalling ? <>
           <p className="kicker pixel">erledigt</p>
-          <h1 className="pixel">savira entfernt.</h1>
+          <h1 className="pixel">Savira entfernt.</h1>
           <p className="setup-text">Beim Schließen räumt Savira die letzten Dateien auf.{removeData ? ' Deine Daten werden ebenfalls gelöscht.' : ' Deine Daten unter %APPDATA%\\Savira bleiben erhalten.'}</p>
           <div className="setup-actions"><button className="btn btn-accent pixel" onClick={() => api.window('close')}><Check size={16} weight="bold" />schließen</button></div>
         </> : <>
           <p className="kicker pixel"><CheckCircle size={15} weight="fill" /> fertig</p>
-          <h1 className="pixel">{autoUpdate ? 'update fertig.' : 'bereit zum spielen.'}</h1>
+          <h1 className="pixel">{autoUpdate ? 'Update fertig.' : 'Bereit zum Spielen.'}</h1>
           <p className="setup-text">{autoUpdate ? `Savira ${info?.version} ist installiert und startet gleich neu.` : 'Savira ist installiert. Melde dich beim ersten Start mit dem Microsoft-Konto an, das Minecraft Java besitzt.'}</p>
           <div className="setup-actions">
-            <button className="play-button setup-cta" onClick={() => unwrap(setupApi.launch()).catch(e => { setError(e.message); setPhase('error'); })}><span className="play-label pixel"><Play size={24} weight="fill" />starten</span></button>
+            <button className="play-button setup-cta" onClick={() => unwrap(setupApi.launch()).catch(e => { setError(e.message); setPhase('error'); })}><span className="play-label pixel"><Play size={24} weight="fill" />Starten</span></button>
             <button className="btn" onClick={() => api.window('close')}>Schließen</button>
           </div>
         </>)}
 
         {phase === 'error' && <>
           <p className="kicker pixel danger-text">das hat nicht geklappt</p>
-          <h1 className="pixel">{uninstalling ? 'entfernen gestoppt' : 'installation gestoppt'}</h1>
+          <h1 className="pixel">{uninstalling ? 'Entfernen gestoppt' : 'Installation gestoppt'}</h1>
           <div className="setup-alert" role="alert"><Warning size={18} weight="fill" />{error}</div>
           <div className="setup-actions">
             <button className="btn btn-accent pixel" onClick={() => run()} disabled={!info}><ArrowClockwise size={16} weight="bold" />erneut versuchen</button>

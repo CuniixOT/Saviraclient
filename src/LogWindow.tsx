@@ -23,8 +23,9 @@ export function LogWindow() {
   const [view, setView] = useState({ top: 0, height: 600 });
   const scroller = useRef<HTMLDivElement>(null);
 
-  const load = (state: { accent: string; session: GameSession | null }) => {
+  const load = (state: { accent: string; radius?: number; session: GameSession | null }) => {
     document.documentElement.style.setProperty('--accent', accentHex(state.accent as never));
+    document.documentElement.style.setProperty('--rk', String((state.radius ?? 12) / 12));
     setSession(state.session); setLines(state.session?.lines ?? []); setStats(state.session?.stats ?? { memory: 0, cpu: 0 }); setRunning(Boolean(state.session?.running)); setStarting(Boolean(state.session?.starting));
   };
   useEffect(() => {
@@ -98,7 +99,7 @@ export function LogWindow() {
       </section>
 
       <aside className="logwin-side">
-        <h2 className="pixel"><Monitor size={16} />instanz</h2>
+        <h2 className="pixel"><Monitor size={16} />Instanz</h2>
         {session && starting && !running && <div className="instance-card is-starting">
           <SkinHead skin={null} size={44} />
           <div><strong>{session.profile.name}</strong><small>{session.account || 'Unbekannt'} · wird gestartet …</small></div>

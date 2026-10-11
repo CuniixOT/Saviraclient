@@ -42,7 +42,7 @@ export function DebugPanel({ onNotice, onError }: { onNotice: (message: string) 
     </div>
 
     {files === null ? <div className="file-list">{[0, 1, 2].map(i => <div key={i} className="skeleton file-skeleton" />)}</div>
-      : files.length === 0 ? <div className="empty glass"><Bug size={34} weight="thin" /><h2 className="pixel">alles ruhig</h2><p>{current.empty}</p></div>
+      : files.length === 0 ? <div className="empty glass"><Bug size={34} weight="thin" /><h2 className="pixel">Alles ruhig</h2><p>{current.empty}</p></div>
       : <ul className="file-list glass">{files.map(file => <li key={file.path} className="file-row">
         <current.icon size={18} className="file-icon" />
         <div className="file-copy"><strong>{file.name}{file.instance && <span className="tag-plain"> · {file.instance}</span>}</strong><small title={file.path}>{file.path}</small></div>

@@ -60,7 +60,7 @@ export function UpdateChip({ updates, gameRunning }: { updates: Updates; gameRun
       <span className="pixel">{status.state === 'downloading' ? `${status.progress}%` : `update ${status.version}`}</span>
     </button>
     {open && <section className="update-menu glass" role="dialog" aria-label="Update">
-      <header><p className="kicker pixel">neue version</p><h2 className="pixel">savira {status.version}</h2>{status.date && <small>{day(status.date)}</small>}</header>
+      <header><p className="kicker pixel">neue version</p><h2 className="pixel">Savira {status.version}</h2>{status.date && <small>{day(status.date)}</small>}</header>
       {status.notes.length > 0 && <ul className="update-notes">{status.notes.map(note => <li key={note}><CheckCircle size={15} weight="fill" />{note}</li>)}</ul>}
       {updates.error && <p className="update-error" role="alert"><Warning size={15} weight="fill" />{updates.error}</p>}
       <UpdateAction updates={updates} gameRunning={gameRunning} />

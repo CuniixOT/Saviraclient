@@ -23,7 +23,7 @@ export const accentHex = (accent: Accent | undefined) => !accent ? accents.mint.
 export function Logo({ wordmark = true }: { wordmark?: boolean }) {
   return <span className="logo">
     <svg viewBox="0 0 16 16" aria-hidden="true" shapeRendering="crispEdges"><path d="M2 1h12v3H5v2h9v9H2v-3h9V9H2z" fill="currentColor" /></svg>
-    {wordmark && <span className="pixel">savira</span>}
+    {wordmark && <span className="pixel">Savira</span>}
   </span>;
 }
 

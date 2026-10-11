@@ -41,7 +41,7 @@ export function LauncherHome({ state, pending, locked, active, onLaunch, onProfi
     return () => { window.removeEventListener('mousedown', close); window.removeEventListener('keydown', close); };
   }, [picker]);
 
-  const label = pending === 'login' ? 'anmelden …' : loading ? `lädt ${progress}%` : phase === 'running' ? 'im spiel' : failed ? 'erneut' : state.account ? 'spielen' : 'anmelden';
+  const label = pending === 'login' ? 'Anmelden …' : loading ? `Lädt ${progress}%` : phase === 'running' ? 'Im Spiel' : failed ? 'Erneut' : state.account ? 'Spielen' : 'Anmelden';
 
   return <div className="home page-enter">
     <section className="stage" aria-label="Spiel starten">

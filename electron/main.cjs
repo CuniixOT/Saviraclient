@@ -13,6 +13,8 @@ const { createSession } = require('./gamesession.cjs');
 const { normalizeSkinUrl, validSkinPng } = require('./skin.cjs');
 const setup = require('./setup.cjs');
 const { createUpdater } = require('./updater.cjs');
+const { createAccountStore } = require('./accounts.cjs');
+const { createPresence } = require('./discord.cjs');
 const { existsSync } = require('node:fs');
 const packageInfo = require('../package.json');
 // Tests point the updater at a local server and their own key; releases use package.json.
@@ -23,6 +25,8 @@ const updateFeed = process.env.SAVIRA_UPDATE_FEED || packageInfo.saviraUpdate?.f
 // Discord invite for the in-game main menu; only real invite links are passed on.
 const DISCORD_INVITE = /^https:\/\/(discord\.gg|(www\.)?discord\.com\/invite)\/[A-Za-z0-9-]{2,32}$/;
 const discordUrl = () => DISCORD_INVITE.test(packageInfo.saviraLinks?.discord || '') ? packageInfo.saviraLinks.discord : '';
+// Rich Presence needs the id of a Discord application (Developer Portal → Applications).
+const discordClientId = /^\d{17,20}$/.test(packageInfo.saviraLinks?.discordClientId || '') ? packageInfo.saviraLinks.discordClientId : '';
 const updatePublicKey = process.env.SAVIRA_UPDATE_PUBLIC_KEY || packageInfo.saviraUpdate?.publicKey || '';
 const run = promisify(execFile);
 const SAVIRA_MC = '1.21.1';
@@ -31,18 +35,22 @@ app.setName('Savira');
 // Tests isolate their profile via this variable. It is inherited through updater → setup →
 // relaunch, so a test launcher never collides with a real Savira running on the same machine.
 if (process.env.SAVIRA_TEST_USER_DATA) app.setPath('userData', path.resolve(process.env.SAVIRA_TEST_USER_DATA));
-let win, logWin = null, settings = structuredClone(defaults), account = null, busy = false, loggingIn = false;
+let win, logWin = null, settings = structuredClone(defaults), account = null, accounts = [], busy = false, loggingIn = false;
+let store = null, presence = null, page = 'home';
+const launcherStarted = Date.now();
 // The running (or last) Minecraft process and its log buffer for the log window.
 let session = null, gameChild = null;
 let status = { phase: 'idle', message: 'Bereit, wenn du es bist.', progress: 0 };
 const root = () => app.getPath('userData');
 const selectedProfile = () => settings.profiles.find(profile => profile.id === settings.selectedProfileId) || settings.profiles[0];
 const instance = () => path.join(root(), 'instances', selectedProfile().id);
-const tokenPath = () => path.join(root(), 'account.bin');
-const skinPath = () => path.join(root(), 'skin.png');
+// Before 0.1.7 a single account lived in account.bin / skin.png; it is moved into the account store.
+const legacyTokenPath = () => path.join(root(), 'account.bin');
+const legacySkinPath = () => path.join(root(), 'skin.png');
 function publish(next) {
   status = { ...status, ...next };
   if (win && !win.isDestroyed()) win.webContents.send('status', status);
+  updatePresence();
 }
 async function atomicWrite(file, data) {
   await fs.mkdir(path.dirname(file), { recursive: true });
@@ -54,11 +62,8 @@ async function json(url) {
   if (!response.ok) throw new Error(`Download fehlgeschlagen (${response.status}). Bitte erneut versuchen.`);
   return response.json();
 }
-async function saveAccount(xbox) {
-  if (!safeStorage.isEncryptionAvailable()) throw new Error('Windows-Anmeldedatenschutz ist nicht verfügbar.');
-  await atomicWrite(tokenPath(), safeStorage.encryptString(xbox.save()));
-}
 async function cacheSkin(mc) {
+  const skinPath = store.skinPath(mc.profile.id.replace(/-/g, '').toLowerCase());
   let skins = mc.profile.skins || [];
   try {
     if (!skins.length && mc.mcToken) {
@@ -77,28 +82,55 @@ async function cacheSkin(mc) {
       if (length > 2_000_000) throw new Error('Skin-Datei ist zu groß.');
       const bytes = Buffer.from(await response.arrayBuffer());
       if (!validSkinPng(bytes)) throw new Error('Skin-Datei ist keine gültige PNG-Datei.');
-      await atomicWrite(skinPath(), bytes);
+      await atomicWrite(skinPath, bytes);
     }
   } catch (error) {
     console.warn('[Savira] Skin konnte nicht aktualisiert werden:', error instanceof Error ? error.message : 'Unbekannter Fehler');
   }
-  try {
-    const bytes = await fs.readFile(skinPath());
-    return `data:image/png;base64,${bytes.toString('base64')}`;
-  } catch { return null; }
 }
-async function publicAccount(mc) { return { name: mc.profile.name, uuid: mc.profile.id, skin: await cacheSkin(mc) }; }
-async function authenticate(interactive) {
+async function readSkin(uuid) {
+  try { return `data:image/png;base64,${(await fs.readFile(store.skinPath(uuid))).toString('base64')}`; } catch { return null; }
+}
+// Public view of the store for the renderer: never contains tokens.
+async function refreshAccounts() {
+  accounts = await Promise.all(store.list().map(async entry => ({ name: entry.name, uuid: entry.uuid, skin: await readSkin(entry.uuid) })));
+  const active = store.active();
+  account = active ? accounts.find(entry => entry.uuid === active.uuid) || null : null;
+  return { account, accounts };
+}
+// interactive: Microsoft window, adds or refreshes an account and makes it active.
+// Otherwise the active account's saved token is renewed (or the given legacy token).
+async function authenticate(interactive, legacyToken) {
+  if (!safeStorage.isEncryptionAvailable()) throw new Error('Windows-Anmeldedatenschutz ist nicht verfügbar.');
   const auth = new Auth('select_account');
+  const saved = interactive || legacyToken ? null : store.active();
+  if (!interactive && !legacyToken && !saved) throw new Error('Bitte zuerst mit Microsoft anmelden.');
   const xbox = interactive
     ? await auth.launch('electron', { width: 520, height: 700, parent: win, autoHideMenuBar: true, webPreferences: { nodeIntegration: false, contextIsolation: true } })
-    : await auth.refresh(safeStorage.decryptString(await fs.readFile(tokenPath())));
+    : await auth.refresh(legacyToken || saved.token);
   const mc = await xbox.getMinecraft();
   if (mc.isDemo()) throw new Error('Dieses Microsoft-Konto besitzt keine Minecraft Java Edition.');
-  await saveAccount(xbox);
-  account = await publicAccount(mc);
+  await store.upsert({ uuid: mc.profile.id, name: mc.profile.name, token: xbox.save() });
+  await cacheSkin(mc);
+  await refreshAccounts();
   log.info(`Angemeldet als ${account.name}${interactive ? ' (Microsoft-Fenster)' : ' (gespeicherte Sitzung)'}`);
   return mc;
+}
+const pageLabels = { home: 'Startseite', profiles: 'Profile', mods: 'Module', settings: 'Einstellungen', about: 'Über Savira' };
+const loaderLabel = loader => loader === 'savira' ? 'Savira Client' : 'Vanilla';
+// What Discord shows: the launcher page, or the profile and version being started or played.
+function updatePresence() {
+  if (!presence) return;
+  const playing = session && (status.phase === 'running' || status.phase === 'preparing' || status.phase === 'installing');
+  const profile = playing ? session.snapshot().profile : selectedProfile();
+  const assets = { large_image: 'https://raw.githubusercontent.com/CuniixOT/Saviraclient/main/public/icon.png', large_text: `Savira Client ${app.getVersion()}` };
+  if (status.phase === 'running' && session) {
+    presence.set({ details: `Spielt ${profile.name}`, state: `Minecraft ${profile.version} · ${loaderLabel(profile.loader)}`, timestamps: { start: session.snapshot().startedAt }, assets });
+  } else if (status.phase === 'preparing' || status.phase === 'installing') {
+    presence.set({ details: `Startet ${profile.name}`, state: `Minecraft ${profile.version} wird vorbereitet`, timestamps: { start: launcherStarted }, assets });
+  } else {
+    presence.set({ details: `Im Launcher · ${pageLabels[page] || 'Startseite'}`, state: `Profil: ${profile.name} (${profile.version})`, timestamps: { start: launcherStarted }, assets });
+  }
 }
 async function prepareFabric(gameRoot, minecraftVersion) {
   if (minecraftVersion !== SAVIRA_MC) throw new Error(`Der Savira-Mod unterstützt aktuell nur Minecraft ${SAVIRA_MC}. Wähle für andere Versionen Vanilla.`);
@@ -250,7 +282,7 @@ function sendToLogs(channel, payload) { if (logWin && !logWin.isDestroyed()) log
 function logsState() {
   const snapshot = session?.snapshot();
   // starting: Minecraft is still being prepared/downloaded; running: the Java process exists.
-  return { accent: settings.accent, session: snapshot ? { ...snapshot, running: snapshot.running && Boolean(gameChild), starting: snapshot.running && !gameChild } : null };
+  return { accent: settings.accent, radius: settings.radius, session: snapshot ? { ...snapshot, running: snapshot.running && Boolean(gameChild), starting: snapshot.running && !gameChild } : null };
 }
 function openLogWindow() {
   if (logWin && !logWin.isDestroyed()) { if (logWin.isMinimized()) logWin.restore(); logWin.show(); logWin.focus(); return; }
@@ -300,6 +332,7 @@ function startSetup(mode) {
     await loadRenderer(mode === 'setup' && process.argv.includes('--update') ? { mode, update: '1' } : { mode });
   });
   app.on('window-all-closed', () => app.quit());
+  app.on('before-quit', () => presence?.destroy());
 }
 const setupMode = setup.detectMode();
 if (setupMode === 'setup') app.setPath('userData', path.join(app.getPath('temp'), 'savira-setup'));
@@ -314,23 +347,35 @@ else {
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.webContents.on('will-navigate', event => event.preventDefault());
     win.on('closed', () => { if (logWin && !logWin.isDestroyed()) logWin.close(); });
-    handle('state', () => ({ settings, account, status, maxMemory, gameDirectory: instance(), version: app.getVersion() }));
+    handle('state', () => ({ settings, account, accounts, status, maxMemory, gameDirectory: instance(), version: app.getVersion() }));
     handle('save', async input => {
       if (busy) throw new Error('Einstellungen können nach dem Beenden von Minecraft geändert werden.');
       const next = validateSettings(input);
       await atomicWrite(path.join(root(), 'settings.json'), JSON.stringify(next, null, 2));
       settings = next;
+      presence?.setEnabled(settings.discordPresence);
+      updatePresence();
       return settings;
     });
     handle('login', async () => {
       if (loggingIn || busy) throw new Error('Ein Vorgang läuft bereits.');
       loggingIn = true;
-      try { await authenticate(true); return account; } catch (error) { log.warn('Anmeldung fehlgeschlagen', error); throw error; } finally { loggingIn = false; }
+      try { await authenticate(true); return { account, accounts }; } catch (error) { log.warn('Anmeldung fehlgeschlagen', error); throw error; } finally { loggingIn = false; }
     });
-    handle('logout', async () => {
+    // Switching only changes the active account; its token is renewed when the game starts.
+    handle('account-switch', async uuid => {
+      if (busy || loggingIn) throw new Error('Konten können nach dem Beenden von Minecraft gewechselt werden.');
+      const entry = await store.setActive(uuid);
+      log.info(`Konto gewechselt zu ${entry.name}`);
+      return refreshAccounts();
+    });
+    handle('logout', async uuid => {
       if (busy || loggingIn) throw new Error('Ein Vorgang läuft bereits.');
-      await Promise.all([fs.rm(tokenPath(), { force: true }), fs.rm(skinPath(), { force: true })]); account = null;
+      const target = uuid === undefined ? store.active()?.uuid : uuid;
+      if (target) await store.remove(target);
+      return refreshAccounts();
     });
+    handle('presence-page', next => { if (Object.hasOwn(pageLabels, next)) { page = next; updatePresence(); } });
     handle('launch', launch);
     handle('panorama', panorama);
     handle('folder', async () => { await fs.mkdir(instance(), { recursive: true }); const error = await shell.openPath(instance()); if (error) throw new Error(error); });
@@ -394,7 +439,22 @@ else {
     handle('update-download', () => updates.download());
     handle('update-cancel', () => updates.cancel());
     handle('update-install', () => updates.install());
-    try { if (safeStorage.isEncryptionAvailable() && existsSync(tokenPath())) await authenticate(false); } catch (error) { account = null; log.warn('Gespeicherte Anmeldung ungültig', error); }
+    store = createAccountStore({ dir: root(), encrypt: text => safeStorage.encryptString(text), decrypt: bytes => safeStorage.decryptString(bytes) });
+    presence = createPresence({ clientId: discordClientId, log: message => log.info(message) });
+    presence.setEnabled(settings.discordPresence);
+    updatePresence();
+    try {
+      if (safeStorage.isEncryptionAvailable()) {
+        await store.load();
+        if (existsSync(legacyTokenPath())) {
+          await authenticate(false, safeStorage.decryptString(await fs.readFile(legacyTokenPath())));
+          await Promise.all([fs.rm(legacyTokenPath(), { force: true }), fs.rm(legacySkinPath(), { force: true })]);
+        // The desktop smoke test seeds fake accounts; their tokens must not be sent to Microsoft.
+        } else if (store.active() && !process.argv.includes('--smoke-test')) await authenticate(false);
+      }
+    } catch (error) { log.warn('Gespeicherte Anmeldung ungültig', error); }
+    // Saved accounts stay listed even if renewing the token failed (e.g. offline).
+    if (store.list().length) await refreshAccounts().catch(() => {});
     await loadRenderer({});
     // Read the setting when the timer fires, so switching it on later takes effect without a restart.
     const autoCheck = () => { if (settings.autoUpdate) updates.check({ quiet: true }); };

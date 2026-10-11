@@ -31,7 +31,7 @@ export function ModsPage({ settings, locked, onSave }: Props) {
   const setHud = (next: Partial<Hud>, message?: string) => onSave({ ...settings, hud: { ...hud, ...next } }, message);
 
   return <div className="page page-enter">
-    <PageHeader kicker={`${activeCount} von ${modules.length} aktiv`} title="module">
+    <PageHeader kicker={`${activeCount} von ${modules.length} aktiv`} title="Module">
       <label className="select-field">HUD-Größe
         <select className="input" disabled={locked} value={hud.scale} onChange={e => setHud({ scale: Number(e.target.value) }, 'HUD-Größe gespeichert.')}>{[0.75, 1, 1.25, 1.5].map(n => <option key={n} value={n}>{n * 100} %</option>)}</select>
       </label>
@@ -56,7 +56,7 @@ export function ModsPage({ settings, locked, onSave }: Props) {
             <footer><span className="tag-plain">{m.tag}</span><Toggle value={on} disabled={locked} label={`${m.title} ${on ? 'deaktivieren' : 'aktivieren'}`} onChange={() => setHud({ [m.key]: !on })} /></footer>
           </article>;
         })}
-        {visible.length === 0 && <div className="empty glass"><SquaresFour size={34} weight="thin" /><h2 className="pixel">keine module</h2><p>{category === 'Aktiv' ? 'Noch kein Modul eingeschaltet. Wähle links „Alle“ und aktiviere deine Anzeigen.' : 'Nichts passt zu deiner Suche.'}</p><button className="btn" onClick={() => { setQuery(''); setCategory('Alle'); }}>Alle Module zeigen</button></div>}
+        {visible.length === 0 && <div className="empty glass"><SquaresFour size={34} weight="thin" /><h2 className="pixel">Keine Module</h2><p>{category === 'Aktiv' ? 'Noch kein Modul eingeschaltet. Wähle links „Alle“ und aktiviere deine Anzeigen.' : 'Nichts passt zu deiner Suche.'}</p><button className="btn" onClick={() => { setQuery(''); setCategory('Alle'); }}>Alle Module zeigen</button></div>}
         </div>
       </section>
     </div>

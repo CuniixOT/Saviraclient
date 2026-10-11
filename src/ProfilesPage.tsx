@@ -50,7 +50,7 @@ export function ProfilesPage({ settings, locked, onSave, onUse }: Props) {
   }
 
   return <div className="page page-enter">
-    <PageHeader kicker="instanzen" title="profile">
+    <PageHeader kicker="instanzen" title="Profile">
       <button className="btn btn-accent pixel" disabled={locked || settings.profiles.length >= 30} onClick={openCreator}><Plus size={16} weight="bold" />neues profil</button>
     </PageHeader>
 
@@ -76,12 +76,12 @@ export function ProfilesPage({ settings, locked, onSave, onUse }: Props) {
         </div>
       </article>;
     })}
-    {visible.length === 0 && <div className="empty glass"><Package size={34} weight="thin" /><h2 className="pixel">nichts gefunden</h2><p>Keine Profile passen zu „{query}“. Ändere die Suche oder lege ein neues Profil an.</p><button className="btn" onClick={() => { setQuery(''); setFilter('all'); }}>Filter zurücksetzen</button></div>}
+    {visible.length === 0 && <div className="empty glass"><Package size={34} weight="thin" /><h2 className="pixel">Nichts gefunden</h2><p>Keine Profile passen zu „{query}“. Ändere die Suche oder lege ein neues Profil an.</p><button className="btn" onClick={() => { setQuery(''); setFilter('all'); }}>Filter zurücksetzen</button></div>}
     </div>
 
     {creating && <div className="modal-backdrop" onMouseDown={() => setCreating(false)}>
       <section className="modal glass" role="dialog" aria-modal="true" aria-labelledby="profile-dialog-title" onMouseDown={event => event.stopPropagation()}>
-        <header className="modal-head"><div><p className="kicker pixel">schritt {step + 1} / 2</p><h2 id="profile-dialog-title" className="pixel">{step === 0 ? 'version wählen' : 'profil einrichten'}</h2></div><button className="btn btn-icon" aria-label="Dialog schließen" onClick={() => setCreating(false)}><X size={18} /></button></header>
+        <header className="modal-head"><div><p className="kicker pixel">schritt {step + 1} / 2</p><h2 id="profile-dialog-title" className="pixel">{step === 0 ? 'Version wählen' : 'Profil einrichten'}</h2></div><button className="btn btn-icon" aria-label="Dialog schließen" onClick={() => setCreating(false)}><X size={18} /></button></header>
         {step === 0 ? <>
           <div className="version-grid">{versions.map(item => <button className={version === item ? 'active' : ''} key={item} onClick={() => chooseVersion(item)}><strong className="pixel">{item}</strong><small>{item === '1.21.1' ? 'Savira verfügbar' : 'Release'}</small>{version === item && <Check size={14} weight="bold" />}</button>)}</div>
           <footer className="modal-foot"><span>Minecraft {version}</span><button className="btn btn-accent pixel" onClick={() => setStep(1)}>weiter <ArrowRight size={15} /></button></footer>

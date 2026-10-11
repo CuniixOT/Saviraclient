@@ -15,7 +15,7 @@ const accentRgb = value => isCustomAccent(value) ? parseInt(value.slice(1), 16) 
 const backgrounds = ['panorama', 'particles', 'plain', 'grid', 'aurora', 'stars', 'glyphs', 'waves', 'blocks'];
 const defaults = {
   memory: Math.min(4, maxMemory), javaPath: 'java', selectedProfileId: defaultProfiles[0].id, profiles: defaultProfiles, fullscreen: false,
-  accent: 'mint', background: 'panorama', autoUpdate: true, animations: true, hideOnLaunch: false, logsOnLaunch: false,
+  accent: 'mint', background: 'panorama', autoUpdate: true, animations: true, hideOnLaunch: false, logsOnLaunch: false, discordPresence: true, radius: 12,
   hud: { fps: true, cps: true, keystrokes: true, coordinates: false, ping: true, armor: true, potions: true, sprint: true, zoom: false, ram: true, scale: 1 }
 };
 function validateProfile(profile) {
@@ -49,10 +49,13 @@ function validateSettings(input) {
   if (typeof accent !== 'string' || !(Object.hasOwn(accents, accent) || isCustomAccent(accent))) throw new Error('Unbekannte Akzentfarbe.');
   if (!backgrounds.includes(background)) throw new Error('Unbekannter Hintergrund.');
   const flags = {};
-  for (const key of ['autoUpdate', 'animations', 'hideOnLaunch', 'logsOnLaunch']) {
+  for (const key of ['autoUpdate', 'animations', 'hideOnLaunch', 'logsOnLaunch', 'discordPresence']) {
     flags[key] = input[key] ?? defaults[key];
     if (typeof flags[key] !== 'boolean') throw new Error(`Ungültige Einstellung: ${key}`);
   }
+  // Corner radius of the launcher UI in pixels; the Minecraft mod has its own per-module setting.
+  const radius = input.radius ?? defaults.radius;
+  if (!Number.isInteger(radius) || radius < 0 || radius > 20) throw new Error('Der Eckenradius muss zwischen 0 und 20 px liegen.');
   const hud = {};
   for (const key of ['fps', 'cps', 'keystrokes', 'coordinates', 'ping', 'armor', 'potions', 'sprint', 'zoom', 'ram']) {
     if (typeof input.hud?.[key] !== 'boolean') throw new Error(`Ungültige HUD-Einstellung: ${key}`);
@@ -60,6 +63,6 @@ function validateSettings(input) {
   }
   if (![0.75, 1, 1.25, 1.5].includes(input.hud.scale)) throw new Error('Ungültige HUD-Größe.');
   hud.scale = input.hud.scale;
-  return { memory: input.memory, javaPath: input.javaPath.trim(), selectedProfileId, profiles, fullscreen: input.fullscreen, accent: isCustomAccent(accent) ? accent.toLowerCase() : accent, background, ...flags, hud };
+  return { memory: input.memory, javaPath: input.javaPath.trim(), selectedProfileId, profiles, fullscreen: input.fullscreen, accent: isCustomAccent(accent) ? accent.toLowerCase() : accent, background, ...flags, radius, hud };
 }
 module.exports = { accents, accentRgb, defaults, maxMemory, validateSettings, validateProfile };

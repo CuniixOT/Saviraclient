@@ -43,3 +43,12 @@ test('validates launcher behaviour switches', () => {
   assert.deepEqual([result.hideOnLaunch, result.logsOnLaunch, result.animations], [true, true, false]);
   for (const key of ['hideOnLaunch', 'logsOnLaunch', 'animations']) assert.throws(() => validateSettings({ ...defaults, [key]: 'yes' }));
 });
+test('validates the launcher corner radius and Discord presence', () => {
+  const { radius, discordPresence, ...older } = defaults;
+  assert.deepEqual([validateSettings(older).radius, validateSettings(older).discordPresence], [12, true]);
+  assert.equal(validateSettings({ ...defaults, radius: 0 }).radius, 0);
+  assert.equal(validateSettings({ ...defaults, radius: 20 }).radius, 20);
+  for (const value of [-1, 21, 4.5, '8']) assert.throws(() => validateSettings({ ...defaults, radius: value }));
+  assert.equal(validateSettings({ ...defaults, discordPresence: false }).discordPresence, false);
+  assert.throws(() => validateSettings({ ...defaults, discordPresence: 'on' }));
+});
