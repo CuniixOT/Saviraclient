@@ -3,7 +3,7 @@
 Jede Zeile, die mit "- " beginnt, erscheint im Update-Hinweis des Launchers.
 Vor jedem Release anpassen, dann Version erhöhen und pushen.
 
-- Mehrere Minecraft-Konten: hinzufügen, per Klick wechseln und entfernen
-- Discord-Präsenz zeigt, was du im Launcher machst und welches Profil du spielst (abschaltbar)
-- Eckenradius des Launchers von 0 bis 20 px einstellbar, mit Live-Vorschau
-- Titel, Logo und der Spielen-Button beginnen jetzt mit Großbuchstaben
+- Neues Savira-Logo im Launcher, im Spiel, als Desktop-Symbol und in Discord
+- Sechs neue Hintergrundeffekte: Waben, Netzwerk, Glühwürmchen, Schnee, Regen und Glut
+- Emotes für die Spielerfigur: Winken, Jubeln, Tanzen, Klatschen, Drehen, Nachdenken oder Zufällig (abschaltbar)
+- News auf der Startseite mit eigenen Bildern zu den letzten Updates

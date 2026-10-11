@@ -22,7 +22,8 @@ export const accentHex = (accent: Accent | undefined) => !accent ? accents.mint.
 
 export function Logo({ wordmark = true }: { wordmark?: boolean }) {
   return <span className="logo">
-    <svg viewBox="0 0 16 16" aria-hidden="true" shapeRendering="crispEdges"><path d="M2 1h12v3H5v2h9v9H2v-3h9V9H2z" fill="currentColor" /></svg>
+    {/* The mark is a white mask (branding/, see scripts/brand-icons.cjs) filled with the accent colour. */}
+    <span className="logo-mark" aria-hidden="true"><i /></span>
     {wordmark && <span className="pixel">Savira</span>}
   </span>;
 }

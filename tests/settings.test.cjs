@@ -52,3 +52,11 @@ test('validates the launcher corner radius and Discord presence', () => {
   assert.equal(validateSettings({ ...defaults, discordPresence: false }).discordPresence, false);
   assert.throws(() => validateSettings({ ...defaults, discordPresence: 'on' }));
 });
+test('validates the new background effects and player emotes', () => {
+  for (const background of ['snow', 'rain', 'fireflies', 'hexgrid', 'network', 'embers']) assert.equal(validateSettings({ ...defaults, background }).background, background);
+  const { emotes, emote, ...older } = defaults;
+  assert.deepEqual([validateSettings(older).emotes, validateSettings(older).emote], [false, 'wave']);
+  for (const value of ['wave', 'cheer', 'dance', 'clap', 'spin', 'think', 'random']) assert.equal(validateSettings({ ...defaults, emotes: true, emote: value }).emote, value);
+  assert.throws(() => validateSettings({ ...defaults, emote: 'dab' }));
+  assert.throws(() => validateSettings({ ...defaults, emotes: 'yes' }));
+});

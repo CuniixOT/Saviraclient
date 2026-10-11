@@ -94,6 +94,23 @@ try {
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('ArrowRight');
   await expect.poll(() => cornerOf('.panel')).toBe('3px');
+  // New background effects and the player emotes.
+  await page.getByRole('tab', { name: 'hintergrund' }).click();
+  await expect(page.getByRole('radio', { name: /Waben/ })).toBeVisible();
+  await page.getByRole('radio', { name: /Waben/ }).click();
+  await expect(page.locator('.backdrop-hexgrid canvas')).toHaveCount(1);
+  await expect(page.getByRole('radio', { name: /Tanzen/ })).toBeDisabled();
+  await page.getByRole('switch', { name: 'Emotes abspielen' }).click();
+  await page.getByRole('radio', { name: /Tanzen/ }).click();
+  await expect(page.getByRole('radio', { name: /Tanzen/ })).toHaveAttribute('aria-checked', 'true');
+  await page.waitForTimeout(400);
+  await page.getByRole('heading', { name: 'Spielerfigur' }).scrollIntoViewIfNeeded();
+  await shot('background-emotes');
+  await page.getByRole('button', { name: 'Spielen', exact: true }).click();
+  await page.waitForTimeout(2600);
+  await shot('emote-dance');
+  await page.getByRole('button', { name: 'Einstellungen', exact: true }).click();
+  await page.getByRole('tab', { name: 'allgemein' }).click();
   const invalid = await page.evaluate(async () => {
     const result = await window.savira.state();
     return window.savira.save({ ...result.data.settings, profiles: [{ ...result.data.settings.profiles[0], id: '../escape' }], selectedProfileId: '../escape' });
@@ -143,6 +160,8 @@ try {
   expect(persisted.data.settings.logsOnLaunch).toBe(true);
   expect(persisted.data.settings.hud.coordinates).toBe(true);
   expect(persisted.data.settings.radius).toBe(2);
+  expect(persisted.data.settings.background).toBe('hexgrid');
+  expect([persisted.data.settings.emotes, persisted.data.settings.emote]).toEqual([true, 'dance']);
   expect(persisted.data.settings.discordPresence).toBe(false);
   expect(persisted.data.accounts.map(account => account.name)).toEqual(['Zweitkonto']);
   expect(persisted.data.account.name).toBe('Zweitkonto');

@@ -133,7 +133,7 @@ export function App() {
     <main id="main" className="content" tabIndex={-1}>
       {error && <div className="alert glass" role="alert"><Info size={18} weight="fill" /><span>{error}</span><button className="btn btn-icon" aria-label="Meldung schließen" onClick={() => setError('')}><X size={16} /></button></div>}
       {!state ? <div className="loading" aria-busy="true"><div className="skeleton stage-skeleton" /><div className="skeleton news-skeleton" />{error && <button className="btn" onClick={() => location.reload()}>Erneut laden</button>}</div> : <>
-        {page === 'home' && <LauncherHome state={state} pending={pending} locked={locked} active={active} onProfiles={() => setPage('profiles')} onFolder={openFolder} onLogs={() => unwrap(logsApi.open()).catch(e => setError(e.message))} panorama={panorama}
+        {page === 'home' && <LauncherHome state={state} pending={pending} locked={locked} active={active} onProfiles={() => setPage('profiles')} onFolder={openFolder} onLogs={() => unwrap(logsApi.open()).catch(e => setError(e.message))}
           onLaunch={() => state.account ? action('launch', async () => { await unwrap(api.launch()); }) : login()}
           onProfile={selectedProfileId => save({ ...state.settings, selectedProfileId }, 'Profil gewechselt.')} />}
         {page === 'profiles' && <ProfilesPage settings={state.settings} locked={locked} onSave={async (next, message) => save(next, message)} onUse={launchProfile} />}

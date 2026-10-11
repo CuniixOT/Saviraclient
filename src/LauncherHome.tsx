@@ -2,6 +2,7 @@ import { ArrowClockwise, ArrowRight, CaretUp, Check, CheckCircle, Cube, FolderOp
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { SkinStage } from './SkinStage';
 import type { State } from './api';
+import { NewsArt, type NewsArtKind } from './NewsArt';
 
 type Props = {
   state: State;
@@ -13,16 +14,15 @@ type Props = {
   onProfiles: () => void;
   onFolder: () => void;
   onLogs: () => void;
-  panorama: string[] | null;
 };
 
-const news = [
-  { kicker: 'HUD Studio', date: '28. Sep', title: 'Dein HUD sitzt jetzt pixelgenau.', body: 'Module im Spiel verschieben, skalieren und einrasten lassen.', crop: '18%' },
-  { kicker: 'Launcher', date: '19. Sep', title: 'Neuer Look, gleiche Leistung.', body: 'Akzentfarben, Panorama-Hintergrund und eine neue Startseite.', crop: '56%' },
-  { kicker: 'Module', date: '07. Sep', title: 'Zoom, Effekte und RAM im Blick.', body: 'Drei neue Anzeigen im Savira-Profil, einzeln schaltbar.', crop: '84%' }
+const news: { kicker: string; date: string; title: string; body: string; art: NewsArtKind }[] = [
+  { kicker: 'Savira', date: '12. Okt', title: 'Neues Logo, neues Gesicht.', body: 'Im Launcher, im Spiel, auf dem Desktop und in Discord.', art: 'brand' },
+  { kicker: 'Launcher', date: '11. Okt', title: 'Mehrere Konten und Discord.', body: 'Konten per Klick wechseln, dazu Discord-Präsenz und eigener Eckenradius.', art: 'accounts' },
+  { kicker: 'Mod-Menü', date: '07. Okt', title: 'Jedes HUD-Element nach deinem Stil.', body: 'Hintergrund, Farben und Text für jede Anzeige direkt im Spiel einstellen.', art: 'modmenu' }
 ];
 
-export function LauncherHome({ state, pending, locked, active, onLaunch, onProfile, onProfiles, onFolder, onLogs, panorama }: Props) {
+export function LauncherHome({ state, pending, locked, active, onLaunch, onProfile, onProfiles, onFolder, onLogs }: Props) {
   const [picker, setPicker] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
   const name = state.account?.name || 'Steve';
@@ -45,7 +45,7 @@ export function LauncherHome({ state, pending, locked, active, onLaunch, onProfi
 
   return <div className="home page-enter">
     <section className="stage" aria-label="Spiel starten">
-      <SkinStage skin={state.account?.skin || null} name={name} paused={phase === 'running'} />
+      <SkinStage skin={state.account?.skin || null} name={name} paused={phase === 'running'} emote={state.settings.emotes ? state.settings.emote : null} />
 
       <div className="launch-area">
         {failed && <div className="launch-error" role="alert"><Warning size={18} weight="fill" /><p>{state.status.message}</p></div>}
@@ -85,8 +85,8 @@ export function LauncherHome({ state, pending, locked, active, onLaunch, onProfi
 
     <aside className="news glass" aria-label="Neuigkeiten">
       <header><span className="pixel"><Newspaper size={16} /> news</span></header>
-      <div className="news-list">{news.map((item, index) => <article className="news-card" key={item.title} style={{ '--crop': item.crop, '--i': index, '--zoom': panorama ? 1 : 1.5 + index * .3 } as CSSProperties}>
-        <div className="news-art"><img src={panorama?.[index + 1] || './landscape.svg'} alt="" /></div>
+      <div className="news-list">{news.map((item, index) => <article className="news-card" key={item.title} style={{ '--i': index } as CSSProperties}>
+        <div className="news-art"><NewsArt kind={item.art} /></div>
         <div><p><span>{item.kicker}</span>{item.date}</p><h2>{item.title}</h2><small>{item.body}</small></div>
       </article>)}</div>
     </aside>

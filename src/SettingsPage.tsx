@@ -1,6 +1,6 @@
-import { ArrowCounterClockwise, BoundingBox, Check, Eyedropper, FolderOpen, GameController, Palette, Sparkle, ToggleLeft } from '@phosphor-icons/react';
+import { ArrowCounterClockwise, ArrowsClockwise, BoundingBox, Check, Confetti, Eyedropper, FolderOpen, GameController, HandsClapping, HandWaving, Lightbulb, MusicNotes, Palette, PersonSimple, Shuffle, Sparkle, ToggleLeft } from '@phosphor-icons/react';
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
-import { isDesktop, type AccentPreset, type BackgroundMode, type Settings, type State } from './api';
+import { isDesktop, type AccentPreset, type BackgroundMode, type Emote, type Settings, type State } from './api';
 import { PageHeader, Toggle, accentHex, accents, isCustomAccent } from './ui';
 import { BackgroundPreview } from './Background';
 import { UpdatePanel, type useUpdates } from './Update';
@@ -33,6 +33,12 @@ const backgrounds: { id: BackgroundMode; label: string; detail: string }[] = [
   { id: 'blocks', label: 'Blöcke', detail: 'Schwebende Pixel-Würfel' },
   { id: 'waves', label: 'Wellen', detail: 'Fließende Linien' },
   { id: 'particles', label: 'Partikel', detail: 'Aufsteigende Pixel' },
+  { id: 'hexgrid', label: 'Waben', detail: 'Sechsecke wie im Savira-Logo, von Lichtwellen durchzogen' },
+  { id: 'network', label: 'Netzwerk', detail: 'Verbundene Punkte wie ein Sternbild' },
+  { id: 'fireflies', label: 'Glühwürmchen', detail: 'Sanft leuchtende Lichter' },
+  { id: 'snow', label: 'Schnee', detail: 'Rieselnde Pixel-Flocken' },
+  { id: 'rain', label: 'Regen', detail: 'Schräger Regen mit Spritzern' },
+  { id: 'embers', label: 'Glut', detail: 'Aufsteigende Funken wie im Nether' },
   { id: 'plain', label: 'Schlicht', detail: 'Ruhiger Farbverlauf' }
 ];
 const switches: { key: 'autoUpdate' | 'hideOnLaunch' | 'logsOnLaunch' | 'discordPresence'; label: string; help: string; on: string; off: string }[] = [
@@ -40,6 +46,15 @@ const switches: { key: 'autoUpdate' | 'hideOnLaunch' | 'logsOnLaunch' | 'discord
   { key: 'hideOnLaunch', label: 'Fenster beim Start ausblenden', help: 'Der Launcher verschwindet, solange Minecraft läuft, und kommt danach zurück.', on: 'Launcher wird beim Spielstart ausgeblendet.', off: 'Launcher bleibt beim Spielstart sichtbar.' },
   { key: 'discordPresence', label: 'Discord-Präsenz', help: 'Zeigt in deinem Discord-Profil, was du im Launcher machst und welches Profil und welche Version du spielst.', on: 'Discord-Präsenz an.', off: 'Discord-Präsenz aus.' },
   { key: 'logsOnLaunch', label: 'Logs nach Start öffnen', help: 'Öffnet beim Spielstart automatisch das Log-Fenster. Nützlich zur Fehlersuche.', on: 'Log-Fenster öffnet sich beim Spielstart.', off: 'Log-Fenster öffnet sich nicht mehr automatisch.' }
+];
+const emotes: { id: Emote; label: string; detail: string; icon: typeof HandWaving }[] = [
+  { id: 'wave', label: 'Winken', detail: 'Hebt die Hand und winkt dir zu', icon: HandWaving },
+  { id: 'cheer', label: 'Jubeln', detail: 'Beide Arme hoch, kleine Sprünge', icon: Confetti },
+  { id: 'dance', label: 'Tanzen', detail: 'Arme und Beine im Takt', icon: MusicNotes },
+  { id: 'clap', label: 'Klatschen', detail: 'Applaus für deinen Sieg', icon: HandsClapping },
+  { id: 'spin', label: 'Drehen', detail: 'Eine Pirouette mit Sprung', icon: ArrowsClockwise },
+  { id: 'think', label: 'Nachdenken', detail: 'Hand ans Kinn, Kopf geneigt', icon: Lightbulb },
+  { id: 'random', label: 'Zufällig', detail: 'Jedes Mal ein anderes Emote', icon: Shuffle }
 ];
 const readTab = (): Tab => { try { const t = localStorage.getItem('savira-settings-tab'); return tabs.some(x => x.id === t) ? t as Tab : 'general'; } catch { return 'general'; } };
 
@@ -124,6 +139,16 @@ export function SettingsPage({ state, locked, pending, onSave, onPickJava, onFol
           <span className={`bg-thumb thumb-${item.id}`} aria-hidden="true">{item.id === 'panorama' && <img src="./landscape.svg" alt="" />}<BackgroundPreview mode={item.id} accent={accent} />{settings.background === item.id && <i className="thumb-check"><Check size={12} weight="bold" /></i>}</span>
           <strong>{item.label}</strong><small>{item.detail}</small>
         </button>)}</div>
+      </section>
+
+      <section className="panel glass">
+        <header className="panel-head"><PersonSimple size={20} /><div><h2>Spielerfigur</h2><p>Was deine Figur auf der Startseite macht. Ohne Emotes steht sie ruhig da und schaut dem Mauszeiger nach.</p></div>
+          <div className="panel-head-side"><span>Emotes</span><Toggle label="Emotes abspielen" disabled={locked} value={settings.emotes} onChange={() => onSave({ ...settings, emotes: !settings.emotes }, settings.emotes ? 'Emotes aus: Die Figur beobachtet nur noch.' : `Emotes an: ${emotes.find(item => item.id === settings.emote)?.label}.`)} /></div>
+        </header>
+        <div className={`choice-grid emote-choices ${settings.emotes ? '' : 'is-off'}`} role="radiogroup" aria-label="Emote" aria-disabled={!settings.emotes}>{emotes.map(item => <button key={item.id} role="radio" aria-checked={settings.emote === item.id} disabled={locked || !settings.emotes} className={settings.emote === item.id ? 'active' : ''} onClick={() => onSave({ ...settings, emote: item.id }, `Emote: ${item.label}.`)}>
+          <item.icon size={22} weight={settings.emote === item.id ? 'fill' : 'regular'} /><strong>{item.label}</strong><small>{item.detail}</small>
+        </button>)}</div>
+        {!settings.emotes && <p className="emote-hint">Schalte „Emotes“ oben rechts ein, um eines auszuwählen.</p>}
       </section>
     </div>}
 

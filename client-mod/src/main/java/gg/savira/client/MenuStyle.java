@@ -1,11 +1,13 @@
 package gg.savira.client;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 
 public final class MenuStyle {
     public static final int TEXT = 0xFFEEF1F4, MUTED = 0xFF8A939D, ON_ACCENT = 0xFF0B0D10;
@@ -152,12 +154,26 @@ public final class MenuStyle {
         };
     }
 
-    /** The Savira pixel "S" (same shape as the launcher logo) on a 16-unit grid. */
+    private static final Identifier LOGO = Identifier.of("savira", "textures/gui/logo.png");
+    private static final int LOGO_SIZE = 128;
+
+    /** The Savira mark (same as the launcher logo) in a 16-unit box; it fills units 1–15. */
     public static void logo(DrawContext c, int x, int y, int unit, int color) { logo(c, x, y, unit, color, true); }
     public static void logo(DrawContext c, int x, int y, int unit, int color, boolean shadow) {
-        int[][] rects = {{2, 1, 14, 4}, {2, 4, 5, 6}, {2, 6, 14, 9}, {11, 9, 14, 12}, {2, 12, 14, 15}};
-        int dark = shade(color, .58f);
-        if (shadow) for (int[] r : rects) c.fill(x + r[0] * unit, y + r[1] * unit + unit, x + r[2] * unit, y + r[3] * unit + unit, dark);
-        for (int[] r : rects) c.fill(x + r[0] * unit, y + r[1] * unit, x + r[2] * unit, y + r[3] * unit, color);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        if (shadow) logoTinted(c, x, y + unit, unit, shade(color, .58f));
+        logoTinted(c, x, y, unit, color);
+        c.setShaderColor(1f, 1f, 1f, 1f);
+    }
+    // The texture is a white mask, so the shader colour paints it in any colour.
+    private static void logoTinted(DrawContext c, int x, int y, int unit, int color) {
+        c.setShaderColor((color >> 16 & 0xFF) / 255f, (color >> 8 & 0xFF) / 255f, (color & 0xFF) / 255f, (color >>> 24) / 255f);
+        c.getMatrices().push();
+        c.getMatrices().translate(x + unit, y + unit, 0);
+        float scale = 14f * unit / LOGO_SIZE;
+        c.getMatrices().scale(scale, scale, 1f);
+        c.drawTexture(LOGO, 0, 0, 0, 0, LOGO_SIZE, LOGO_SIZE, LOGO_SIZE, LOGO_SIZE);
+        c.getMatrices().pop();
     }
 }

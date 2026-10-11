@@ -6,6 +6,7 @@
   "description": "Dein Spiel. Dein Client. Konfigurierbares PvP-HUD für Minecraft.",
   "authors": ["Savira"],
   "license": "MIT",
+  "icon": "assets/savira/icon.png",
   "environment": "client",
   "entrypoints": { "client": ["gg.savira.client.SaviraClient"] },
   "mixins": ["savira.mixins.json"],

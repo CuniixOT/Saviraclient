@@ -1,37 +1,10 @@
 import { deflateSync } from 'node:zlib';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const size = 256;
-// Same pixel "S" as the launcher logo (src/ui.tsx), on a 16-unit grid.
-const polygon = [[2, 1], [14, 1], [14, 4], [5, 4], [5, 6], [14, 6], [14, 15], [2, 15], [2, 12], [11, 12], [11, 9], [2, 9]];
-function inside(x, y) {
-  let hit = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const [xi, yi] = polygon[i], [xj, yj] = polygon[j];
-    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) hit = !hit;
-  }
-  return hit;
-}
-const accent = [92, 207, 149], accentDark = [57, 128, 92], tile = [18, 22, 27], tileTop = [30, 36, 43];
-const unit = 10, originX = 128 - 8 * unit, originY = 128 - 8 * unit - 3;
-const glyph = (x, y) => inside((x - originX) / unit, (y - originY) / unit);
-const data = Buffer.alloc((size * 4 + 1) * size);
-for (let y = 0; y < size; y++) {
-  for (let x = 0; x < size; x++) {
-    const offset = y * (size * 4 + 1) + 1 + x * 4;
-    // Rounded tile with a lighter top edge, like the launcher's raised buttons.
-    const r = 44, dx = Math.max(0, r + 8 - x, x - (size - 9 - r)), dy = Math.max(0, r + 8 - y, y - (size - 9 - r));
-    const inTile = dx * dx + dy * dy <= r * r;
-    let color = y < 22 ? tileTop : tile;
-    if (glyph(x + .5, y + .5)) color = accent;
-    else if (glyph(x + .5, y + .5 - 7)) color = accentDark;
-    for (let c = 0; c < 3; c++) data[offset + c] = color[c];
-    data[offset + 3] = inTile ? 255 : 0;
-  }
-}
+// App icons come from branding/ via scripts/brand-icons.cjs (npm run icons); this only draws the default skin.
 function crc32(bytes) {
   let crc = 0xffffffff;
   for (const byte of bytes) { crc ^= byte; for (let i = 0; i < 8; i++) crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0); }
@@ -42,16 +15,6 @@ function chunk(name, bytes) {
   length.writeUInt32BE(bytes.length); crc.writeUInt32BE(crc32(Buffer.concat([type, bytes])));
   return Buffer.concat([length, type, bytes, crc]);
 }
-const ihdr = Buffer.alloc(13);
-ihdr.writeUInt32BE(size, 0); ihdr.writeUInt32BE(size, 4); ihdr[8] = 8; ihdr[9] = 6;
-const png = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(data)), chunk('IEND', Buffer.alloc(0))]);
-const header = Buffer.alloc(22);
-header.writeUInt16LE(1, 2); header.writeUInt16LE(1, 4); header.writeUInt16LE(1, 10); header.writeUInt16LE(32, 12); header.writeUInt32LE(png.length, 14); header.writeUInt32LE(22, 18);
-await mkdir(path.join(root, 'build'), { recursive: true });
-await writeFile(path.join(root, 'public/icon.png'), png);
-await writeFile(path.join(root, 'build/icon.ico'), Buffer.concat([header, png]));
-
-
 const skinSize = 64;
 const skin = Buffer.alloc((skinSize * 4 + 1) * skinSize);
 function skinRect(x, y, w, h, color) {
@@ -76,4 +39,4 @@ skinRect(36,60,4,4,face); skinRect(44,60,4,4,face);
 const skinHeader = Buffer.alloc(13); skinHeader.writeUInt32BE(skinSize, 0); skinHeader.writeUInt32BE(skinSize, 4); skinHeader[8] = 8; skinHeader[9] = 6;
 const skinPng = Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]), chunk('IHDR', skinHeader), chunk('IDAT', deflateSync(skin)), chunk('IEND', Buffer.alloc(0))]);
 await writeFile(path.join(root, 'public/default-skin.png'), skinPng);
-console.log('Savira-App-Icon und Standard-Skin erstellt.');
+console.log('Savira-Standard-Skin erstellt.');
