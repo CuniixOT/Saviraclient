@@ -5,6 +5,8 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+import { readFile } from 'node:fs/promises';
 
 // Uses Minecraft's official demo mode, never a real account or a multiplayer login.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -24,6 +26,21 @@ else await rm(fixture, { force: true });
 const capeFixture = path.join(game, 'config', 'savira-cape.png');
 if (menuTest) { await mkdir(path.dirname(capeFixture), { recursive: true }); await copyFile(path.join(root, 'client-mod/src/menuTest/resources/test-cape.png'), capeFixture); }
 else await rm(capeFixture, { force: true });
+// Real panoramas of earlier updates, fetched from Mojang like the launcher does, for the menu picker.
+if (menuTest) {
+  const { createPanoramaStore } = createRequire(import.meta.url)('../electron/panoramas.cjs');
+  const store = createPanoramaStore({
+    dir: path.join(root, '.tools', 'panoramas'),
+    fetchJson: async url => { const r = await fetch(url); if (!r.ok) throw new Error(String(r.status)); return r.json(); },
+    fetchBytes: async url => { const r = await fetch(url); if (!r.ok) throw new Error(String(r.status)); return Buffer.from(await r.arrayBuffer()); }
+  });
+  const list = await store.ensure();
+  console.log(`Panoramen für den Test: ${list.map(p => p.label).join(', ')}`);
+  const configFile = path.join(game, 'config', 'savira.json');
+  let config = {};
+  try { config = JSON.parse(await readFile(configFile, 'utf8')); } catch { /* First run. */ }
+  await writeFile(configFile, JSON.stringify({ ...config, panoramaDir: store.dir, menuBackground: 'current' }, null, 2));
+}
 const versionsResponse = await fetch('https://api.modrinth.com/v2/project/fabric-api/version?loaders=%5B%22fabric%22%5D&game_versions=%5B%221.21.1%22%5D');
 if (!versionsResponse.ok) throw new Error('Fabric API metadata unavailable');
 const versions = await versionsResponse.json();
@@ -46,7 +63,7 @@ try {
     root: game, javaPath: 'java', demo: true,
     authorization: { name: 'SaviraDemo', uuid: '00000000000000000000000000000000', access_token: '0', meta: {} },
     version: { number: '1.21.1', custom: id }, memory: { min: '1G', max: '3G' },
-    window: { width: 960, height: 600, fullscreen: false }
+    window: menuTest ? { width: 1600, height: 900, fullscreen: false } : { width: 960, height: 600, fullscreen: false }
   });
   let exited = false;
   processHandle.on('exit', () => { exited = true; });

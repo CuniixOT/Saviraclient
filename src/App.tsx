@@ -11,6 +11,7 @@ import { SkinsPage } from './SkinsPage';
 import { CapesPage } from './CapesPage';
 import { Logo, SkinHead, accentHex } from './ui';
 import { UpdateChip, useUpdates } from './Update';
+import { CoinsChip } from './Coins';
 
 type Page = 'home' | 'profiles' | 'skins' | 'capes' | 'mods' | 'settings' | 'about';
 const nav: { id: Page; label: string; icon: typeof Play }[] = [
@@ -102,6 +103,8 @@ export function App() {
       <div className="topbar-brand"><Logo /><span className="chip">v{state?.version || '0.1.0'}</span>{!isDesktop && <span className="chip chip-warn">Browser-Vorschau</span>}</div>
       <div className="topbar-right">
         <UpdateChip updates={updates} gameRunning={active} />
+        {/* The balance comes with the Savira server and shop; until then it is 0. */}
+        <CoinsChip balance={0} />
         <div className="account" ref={accountRef}>
           <button className="account-chip" aria-haspopup="dialog" aria-expanded={accountOpen} onClick={() => setAccountOpen(open => !open)}>
             <SkinHead skin={state?.account?.skin || null} size={26} />

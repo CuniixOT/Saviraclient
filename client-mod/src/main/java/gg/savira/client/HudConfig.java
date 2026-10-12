@@ -34,6 +34,10 @@ public final class HudConfig {
     public boolean customTitleScreen = true;
     /** Written by the launcher: wear config/savira-cape.png as this player's cape. */
     public boolean customCape = false;
+    /** Main menu panorama: "current" (this version) or the id of an earlier update's panorama. */
+    public String menuBackground = "current";
+    /** Written by the launcher: folder with the panoramas it downloaded from Mojang. */
+    public String panoramaDir = "";
     /** Discord invite written by the launcher; only discord.gg / discord.com links are used. */
     public String discordUrl = "";
     /** Launcher version for the main menu footer; the jar keeps its own fixed version. */

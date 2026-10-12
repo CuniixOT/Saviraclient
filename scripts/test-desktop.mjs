@@ -246,6 +246,11 @@ try {
 
   await page.getByRole('button', { name: 'Über Savira' }).click();
   await expect(page.getByRole('heading', { name: 'über savira' })).toBeVisible();
+  // Savira Coins: chip left of the account, card with balance and the coming shop.
+  await page.getByRole('button', { name: 'Savira Coins: 0' }).click();
+  await expect(page.getByRole('dialog', { name: 'Savira Coins' })).toContainText('Cosmetics');
+  await shot('coins');
+  await page.keyboard.press('Escape');
   await page.locator('.account-chip').click();
   await expect(page.getByRole('dialog', { name: 'Minecraft-Konten' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'mit microsoft anmelden' })).toBeVisible();

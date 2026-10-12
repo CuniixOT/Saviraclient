@@ -49,6 +49,22 @@ public final class MenuSmokeTest implements ClientModInitializer {
                         // Own cape from the launcher: config/savira-cape.png must become a texture.
                         SaviraClient.config.customCape = true;
                         check(gg.savira.client.SaviraCape.texture() != null, "Custom cape texture not loaded");
+                        // GUI scale 2 on the big test window: room for the news card bottom left.
+                        mc.options.getGuiScale().setValue(2);
+                        mc.onResolutionChanged();
+                        SaviraTitleScreen title = (SaviraTitleScreen) mc.currentScreen;
+                        check(title.newsVisible(), "News card hidden on a wide screen");
+                        int shown = title.newsIndex();
+                        screen = title; button("Nächste Neuigkeit");
+                        check(title.newsIndex() == (shown + 1) % 4, "News arrow did not turn the page");
+                        check(widgetExists("Einzelspieler") && widgetExists("Mehrspieler") && widgetExists("Discord"), "Main menu buttons missing");
+                        // Panorama picker: choose the Nether Update panorama (downloaded from Mojang), it must stick.
+                        button("Hintergrund");
+                        check(title.pickerOpen(), "Panorama picker did not open");
+                        check(title.choosePanorama("Nether Update"), "Nether Update missing in the picker");
+                        check(title.backgroundId().equals("nether") && "nether".equals(SaviraClient.config.menuBackground), "Panorama choice not applied");
+                        check(gg.savira.client.SaviraPanoramas.renderer("nether") != null, "Nether panorama not loaded");
+                        button("Hintergrund");
                     }
                     case 1 -> {
                         screenshot(mc, "savira-menu-title");
@@ -126,7 +142,7 @@ public final class MenuSmokeTest implements ClientModInitializer {
                     }
                     case 10 -> {
                         check(mc.currentScreen instanceof SaviraTitleScreen, "Closing the mod menu returned to the vanilla title screen: " + mc.currentScreen);
-                        LoggerFactory.getLogger("SaviraUITest").info("SAVIRA_UI_SMOKE_OK: title, cape, home, modules(10), settings, background, text, search, editor, drag, scale, persistence, feature, back-to-title");
+                        LoggerFactory.getLogger("SaviraUITest").info("SAVIRA_UI_SMOKE_OK: title, news, background, cape, home, modules(10), settings, background, text, search, editor, drag, scale, persistence, feature, back-to-title");
                         stage = -1;
                     }
                 }

@@ -2,7 +2,8 @@ import { ArrowClockwise, ArrowRight, CaretUp, Check, CheckCircle, Cube, FolderOp
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { SkinStage } from './SkinStage';
 import type { State } from './api';
-import { NewsArt, type NewsArtKind } from './NewsArt';
+import { NewsArt } from './NewsArt';
+import { news as allNews } from './news';
 
 type Props = {
   state: State;
@@ -16,11 +17,8 @@ type Props = {
   onLogs: () => void;
 };
 
-const news: { kicker: string; date: string; title: string; body: string; art: NewsArtKind }[] = [
-  { kicker: 'Savira', date: '12. Okt', title: 'Neues Logo, neues Gesicht.', body: 'Im Launcher, im Spiel, auf dem Desktop und in Discord.', art: 'brand' },
-  { kicker: 'Launcher', date: '11. Okt', title: 'Mehrere Konten und Discord.', body: 'Konten per Klick wechseln, dazu Discord-Präsenz und eigener Eckenradius.', art: 'accounts' },
-  { kicker: 'Mod-Menü', date: '07. Okt', title: 'Jedes HUD-Element nach deinem Stil.', body: 'Hintergrund, Farben und Text für jede Anzeige direkt im Spiel einstellen.', art: 'modmenu' }
-];
+// The start page has room for the three newest entries.
+const news = allNews.slice(0, 3);
 
 export function LauncherHome({ state, pending, locked, active, onLaunch, onProfile, onProfiles, onFolder, onLogs }: Props) {
   const [picker, setPicker] = useState(false);

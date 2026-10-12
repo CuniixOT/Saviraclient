@@ -3,7 +3,7 @@ import logoMask from './assets/logo-mask.png';
 
 // Header art for the news cards: small scenes drawn in the launcher's own style,
 // coloured with the accent so they match whatever the player picked.
-export type NewsArtKind = 'brand' | 'accounts' | 'modmenu';
+export type NewsArtKind = 'wardrobe' | 'brand' | 'accounts' | 'modmenu';
 
 const W = 300, H = 92;
 
@@ -171,6 +171,46 @@ function hexagon(cx: number, cy: number, r: number) {
   }).join(' ');
 }
 
+/** Front view of a little player figure, for the wardrobe scene. */
+function Figure({ x, y, u, face, cape }: { x: number; y: number; u: number; face: typeof faces[number]; cape?: string }) {
+  return <g transform={`translate(${x} ${y})`} shapeRendering="crispEdges">
+    {cape && <rect x={u * 1.2} y={u * 8.4} width={u * 5.6} height={u * 13} fill={cape} opacity=".95" />}
+    <Head x={u * 2} y={0} size={u * 4} face={face} />
+    <rect x={u * 2} y={u * 4} width={u * 4} height={u * 6} fill={face.shirt} />
+    <rect x={0} y={u * 4} width={u * 2} height={u * 6} fill={face.shirt} opacity=".8" />
+    <rect x={u * 6} y={u * 4} width={u * 2} height={u * 6} fill={face.shirt} opacity=".8" />
+    <rect x={0} y={u * 9} width={u * 2} height={u} fill={face.skin} />
+    <rect x={u * 6} y={u * 9} width={u * 2} height={u} fill={face.skin} />
+    <rect x={u * 2} y={u * 10} width={u * 4} height={u * 6} fill="#26302c" />
+    <rect x={u * 4} y={u * 10} width={u * .4} height={u * 6} fill="#000" opacity=".25" />
+  </g>;
+}
+
+function Wardrobe() {
+  // Skin cards on the left, the cape section on the right.
+  return <>
+    {[0, 1].map(i => <g key={i} transform={`translate(${22 + i * 64} 12)`}>
+      <rect width="56" height="68" rx="6" fill={i === 0 ? 'var(--accent)' : '#ffffff'} fillOpacity={i === 0 ? .1 : .04} stroke={i === 0 ? 'var(--accent)' : '#ffffff'} strokeOpacity={i === 0 ? .55 : .1} />
+      <Figure x={20} y={8} u={2} face={faces[i === 0 ? 1 : 2]} />
+      <rect x="10" y="50" width="36" height="3.5" rx="1.75" fill="#fff" opacity=".7" />
+      <rect x="14" y="57" width="28" height="5" rx="2.5" fill={i === 0 ? 'var(--accent)' : '#fff'} opacity={i === 0 ? .9 : .15} />
+      {i === 0 && <path d="M44 7l2.5 2.5 4.5-5" fill="none" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />}
+    </g>)}
+    <g transform="translate(160 12)">
+      <rect width="124" height="68" rx="7" fill="#0c0f12" stroke="#ffffff" strokeOpacity=".1" />
+      {['var(--accent)', '#4f8dff', '#e5566b'].map((color, i) => <g key={i} transform={`translate(${10 + i * 38} 10)`}>
+        <rect width="30" height="44" rx="4" fill="#ffffff" fillOpacity=".04" stroke={i === 0 ? 'var(--accent)' : '#ffffff'} strokeOpacity={i === 0 ? .6 : .08} />
+        <rect x="8" y="6" width="14" height="22" rx="1.5" fill={color} opacity={i === 0 ? 1 : .8} />
+        <rect x="8" y="6" width="14" height="5" fill="#000" opacity=".15" />
+        <rect x="6" y="33" width="18" height="3" rx="1.5" fill="#fff" opacity=".45" />
+        {i === 0 && <path d="M22 2.5c1.6-1.6 4 .7 2.4 2.4L22 7.2 19.6 4.9c-1.6-1.7.8-4 2.4-2.4z" fill="#ff5d73" />}
+      </g>)}
+      <rect x="10" y="58" width="58" height="4" rx="2" fill="var(--accent)" opacity=".3" />
+    </g>
+    <Sparkle x={150} y={18} small /><Sparkle x={288} y={78} />
+  </>;
+}
+
 export function NewsArt({ kind }: { kind: NewsArtKind }) {
   const id = `news-${useId().replace(/:/g, '')}`;
   return <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" role="presentation" aria-hidden="true">
@@ -178,5 +218,6 @@ export function NewsArt({ kind }: { kind: NewsArtKind }) {
     {kind === 'brand' && <Brand id={id} />}
     {kind === 'accounts' && <Accounts />}
     {kind === 'modmenu' && <ModMenu />}
+    {kind === 'wardrobe' && <Wardrobe />}
   </svg>;
 }

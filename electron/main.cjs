@@ -13,6 +13,7 @@ const { createSession } = require('./gamesession.cjs');
 const { normalizeSkinUrl, validSkinPng } = require('./skin.cjs');
 const { createSkinLibrary, assertSkin } = require('./skins.cjs');
 const { createCapeLibrary } = require('./capes.cjs');
+const { createPanoramaStore } = require('./panoramas.cjs');
 const setup = require('./setup.cjs');
 const { createUpdater } = require('./updater.cjs');
 const { createAccountStore } = require('./accounts.cjs');
@@ -40,7 +41,7 @@ if (process.platform === 'win32') app.setAppUserModelId('gg.savira.launcher');
 // relaunch, so a test launcher never collides with a real Savira running on the same machine.
 if (process.env.SAVIRA_TEST_USER_DATA) app.setPath('userData', path.resolve(process.env.SAVIRA_TEST_USER_DATA));
 let win, logWin = null, settings = structuredClone(defaults), account = null, accounts = [], busy = false, loggingIn = false;
-let store = null, presence = null, wardrobe = null, capes = null, page = 'home';
+let store = null, presence = null, wardrobe = null, capes = null, panoramas = null, page = 'home';
 const launcherStarted = Date.now();
 // The running (or last) Minecraft process and its log buffer for the log window.
 let session = null, gameChild = null;
@@ -283,6 +284,8 @@ async function prepareFabric(gameRoot, minecraftVersion) {
   for (const name of await fs.readdir(mods)) {
     if (name.startsWith('fabric-api-') && name.endsWith('.jar') && name !== file.filename) await fs.unlink(path.join(mods, name));
   }
+  // First start: give the panorama download a moment, so the menu offers them right away.
+  if (panoramas) await Promise.race([panoramas.ensure().catch(() => []), new Promise(resolve => setTimeout(resolve, 20000))]);
   const capeFile = capes?.activeFile(), capeTarget = path.join(gameRoot, 'config', 'savira-cape.png');
   let customCape = false;
   if (capeFile) {
@@ -293,7 +296,7 @@ async function prepareFabric(gameRoot, minecraftVersion) {
   let inGame = {};
   try { inGame = JSON.parse(await fs.readFile(hudPath, 'utf8')) || {}; } catch { /* First launch or invalid config. */ }
   // Layout and snapping belong to the in-game editor, while launcher toggles stay authoritative.
-  await atomicWrite(hudPath, JSON.stringify({ ...settings.hud, accent: accentRgb(settings.accent), discordUrl: discordUrl(), launcherVersion: app.getVersion(), customTitleScreen: inGame.customTitleScreen !== false, customCape, layout: inGame.layout || {}, styles: inGame.styles || {}, snap: inGame.snap !== false }, null, 2));
+  await atomicWrite(hudPath, JSON.stringify({ ...settings.hud, accent: accentRgb(settings.accent), discordUrl: discordUrl(), launcherVersion: app.getVersion(), customTitleScreen: inGame.customTitleScreen !== false, customCape, panoramaDir: panoramas ? panoramas.dir : '', menuBackground: typeof inGame.menuBackground === 'string' && /^[a-z]{1,16}$/.test(inGame.menuBackground) ? inGame.menuBackground : 'current', layout: inGame.layout || {}, styles: inGame.styles || {}, snap: inGame.snap !== false }, null, 2));
   return id;
 }
 // The title-screen panorama ships with the game assets the player already downloaded.
@@ -596,6 +599,9 @@ else {
     handle('update-download', () => updates.download());
     handle('update-cancel', () => updates.cancel());
     handle('update-install', () => updates.install());
+    // Panoramas of earlier updates for the in-game menu, fetched once in the background.
+    panoramas = createPanoramaStore({ dir: path.join(root(), 'panoramas'), fetchJson: json, fetchBytes: url => download(url, 6_000_000), log: message => log.info(message) });
+    setTimeout(() => panoramas.ensure().then(list => log.info(`Menü-Panoramen bereit: ${list.length}`)).catch(error => log.warn('Menü-Panoramen nicht geladen', error)), 8000);
     capes = createCapeLibrary({ dir: path.join(root(), 'capes') });
     await capes.load();
     wardrobe = createSkinLibrary({ dir: path.join(root(), 'wardrobe') });
