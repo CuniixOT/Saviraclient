@@ -44,7 +44,7 @@ public final class SaviraHud {
     public static void renderModules(DrawContext context, boolean preview) {
         MinecraftClient mc = MinecraftClient.getInstance();
         for (HudModule module : HudModule.values()) {
-            if (!module.enabled()) continue;
+            if (!module.enabled() || !module.onHud()) continue;
             Bounds b = bounds(module, mc.getWindow().getScaledWidth(), mc.getWindow().getScaledHeight());
             context.getMatrices().push();
             context.getMatrices().translate(b.x, b.y, 0);

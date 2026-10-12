@@ -4,8 +4,6 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
@@ -14,10 +12,11 @@ public final class MenuStyle {
     public static final int PANEL = 0xF00D1014, SIDEBAR = 0xFF0A0C0F, SURFACE = 0xFF161A1F, SURFACE_HOVER = 0xFF1F242B, LINE = 0xFF272C34;
     private MenuStyle() {}
 
-    /** Fixed Savira mint for the mod menu and HUD: they keep the brand colour whatever the launcher uses. */
+    /** Savira mint, the default launcher accent. */
     public static final int BRAND = 0xFF5CCF95;
-    public static int accent() { return BRAND; }
-    /** The launcher accent; only the Savira main menu (title screen) follows it. */
+    /** Menus follow the accent colour picked in the launcher. */
+    public static int accent() { return launcherAccent(); }
+    /** The accent colour from the launcher settings. */
     public static int launcherAccent() { return 0xFF000000 | (SaviraClient.config.accent & 0xFFFFFF); }
     public static int launcherAccentAlpha(int alpha) { return (alpha << 24) | (launcherAccent() & 0xFFFFFF); }
     /** Darker accent for the 3D bottom edge of buttons, like the launcher. */
@@ -50,130 +49,71 @@ public final class MenuStyle {
         round(c, x, y, w, h, radius, shade(color, .62f));
         round(c, x, y, w, h - 2, radius, color);
     }
-    public static void panel(DrawContext c, int x, int y, int w, int h) {
-        round(c, x - 4, y + 5, w + 8, h + 6, 12, 0x60000000);
-        outlined(c, x, y, w, h, 9, LINE, PANEL);
-    }
-    /** Small switch, 22x12, matching the launcher's square-ish toggles. */
+    /** Flat, nearly square look shared by the main menu and the Right-Shift menu. */
+    public static final int CORNER = 1, GLASS = 0xE00C0F13, GLASS_HOVER = 0xF0141920, EDGE = 0xFF252A32, ICON = 0xFFD7DCE1;
+
+    /** Square switch, 22x12: accent track with a white knob when on. */
     public static void toggle(DrawContext c, int x, int y, boolean on) {
-        round(c, x, y, 22, 12, 3, on ? accent() : 0xFF2B3038);
-        round(c, on ? x + 12 : x + 2, y + 2, 8, 8, 2, on ? 0xFFFFFFFF : 0xFFAEB5BD);
+        round(c, x, y, 22, 12, CORNER, on ? accent() : 0xFF2B3038);
+        round(c, on ? x + 12 : x + 2, y + 2, 8, 8, CORNER, on ? 0xFFFFFFFF : 0xFF8A939D);
     }
 
-    private static void label(DrawContext c, String text, int x, int y, int w, int h, int color, boolean pressedOffset) {
-        var font = MinecraftClient.getInstance().textRenderer;
-        c.drawCenteredTextWithShadow(font, font.trimToWidth(text, w - 8), x + w / 2, y + (h - 8) / 2 - (pressedOffset ? 0 : 1), color);
-    }
-
+    /** Flat button: accent fill for the primary one, glass with an edge otherwise. */
     public static ButtonWidget button(int x, int y, int w, int h, String label, boolean primary, ButtonWidget.PressAction action) {
         return new ButtonWidget(x, y, w, h, Text.literal(label), action, narration -> narration.get()) {
             @Override
+            public void playDownSound(net.minecraft.client.sound.SoundManager sounds) { SaviraSounds.play(SaviraSounds.Sound.CLICK); }
+            @Override
             protected void renderWidget(DrawContext c, int mouseX, int mouseY, float delta) {
                 boolean hover = isHovered() || isFocused();
+                var font = MinecraftClient.getInstance().textRenderer;
+                String text = font.trimToWidth(getMessage().getString(), getWidth() - 8);
+                int tx = getX() + (getWidth() - font.getWidth(text)) / 2, ty = getY() + (getHeight() - 8) / 2;
                 if (primary) {
-                    raised(c, getX(), getY(), getWidth(), getHeight(), 4, hover ? shade(accent(), 1.08f) : accent(), false);
-                    // The vanilla shadow would look muddy on a light accent.
-                    var font = MinecraftClient.getInstance().textRenderer;
-                    String text = font.trimToWidth(getMessage().getString(), getWidth() - 8);
-                    c.drawText(font, text, getX() + (getWidth() - font.getWidth(text)) / 2, getY() + (getHeight() - 8) / 2 - 1, ON_ACCENT, false);
+                    raised(c, getX(), getY(), getWidth(), getHeight(), CORNER, hover ? shade(accent(), 1.08f) : accent(), false);
+                    c.drawText(font, text, tx, ty - 1, ON_ACCENT, false);
                 } else {
-                    round(c, getX(), getY(), getWidth(), getHeight(), 4, hover ? accentAlpha(0xB0) : LINE);
-                    raised(c, getX() + 1, getY() + 1, getWidth() - 2, getHeight() - 2, 3, hover ? SURFACE_HOVER : SURFACE, false);
-                    MenuStyle.label(c, getMessage().getString(), getX(), getY(), getWidth(), getHeight(), TEXT, false);
+                    outlined(c, getX(), getY(), getWidth(), getHeight(), CORNER, hover ? accentAlpha(0xC0) : EDGE, hover ? GLASS_HOVER : GLASS);
+                    c.drawTextWithShadow(font, text, tx, ty, TEXT);
                 }
-            }
-        };
-    }
-
-    /** Sidebar entry: accent bar and tinted fill when selected. */
-    public static ButtonWidget navButton(int x, int y, int w, int h, String label, String count, boolean selected, ButtonWidget.PressAction action) {
-        return new ButtonWidget(x, y, w, h, Text.literal(label), action, narration -> narration.get()) {
-            @Override
-            protected void renderWidget(DrawContext c, int mouseX, int mouseY, float delta) {
-                boolean hover = isHovered() || isFocused();
-                if (selected) { round(c, getX(), getY(), getWidth(), getHeight(), 4, accentAlpha(0x2C)); c.fill(getX(), getY() + 4, getX() + 2, getY() + getHeight() - 4, accent()); }
-                else if (hover) round(c, getX(), getY(), getWidth(), getHeight(), 4, 0x14FFFFFF);
-                var font = MinecraftClient.getInstance().textRenderer;
-                c.drawText(font, getMessage().getString(), getX() + 9, getY() + (getHeight() - 8) / 2, selected ? accent() : hover ? TEXT : MUTED, false);
-                c.drawText(font, count, getX() + getWidth() - 7 - font.getWidth(count), getY() + (getHeight() - 8) / 2, 0xFF5D656F, false);
-            }
-        };
-    }
-
-    public static ButtonWidget iconButton(int x, int y, int w, int h, String label, Item icon, ButtonWidget.PressAction action) {
-        return new ButtonWidget(x, y, w, h, Text.literal(label), action, narration -> narration.get()) {
-            @Override
-            protected void renderWidget(DrawContext c, int mouseX, int mouseY, float delta) {
-                boolean hover = isHovered() || isFocused();
-                round(c, getX(), getY(), getWidth(), getHeight(), 5, hover ? accent() : LINE);
-                raised(c, getX() + 1, getY() + 1, getWidth() - 2, getHeight() - 2, 4, hover ? SURFACE_HOVER : 0xF0101317, false);
-                c.drawItem(new ItemStack(icon), getX() + (getWidth() - 16) / 2, getY() + 6);
-                var font = MinecraftClient.getInstance().textRenderer;
-                String text = font.trimToWidth(getMessage().getString().toLowerCase(), getWidth() - 4);
-                c.drawCenteredTextWithShadow(font, text, getX() + getWidth() / 2, getY() + getHeight() - 13, hover ? TEXT : MUTED);
-            }
-        };
-    }
-
-    public enum Variant { NORMAL, ACCENT, DANGER }
-
-    /** Main-menu button: item icon on the left, label centred, three colour variants. */
-    public static ButtonWidget menuButton(int x, int y, int w, int h, String label, Item icon, Variant variant, ButtonWidget.PressAction action) {
-        return new ButtonWidget(x, y, w, h, Text.literal(label), action, narration -> narration.get()) {
-            @Override
-            protected void renderWidget(DrawContext c, int mouseX, int mouseY, float delta) {
-                boolean hover = isHovered() || isFocused();
-                var font = MinecraftClient.getInstance().textRenderer;
-                int textColor = TEXT;
-                switch (variant) {
-                    case ACCENT -> { raised(c, getX(), getY(), getWidth(), getHeight(), 4, hover ? shade(launcherAccent(), 1.1f) : launcherAccent(), false); textColor = ON_ACCENT; }
-                    case DANGER -> {
-                        round(c, getX(), getY(), getWidth(), getHeight(), 4, hover ? 0xFFE5484D : 0xFF7A2A2E);
-                        raised(c, getX() + 1, getY() + 1, getWidth() - 2, getHeight() - 2, 3, hover ? 0xFFB3363B : 0xF0401B1E, false);
-                    }
-                    default -> {
-                        round(c, getX(), getY(), getWidth(), getHeight(), 4, hover ? launcherAccentAlpha(0xC0) : 0xFF2A2F37);
-                        raised(c, getX() + 1, getY() + 1, getWidth() - 2, getHeight() - 2, 3, hover ? 0xF0222831 : 0xE0121519, false);
-                    }
-                }
-                int textWidth = font.getWidth(getMessage());
-                int contentWidth = (icon != null ? 14 : 0) + textWidth;
-                int left = getX() + (getWidth() - contentWidth) / 2;
-                if (icon != null) {
-                    // Items are 16px; scale to 12px so they sit like font icons next to the label.
-                    c.getMatrices().push();
-                    c.getMatrices().translate(left, getY() + (getHeight() - 12) / 2f - 1, 0);
-                    c.getMatrices().scale(.75f, .75f, 1);
-                    c.drawItem(new ItemStack(icon), 0, 0);
-                    c.getMatrices().pop();
-                    left += 14;
-                }
-                if (variant == Variant.ACCENT) c.drawText(font, getMessage(), left, getY() + (getHeight() - 8) / 2, textColor, false);
-                else c.drawTextWithShadow(font, getMessage(), left, getY() + (getHeight() - 8) / 2, textColor);
             }
         };
     }
 
     private static final Identifier LOGO = Identifier.of("savira", "textures/gui/logo.png");
+    private static final Identifier LOGO_COLOR = Identifier.of("savira", "textures/gui/logo_color.png");
     private static final int LOGO_SIZE = 128;
 
-    /** The Savira mark (same as the launcher logo) in a 16-unit box; it fills units 1–15. */
+    /**
+     * The Savira logo in a 16-unit box (it fills units 1–15). Drawn in its own colours, except
+     * when asked for ON_ACCENT: then it is a dark silhouette for accent-coloured buttons.
+     */
     public static void logo(DrawContext c, int x, int y, int unit, int color) { logo(c, x, y, unit, color, true); }
     public static void logo(DrawContext c, int x, int y, int unit, int color, boolean shadow) {
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-        if (shadow) logoTinted(c, x, y + unit, unit, shade(color, .58f));
-        logoTinted(c, x, y, unit, color);
-        c.setShaderColor(1f, 1f, 1f, 1f);
+        boolean silhouette = (color & 0xFFFFFF) == (ON_ACCENT & 0xFFFFFF);
+        // Respect a fade the caller set (menu animations) and restore it afterwards.
+        float[] base = RenderSystem.getShaderColor().clone();
+        if (shadow) drawLogo(c, LOGO, x, y + unit, unit, 0x90000000, base);
+        drawLogo(c, silhouette ? LOGO : LOGO_COLOR, x, y, unit, silhouette ? color : 0xFFFFFFFF, base);
+        c.setShaderColor(base[0], base[1], base[2], base[3]);
     }
-    // The texture is a white mask, so the shader colour paints it in any colour.
-    private static void logoTinted(DrawContext c, int x, int y, int unit, int color) {
-        c.setShaderColor((color >> 16 & 0xFF) / 255f, (color >> 8 & 0xFF) / 255f, (color & 0xFF) / 255f, (color >>> 24) / 255f);
+    /** The logo as a single-colour shape (white mask tinted), e.g. for the Icon module previews. */
+    public static void logoTinted(DrawContext c, int x, int y, int unit, int color) {
+        RenderSystem.enableBlend();
+        float[] base = RenderSystem.getShaderColor().clone();
+        drawLogo(c, LOGO, x, y, unit, color, base);
+        c.setShaderColor(base[0], base[1], base[2], base[3]);
+    }
+    // The shader colour tints the white mask (and leaves the colour version as it is when white).
+    private static void drawLogo(DrawContext c, Identifier texture, int x, int y, int unit, int color, float[] base) {
+        c.setShaderColor(base[0] * (color >> 16 & 0xFF) / 255f, base[1] * (color >> 8 & 0xFF) / 255f, base[2] * (color & 0xFF) / 255f, base[3] * (color >>> 24) / 255f);
         c.getMatrices().push();
         c.getMatrices().translate(x + unit, y + unit, 0);
         float scale = 14f * unit / LOGO_SIZE;
         c.getMatrices().scale(scale, scale, 1f);
-        c.drawTexture(LOGO, 0, 0, 0, 0, LOGO_SIZE, LOGO_SIZE, LOGO_SIZE, LOGO_SIZE);
+        c.drawTexture(texture, 0, 0, 0, 0, LOGO_SIZE, LOGO_SIZE, LOGO_SIZE, LOGO_SIZE);
         c.getMatrices().pop();
     }
 }

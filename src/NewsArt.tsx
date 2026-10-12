@@ -1,4 +1,5 @@
 import { useId } from 'react';
+import logo from './assets/logo.png';
 import logoMask from './assets/logo-mask.png';
 
 // Header art for the news cards: small scenes drawn in the launcher's own style,
@@ -28,14 +29,14 @@ function Backdrop({ id }: { id: string }) {
   </>;
 }
 
-/** The Savira mark, filled with the accent through the white logo mask. */
+/** The Savira logo in its own colours, with a soft shadow made from its mask. */
 function Mark({ id, x, y, size }: { id: string; x: number; y: number; size: number }) {
   return <>
     <mask id={`${id}-mark`} maskUnits="userSpaceOnUse" x={x} y={y} width={size} height={size}>
       <image href={logoMask} x={x} y={y} width={size} height={size} />
     </mask>
     <g transform={`translate(0 ${size * .06})`}><rect x={x} y={y} width={size} height={size} fill="#000" opacity=".35" mask={`url(#${id}-mark)`} /></g>
-    <rect x={x} y={y} width={size} height={size} fill="var(--accent)" mask={`url(#${id}-mark)`} />
+    <image href={logo} x={x} y={y} width={size} height={size} />
   </>;
 }
 
@@ -84,7 +85,7 @@ function Head({ x, y, size, face }: { x: number; y: number; size: number; face: 
   </g>;
 }
 
-function Accounts() {
+function Accounts({ id }: { id: string }) {
   return <>
     {/* Account switcher: three saved accounts, the middle one active. */}
     <g transform="translate(18 14)">
@@ -111,7 +112,7 @@ function Accounts() {
       <g transform="translate(9 31)">
         <rect width="106" height="22" rx="5" fill="#0f1114" />
         <rect x="4" y="4" width="14" height="14" rx="3" fill="#0b0f12" />
-        <polygon points={hexagon(11, 11, 5.2)} fill="none" stroke="var(--accent)" strokeWidth="2" />
+        <Mark id={`${id}-presence`} x={5} y={5} size={12} />
         <rect x="22" y="5" width="46" height="3.5" rx="1.75" fill="#fff" opacity=".75" />
         <rect x="22" y="11.5" width="64" height="3" rx="1.5" fill="#fff" opacity=".3" />
         <rect x="22" y="16.5" width="28" height="2.5" rx="1.25" fill="#23a55a" opacity=".8" />
@@ -121,14 +122,14 @@ function Accounts() {
   </>;
 }
 
-function ModMenu() {
+function ModMenu({ id }: { id: string }) {
   const cards = [[true, 0], [true, 1], [false, 2], [true, 3]] as const;
   return <>
     {/* The in-game mod menu: sidebar, search, module cards with switches. */}
     <g transform="translate(40 10)">
       <rect width="220" height="72" rx="7" fill="#0c0f12" stroke="#ffffff" strokeOpacity=".1" />
       <rect x="5" y="5" width="26" height="62" rx="5" fill="#ffffff" fillOpacity=".03" />
-      <polygon points={hexagon(18, 16, 5.5)} fill="none" stroke="var(--accent)" strokeWidth="2" />
+      <Mark id={`${id}-menu`} x={11} y={9} size={14} />
       {[30, 42, 54].map(y => <rect key={y} x="12" y={y} width="12" height="7" rx="2" fill="#fff" opacity=".14" />)}
       <rect x="37" y="7" width="26" height="8" rx="3" fill="var(--accent)" opacity=".22" />
       <rect x="66" y="7" width="34" height="8" rx="3" fill="#fff" opacity=".07" />
@@ -216,8 +217,8 @@ export function NewsArt({ kind }: { kind: NewsArtKind }) {
   return <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" role="presentation" aria-hidden="true">
     <Backdrop id={id} />
     {kind === 'brand' && <Brand id={id} />}
-    {kind === 'accounts' && <Accounts />}
-    {kind === 'modmenu' && <ModMenu />}
+    {kind === 'accounts' && <Accounts id={id} />}
+    {kind === 'modmenu' && <ModMenu id={id} />}
     {kind === 'wardrobe' && <Wardrobe />}
   </svg>;
 }

@@ -32,7 +32,7 @@ public final class MenuWidgets {
                 var font = MinecraftClient.getInstance().textRenderer;
                 boolean hover = isHovered() || isFocused();
                 int boxW = 38;
-                MenuStyle.outlined(c, getX(), getY(), boxW, getHeight(), 3, hover ? MenuStyle.accentAlpha(0xA0) : LINE, BOX);
+                MenuStyle.outlined(c, getX(), getY(), boxW, getHeight(), MenuStyle.CORNER, hover ? MenuStyle.accentAlpha(0xA0) : LINE, BOX);
                 String text = getMessage().getString();
                 c.drawText(font, text, getX() + (boxW - font.getWidth(text)) / 2, getY() + (getHeight() - 8) / 2 + 1, MenuStyle.TEXT, false);
                 int tx = getX() + boxW + 8, tw = getWidth() - boxW - 12, ty = getY() + getHeight() / 2 - 1;
@@ -40,7 +40,7 @@ public final class MenuWidgets {
                 c.fill(tx, ty, tx + tw, ty + 2, 0xFF2B3038);
                 c.fill(tx, ty, tx + (int) Math.round(tw * t), ty + 2, MenuStyle.accent());
                 int knob = tx + (int) Math.round(tw * t);
-                MenuStyle.round(c, knob - 3, ty - 4, 6, 10, 2, hover ? 0xFFFFFFFF : 0xFFD7DCE1);
+                MenuStyle.round(c, knob - 3, ty - 4, 6, 10, MenuStyle.CORNER, hover ? 0xFFFFFFFF : 0xFFD7DCE1);
             }
             // The track starts after the value box, so map the mouse onto the track only.
             private void setFromMouse(double mx) {
@@ -57,6 +57,8 @@ public final class MenuWidgets {
     public static ButtonWidget cycle(int x, int y, int w, int h, Supplier<String> label, IntConsumer onStep) {
         return new ButtonWidget(x, y, w, h, Text.literal(label.get()), b -> onStep.accept(1), n -> n.get()) {
             @Override
+            public void playDownSound(net.minecraft.client.sound.SoundManager sounds) { SaviraSounds.play(SaviraSounds.Sound.CLICK); }
+            @Override
             public boolean mouseClicked(double mx, double my, int button) {
                 if (!active || !visible || !isMouseOver(mx, my) || (button != 0 && button != 1)) return false;
                 playDownSound(MinecraftClient.getInstance().getSoundManager());
@@ -67,7 +69,7 @@ public final class MenuWidgets {
             protected void renderWidget(DrawContext c, int mouseX, int mouseY, float delta) {
                 var font = MinecraftClient.getInstance().textRenderer;
                 boolean hover = isHovered() || isFocused();
-                MenuStyle.outlined(c, getX(), getY(), getWidth(), getHeight(), 3, hover ? MenuStyle.accentAlpha(0xA0) : LINE, BOX);
+                MenuStyle.outlined(c, getX(), getY(), getWidth(), getHeight(), MenuStyle.CORNER, hover ? MenuStyle.accentAlpha(0xA0) : LINE, BOX);
                 int ty = getY() + (getHeight() - 8) / 2 + 1;
                 c.drawText(font, "<", getX() + 6, ty, hover ? MenuStyle.TEXT : MenuStyle.MUTED, false);
                 c.drawText(font, ">", getX() + getWidth() - 11, ty, hover ? MenuStyle.TEXT : MenuStyle.MUTED, false);
@@ -80,6 +82,8 @@ public final class MenuWidgets {
     /** Row of colour swatches; the active one gets a white frame. */
     public static ButtonWidget palette(int x, int y, int w, int h, int[] colors, IntSupplier current, IntConsumer onPick) {
         return new ButtonWidget(x, y, w, h, Text.literal("Palette"), b -> { }, n -> n.get()) {
+            @Override
+            public void playDownSound(net.minecraft.client.sound.SoundManager sounds) { SaviraSounds.play(SaviraSounds.Sound.CLICK); }
             private int size() { return Math.min(h, (w - (colors.length - 1) * 2) / colors.length); }
             @Override
             public boolean mouseClicked(double mx, double my, int button) {
@@ -98,8 +102,8 @@ public final class MenuWidgets {
                     int sx = start + i * (s + 2), sy = getY() + (getHeight() - s) / 2;
                     boolean chosen = (colors[i] & 0xFFFFFF) == selected;
                     boolean hover = mouseX >= sx && mouseX < sx + s && mouseY >= sy && mouseY < sy + s;
-                    if (chosen || hover) MenuStyle.round(c, sx - 1, sy - 1, s + 2, s + 2, 3, chosen ? 0xFFFFFFFF : 0xFF8A939D);
-                    MenuStyle.round(c, sx, sy, s, s, 2, colors[i] | 0xFF000000);
+                    if (chosen || hover) MenuStyle.round(c, sx - 1, sy - 1, s + 2, s + 2, MenuStyle.CORNER, chosen ? 0xFFFFFFFF : 0xFF8A939D);
+                    MenuStyle.round(c, sx, sy, s, s, MenuStyle.CORNER, colors[i] | 0xFF000000);
                 }
             }
             @Override
@@ -114,8 +118,10 @@ public final class MenuWidgets {
     public static ButtonWidget toggle(int x, int y, String label, BooleanSupplier value, Runnable onToggle) {
         return new ButtonWidget(x, y, 22, 12, Text.literal(label), b -> onToggle.run(), n -> n.get()) {
             @Override
+            public void playDownSound(net.minecraft.client.sound.SoundManager sounds) { SaviraSounds.play(SaviraSounds.Sound.CLICK); }
+            @Override
             protected void renderWidget(DrawContext c, int mouseX, int mouseY, float delta) {
-                if (isHovered() || isFocused()) MenuStyle.round(c, getX() - 1, getY() - 1, 24, 14, 4, MenuStyle.accentAlpha(0x70));
+                if (isHovered() || isFocused()) MenuStyle.round(c, getX() - 1, getY() - 1, 24, 14, MenuStyle.CORNER, MenuStyle.accentAlpha(0x70));
                 MenuStyle.toggle(c, getX(), getY(), value.getAsBoolean());
             }
         };

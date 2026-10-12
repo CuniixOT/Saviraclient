@@ -69,17 +69,48 @@ public final class MenuSmokeTest implements ClientModInitializer {
                     case 1 -> {
                         screenshot(mc, "savira-menu-title");
                         check(gg.savira.client.MenuStyle.launcherAccent() == 0xFFE5566B, "Main menu does not use the launcher accent");
-                        check(gg.savira.client.MenuStyle.accent() == gg.savira.client.MenuStyle.BRAND, "Mod menu must keep the Savira mint");
+                        check(gg.savira.client.MenuStyle.accent() == 0xFFE5566B, "Mod menu must follow the launcher accent");
                         SaviraClient.config = new HudConfig(); SaviraClient.config.accent = 0xE5566B; screen = new HudScreen(); mc.setScreen(screen);
                     }
-                    case 2 -> { screenshot(mc, "savira-menu-home"); button("Mod-Menü"); }
+                    case 2 -> {
+                        screenshot(mc, "savira-menu-home");
+                        // The start page edits the HUD directly: drag RAM, then hide it with its red X.
+                        SaviraHud.Bounds ram = SaviraHud.bounds(HudModule.RAM, screen.width, screen.height);
+                        float ramX = SaviraClient.config.placement(HudModule.RAM).x;
+                        screen.mouseClicked(ram.x() + 8, ram.y() + 8, 0);
+                        screen.mouseDragged(ram.x() - 60, ram.y() + 30, 0, -68, 22);
+                        screen.mouseReleased(ram.x() - 60, ram.y() + 30, 0);
+                        check(SaviraClient.config.placement(HudModule.RAM).x != ramX, "Start page drag failed");
+                        ram = SaviraHud.bounds(HudModule.RAM, screen.width, screen.height);
+                        screen.mouseClicked(ram.x() + ram.width() + 1, ram.y() - 3, 0);
+                        check(!HudModule.RAM.enabled(), "Red X did not hide the module");
+                        HudModule.RAM.toggle();
+                        // NEU follows the release date: Icon is new, FPS (released earlier) is not.
+                        check(HudModule.NAMETAG.isNew() && HudModule.ICON.isNew() && !HudModule.FPS.isNew(), "NEU tag does not follow the release date");
+                        button("Mod-Menü");
+                    }
                     case 3 -> {
                         screenshot(mc, "savira-menu-modules");
-                        check(HudModule.values().length == 10, "Module count");
+                        check(HudModule.values().length == 12, "Module count");
                         button("FPS-Anzeige"); check(!HudModule.FPS.enabled(), "Module toggle failed");
+                        check(gg.savira.client.SaviraToasts.any(), "No notification after toggling a module");
+                        // Headphones button: UI sounds off and on again, saved.
+                        button("UI-Sounds"); check(!SaviraClient.config.uiSounds && !HudConfig.load().uiSounds, "UI sounds not turned off");
+                        button("UI-Sounds"); check(SaviraClient.config.uiSounds, "UI sounds not turned back on");
+                        // New modules come first in the grid.
+                        ButtonWidget first = screen.children().stream().filter(w -> w instanceof ButtonWidget b && b.getMessage().getString().contains(": ")).map(w -> (ButtonWidget) w).findFirst().orElseThrow();
+                        check(first.getMessage().getString().startsWith("Nametag"), "Newest module not on top: " + first.getMessage().getString());
+                        LoggerFactory.getLogger("SaviraUITest").info("Savira-Sounds bereit: " + gg.savira.client.SaviraSounds.ready());
                         button("FPS-Anzeige"); check(HudModule.FPS.enabled(), "Module re-enable failed");
                         button("Effekte"); check(!HudModule.POTIONS.enabled(), "Potion toggle failed");
                         button("Effekte"); check(HudModule.POTIONS.enabled(), "Potion re-enable failed");
+                        // The HUD stays editable around the mod menu window: drag the FPS display.
+                        SaviraHud.Bounds fps = SaviraHud.bounds(HudModule.FPS, screen.width, screen.height);
+                        float fpsY = SaviraClient.config.placement(HudModule.FPS).y;
+                        screen.mouseClicked(fps.x() + 6, fps.y() + 6, 0);
+                        screen.mouseDragged(fps.x() + 6, fps.y() + 40, 0, 0, 34);
+                        screen.mouseReleased(fps.x() + 6, fps.y() + 40, 0);
+                        check(SaviraClient.config.placement(HudModule.FPS).y != fpsY, "HUD not draggable behind the mod menu");
                         // Right click on a card opens its settings page.
                         ButtonWidget card = widget("FPS-Anzeige");
                         screen.mouseClicked(card.getX() + 12, card.getY() + 12, 1);
@@ -137,12 +168,45 @@ public final class MenuSmokeTest implements ClientModInitializer {
                         screenshot(mc, "savira-menu-feature");
                         screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, 0, 0);
                         check(widgetExists("Mod-Menü"), "Escape from feature page failed");
+                        button("Mod-Menü");
+                        screen.children().stream().filter(w -> w instanceof TextFieldWidget).map(w -> (TextFieldWidget) w).findFirst().orElseThrow().setText("Icon");
+                    }
+                    case 10 -> {
+                        // Icon module: right click opens its own settings page.
+                        ButtonWidget card = widget("Icon");
+                        screen.mouseClicked(card.getX() + 12, card.getY() + 12, 1);
+                    }
+                    case 11 -> {
+                        check(widgetExists("Creator Code") && widgetExists("Im Nametag anzeigen"), "Icon settings not shown");
+                        button("Creator Code");
+                        check("creator".equals(SaviraClient.config.iconType), "Icon choice not stored");
+                        java.util.UUID self = mc.getSession().getUuidOrNull();
+                        if (self != null) check(gg.savira.client.SaviraIcon.decorate(net.minecraft.text.Text.literal("Name"), self, true).getString().startsWith("\uE002"), "Icon not in front of the name");
+                    }
+                    case 12 -> {
+                        screenshot(mc, "savira-menu-icon");
+                        screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, 0, 0);
+                        screen.children().stream().filter(w -> w instanceof TextFieldWidget).map(w -> (TextFieldWidget) w).findFirst().orElseThrow().setText("Nametag");
+                    }
+                    case 13 -> {
+                        // Nametag module: own settings page with the F5, shadow and background switches.
+                        ButtonWidget card = widget("Nametag");
+                        screen.mouseClicked(card.getX() + 12, card.getY() + 12, 1);
+                    }
+                    case 14 -> {
+                        check(widgetExists("In F5 anzeigen") && widgetExists("Textschatten") && widgetExists("Kein Hintergrund"), "Nametag settings not shown");
+                        button("Textschatten"); button("Kein Hintergrund");
+                        check(SaviraClient.config.nametagShadow && SaviraClient.config.nametagNoBackground, "Nametag switches not stored");
+                        check(HudConfig.load().nametagNoBackground, "Nametag setting not saved");
+                    }
+                    case 15 -> {
+                        screenshot(mc, "savira-menu-nametag");
                         // Closing the mod menu without a world calls setScreen(null); that must land on Savira's menu.
                         screen.close();
                     }
-                    case 10 -> {
+                    case 16 -> {
                         check(mc.currentScreen instanceof SaviraTitleScreen, "Closing the mod menu returned to the vanilla title screen: " + mc.currentScreen);
-                        LoggerFactory.getLogger("SaviraUITest").info("SAVIRA_UI_SMOKE_OK: title, news, background, cape, home, modules(10), settings, background, text, search, editor, drag, scale, persistence, feature, back-to-title");
+                        LoggerFactory.getLogger("SaviraUITest").info("SAVIRA_UI_SMOKE_OK: title, news, background, cape, home, home-drag, hide, new-tag, new-first, toasts, ui-sounds, icon, nametag, modules(12), settings, background, text, search, editor, drag, scale, persistence, feature, back-to-title");
                         stage = -1;
                     }
                 }

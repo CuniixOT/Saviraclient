@@ -13,7 +13,9 @@ public enum HudModule {
     POTIONS("Effekte", "PvP", "Aktive Effekte mit Restdauer.", Items.POTION, .02f, .64f, 134, 62),
     SPRINT("Sprint-Status", "Gameplay", "Sprinten, Schleichen oder Laufen.", Items.LEATHER_BOOTS, .98f, .16f, 110, 27),
     ZOOM("Zoom", "Gameplay", "C halten zum Heranzoomen.", Items.SPYGLASS, .45f, .02f, 96, 27),
-    RAM("Arbeitsspeicher", "Performance", "Genutzter und maximaler RAM.", Items.REDSTONE, .98f, .28f, 118, 27);
+    RAM("Arbeitsspeicher", "Performance", "Genutzter und maximaler RAM.", Items.REDSTONE, .98f, .28f, 118, 27),
+    ICON("Icon", "Savira", "Dein Savira-Icon vor dem Namen in Nametag und Tab-Liste.", Items.NETHER_STAR, 0, 0, 0, 0),
+    NAMETAG("Nametag", "Gameplay", "Dein Nametag in F5, Textschatten und Hintergrund der Namen.", Items.NAME_TAG, 0, 0, 0, 0);
 
     public final String title, category, description;
     public final Item icon;
@@ -23,6 +25,8 @@ public enum HudModule {
         this.title = title; this.category = category; this.description = description;
         this.icon = icon; this.x = x; this.y = y; this.width = width; this.height = height;
     }
+    /** Drawn on the HUD (and movable in the editor); the Icon module only changes names. */
+    public boolean onHud() { return this != ICON && this != NAMETAG; }
     /** Single-line modules whose text can be customised; others draw their own layout. */
     public boolean textual() { return defaultText() != null; }
     public String defaultText() {
@@ -47,13 +51,25 @@ public enum HudModule {
             default -> "";
         };
     }
+    /** How long a module keeps its "NEU" tag after its release. */
+    public static final int NEW_FOR_DAYS = 21;
+    /** Release date of each module; the newest ones are listed first and tagged "NEU". */
+    public java.time.LocalDate released() {
+        return switch (this) {
+            case NAMETAG -> java.time.LocalDate.of(2026, 10, 13);
+            case ICON -> java.time.LocalDate.of(2026, 10, 12);
+            case ZOOM, POTIONS, RAM -> java.time.LocalDate.of(2026, 9, 7);
+            default -> java.time.LocalDate.of(2026, 9, 1);
+        };
+    }
+    public boolean isNew() { return !java.time.LocalDate.now().isAfter(released().plusDays(NEW_FOR_DAYS)); }
     public boolean enabled() {
         HudConfig c = SaviraClient.config;
         return switch (this) {
             case FPS -> c.fps; case CPS -> c.cps; case KEYSTROKES -> c.keystrokes;
             case PING -> c.ping; case COORDINATES -> c.coordinates; case ARMOR -> c.armor;
             case POTIONS -> c.potions; case SPRINT -> c.sprint; case ZOOM -> c.zoom;
-            case RAM -> c.ram;
+            case RAM -> c.ram; case ICON -> c.icon; case NAMETAG -> c.nametag;
         };
     }
     public void toggle() {
@@ -63,7 +79,7 @@ public enum HudModule {
             case KEYSTROKES -> c.keystrokes = !c.keystrokes; case PING -> c.ping = !c.ping;
             case COORDINATES -> c.coordinates = !c.coordinates; case ARMOR -> c.armor = !c.armor;
             case POTIONS -> c.potions = !c.potions; case SPRINT -> c.sprint = !c.sprint;
-            case ZOOM -> c.zoom = !c.zoom; case RAM -> c.ram = !c.ram;
+            case ZOOM -> c.zoom = !c.zoom; case RAM -> c.ram = !c.ram; case ICON -> c.icon = !c.icon; case NAMETAG -> c.nametag = !c.nametag;
         }
     }
 }

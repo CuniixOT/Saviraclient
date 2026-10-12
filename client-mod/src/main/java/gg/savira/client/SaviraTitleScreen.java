@@ -37,13 +37,9 @@ public final class SaviraTitleScreen extends Screen {
     private static final int CORNER = 1;
     private static final long NEWS_INTERVAL = 6500, NEWS_FADE = 450;
 
-    // 10x10 pixel icons, drawn in one colour like the launcher's line icons.
-    private static final String[] ICON_PLAYER = { "...####...", "..######..", "..######..", "..######..", "...####...", "..........", ".########.", "##########", "##########", "##########" };
-    private static final String[] ICON_GLOBE = { "...####...", ".##.##.##.", ".#..##..#.", "##########", "#...##...#", "#...##...#", "##########", ".#..##..#.", ".##.##.##.", "...####..." };
-    private static final String[] ICON_GEAR = { "....##....", ".#.####.#.", "..######..", ".###..###.", "####..####", "####..####", ".###..###.", "..######..", ".#.####.#.", "....##...." };
-    private static final String[] ICON_LANGUAGE = { "#########.", "#.......#.", "#..###..#.", "#.#...#.#.", "#.#####.#.", "#.#...#.#.", "#.......#.", "#########.", "..##......", ".#........" };
-    private static final String[] ICON_EYE = { "..........", "..######..", ".#......#.", "#...##...#", "#..####..#", "#..####..#", "#...##...#", ".#......#.", "..######..", ".........." };
-    private static final String[] ICON_IMAGE = { "##########", "#........#", "#.##.....#", "#.##.....#", "#......#.#", "#.....####", "#..#.#####", "#.########", "##########", ".........." };
+    // Pixel icons shared with the Right-Shift menu.
+    private static final String[] ICON_PLAYER = PixelIcons.PLAYER, ICON_GLOBE = PixelIcons.GLOBE, ICON_GEAR = PixelIcons.GEAR;
+    private static final String[] ICON_LANGUAGE = PixelIcons.LANGUAGE, ICON_EYE = PixelIcons.EYE, ICON_IMAGE = PixelIcons.IMAGE;
 
     /** Same entries as the launcher's start page (src/news.ts); pictures from `npm run menu-art`. */
     private record News(String kicker, String date, String title, String body, String art) {
@@ -71,12 +67,7 @@ public final class SaviraTitleScreen extends Screen {
 
     public SaviraTitleScreen() { super(Text.literal("Savira")); }
 
-    static void icon(DrawContext c, String[] rows, int x, int y, int px, int color) {
-        for (int row = 0; row < rows.length; row++) {
-            String line = rows[row];
-            for (int col = 0; col < line.length(); col++) if (line.charAt(col) == '#') c.fill(x + col * px, y + row * px, x + (col + 1) * px, y + (row + 1) * px, color);
-        }
-    }
+    private static void icon(DrawContext c, String[] rows, int x, int y, int px, int color) { PixelIcons.draw(c, rows, x, y, px, color); }
 
     private Backdrop backdrop() {
         String id = SaviraClient.config.menuBackground;
@@ -422,7 +413,8 @@ public final class SaviraTitleScreen extends Screen {
         // Hero: mark and wordmark centred, greeting below.
         int scale = 3, wordW = textRenderer.getWidth("SAVIRA") * scale, markW = 30, gap = 8;
         int total = markW + gap + wordW, left = (width - total) / 2;
-        MenuStyle.logo(c, left - 2, heroY - 3, 2, MenuStyle.launcherAccent());
+        // The logo is taller than wide: a 3-unit box, centred on the 30px slot and the wordmark.
+        MenuStyle.logo(c, left - 9, heroY - 12, 3, MenuStyle.launcherAccent());
         c.getMatrices().push();
         c.getMatrices().translate(left + markW + gap, heroY + 3, 0);
         c.getMatrices().scale(scale, scale, 1);

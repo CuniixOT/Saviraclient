@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import type { Accent, AccentPreset } from './api';
+import logo from './assets/logo.png';
 
 // Must match electron/settings.cjs, which hands the same colours to the mod's main menu.
 export const accents: Record<AccentPreset, { label: string; hex: string }> = {
@@ -22,8 +23,7 @@ export const accentHex = (accent: Accent | undefined) => !accent ? accents.mint.
 
 export function Logo({ wordmark = true }: { wordmark?: boolean }) {
   return <span className="logo">
-    {/* The mark is a white mask (branding/, see scripts/brand-icons.cjs) filled with the accent colour. */}
-    <span className="logo-mark" aria-hidden="true"><i /></span>
+    <img className="logo-mark" src={logo} alt="" aria-hidden="true" />
     {wordmark && <span className="pixel">Savira</span>}
   </span>;
 }

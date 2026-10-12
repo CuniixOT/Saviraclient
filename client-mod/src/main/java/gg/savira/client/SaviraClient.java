@@ -1,5 +1,6 @@
 package gg.savira.client;
 
+import net.minecraft.client.MinecraftClient;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -32,6 +33,10 @@ public final class SaviraClient implements ClientModInitializer {
                 savedFov = null;
             }
         });
-        HudRenderCallback.EVENT.register((context, tickCounter) -> SaviraHud.render(context));
+        HudRenderCallback.EVENT.register((context, tickCounter) -> {
+            SaviraHud.render(context);
+            // Notifications keep running after the mod menu closes.
+            if (SaviraToasts.any() && !(MinecraftClient.getInstance().currentScreen instanceof HudScreen)) SaviraToasts.render(context, context.getScaledWindowWidth());
+        });
     }
 }

@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -38,6 +39,14 @@ public final class HudConfig {
     public String menuBackground = "current";
     /** Written by the launcher: folder with the panoramas it downloaded from Mojang. */
     public String panoramaDir = "";
+    /** Icon module: the Savira icon in front of the name in the nametag and tab list. */
+    public boolean icon = true;
+    public String iconType = "default";
+    public boolean iconNametag = true, iconTablist = true, iconSpace = true;
+    /** Nametag module: own nametag in third person (F5), text shadow, no background box. */
+    /** Savira's own interface sounds in the menus (headphones button next to the search). */
+    public boolean uiSounds = true;
+    public boolean nametag = true, nametagF5 = true, nametagShadow = false, nametagNoBackground = false;
     /** Discord invite written by the launcher; only discord.gg / discord.com links are used. */
     public String discordUrl = "";
     /** Launcher version for the main menu footer; the jar keeps its own fixed version. */
