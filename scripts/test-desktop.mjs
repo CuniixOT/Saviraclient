@@ -1,6 +1,7 @@
 import { _electron as electron, expect } from '@playwright/test';
-import { mkdir, mkdtemp } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { deflateSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -13,6 +14,15 @@ let app;
 let page;
 const errors = [];
 const javaPath = String.raw`C:\Savira Test\jdk-21\bin\java.exe`;
+// Solid-colour PNG of any size, for upload tests.
+function testPng(width, height, [r, g, b]) {
+  const table = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+  const crc = bytes => { let c = 0xffffffff; for (const byte of bytes) c = table[(c ^ byte) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+  const chunk = (type, body) => { const length = Buffer.alloc(4), sum = Buffer.alloc(4); length.writeUInt32BE(body.length); sum.writeUInt32BE(crc(Buffer.concat([Buffer.from(type), body]))); return Buffer.concat([length, Buffer.from(type), body, sum]); };
+  const head = Buffer.alloc(13); head.writeUInt32BE(width, 0); head.writeUInt32BE(height, 4); head[8] = 8; head[9] = 6;
+  const row = Buffer.concat([Buffer.from([0]), ...Array.from({ length: width }, () => Buffer.from([r, g, b, 255]))]);
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', head), chunk('IDAT', deflateSync(Buffer.concat(Array.from({ length: height }, () => row)))), chunk('IEND', Buffer.alloc(0))]);
+}
 const shot = name => page.screenshot({ path: path.join(tools, `savira-${name}.png`), animations: 'disabled' });
 async function start() {
   app = await electron.launch({ args: [root, '--smoke-test'], env, timeout: 60000 });
@@ -61,6 +71,121 @@ try {
   await page.getByRole('switch', { name: 'Koordinaten aktivieren' }).click();
   await expect(page.getByRole('switch', { name: 'Koordinaten deaktivieren' })).toBeVisible();
   await shot('mods');
+
+  // Skins: add from a PNG file, preview in 3D, switch model, rename, swap, search, delete.
+  const skinFile = path.join(root, 'public', 'default-skin.png');
+  await page.getByRole('button', { name: 'Skins', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Skins' })).toBeVisible();
+  await page.getByRole('button', { name: 'Neuen Skin hinzufügen' }).click();
+  await expect(page.getByRole('dialog', { name: 'Skin hinzufügen' })).toBeVisible();
+  await page.locator('input[type="file"]').setInputFiles(skinFile);
+  await expect(page.getByRole('dialog', { name: 'Vorschau' })).toBeVisible();
+  await expect(page.getByLabel('Name', { exact: true })).toHaveValue('default-skin');
+  await page.getByLabel('Name', { exact: true }).fill('PvP Skin');
+  await page.getByRole('radio', { name: 'Schlank (Alex)' }).click();
+  await page.waitForTimeout(700);
+  await shot('skin-preview');
+  await page.getByRole('button', { name: 'skin speichern' }).click();
+  const skinCard = page.locator('.skin-card', { hasText: 'PvP Skin' });
+  await expect(skinCard).toBeVisible();
+  await expect(skinCard).toContainText('Schlank (Alex)');
+  await expect(skinCard.getByRole('button', { name: 'auswählen' })).toBeDisabled();
+  await skinCard.hover();
+  await skinCard.getByRole('button', { name: 'PvP Skin bearbeiten' }).click();
+  await expect(page.getByRole('dialog', { name: 'Skin bearbeiten' })).toBeVisible();
+  await page.getByLabel('Name', { exact: true }).fill('Turnier');
+  await page.getByRole('radio', { name: 'Klassisch (Steve)' }).click();
+  await page.locator('input[type="file"]').setInputFiles(skinFile);
+  await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Turnier');
+  await page.getByRole('button', { name: 'skin speichern' }).click();
+  const renamed = page.locator('.skin-card', { hasText: 'Turnier' });
+  await expect(renamed).toContainText('Klassisch (Steve)');
+  await page.getByRole('button', { name: 'Neuen Skin hinzufügen' }).click();
+  await page.locator('input[type="file"]').setInputFiles(skinFile);
+  await page.getByLabel('Name', { exact: true }).fill('Zum Löschen');
+  await page.getByRole('button', { name: 'skin speichern' }).click();
+  await expect(page.locator('.skin-card:not(.skin-add)')).toHaveCount(2);
+  await page.waitForTimeout(500);
+  await shot('skins');
+  await page.getByLabel('Skins durchsuchen').fill('turn');
+  await expect(page.locator('.skin-card:not(.skin-add)')).toHaveCount(1);
+  await page.getByLabel('Skins durchsuchen').fill('');
+  const doomed = page.locator('.skin-card', { hasText: 'Zum Löschen' });
+  await doomed.hover();
+  await doomed.getByRole('button', { name: 'Zum Löschen löschen' }).click();
+  await doomed.getByRole('button', { name: 'Zum Löschen wirklich löschen' }).click();
+  await expect(page.locator('.skin-card:not(.skin-add)')).toHaveCount(1);
+  const badSkin = await page.evaluate(() => window.savira.skins.save({ name: 'Kaputt', variant: 'slim', png: 'data:image/png;base64,AAAA' }));
+  expect(badSkin.ok).toBe(false);
+
+  // Capes: tabs, upload with 3D preview, wear, favourite, rename, template, vanilla needs an account.
+  await page.getByRole('button', { name: 'Capes', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Capes', exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: 'alle' }).click();
+  await expect(page.getByText('Kommt mit dem nächsten Update')).toBeVisible();
+  await page.getByRole('tab', { name: 'vanilla' }).click();
+  await expect(page.getByText('Anmeldung nötig')).toBeVisible();
+  await page.getByRole('tab', { name: 'meine capes' }).click();
+  await page.locator('input[type="file"]').setInputFiles({ name: 'Mein Cape.png', mimeType: 'image/png', buffer: testPng(64, 32, [92, 207, 149]) });
+  await expect(page.getByRole('dialog', { name: 'Vorschau' })).toBeVisible();
+  await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Mein Cape');
+  // Publishing comes with the Savira server: only "Nur für mich" can be chosen for now.
+  await expect(page.getByRole('radio', { name: /Öffentlich/ })).toBeDisabled();
+  await expect(page.getByRole('radio', { name: /Nur für mich/ })).toHaveAttribute('aria-checked', 'true');
+  await page.waitForTimeout(800);
+  await shot('cape-preview');
+  await page.getByRole('button', { name: 'cape hochladen' }).last().click();
+  const capeCard = page.locator('.cape-card', { hasText: 'Mein Cape' });
+  await expect(capeCard).toBeVisible();
+  await capeCard.getByRole('button', { name: 'tragen' }).click();
+  await expect(capeCard).toContainText('getragen');
+  await capeCard.getByRole('button', { name: 'Mein Cape zu Favoriten' }).click();
+  await capeCard.hover();
+  await expect(capeCard).toContainText('Nur für mich');
+  await capeCard.getByRole('button', { name: 'Mein Cape verwalten' }).click();
+  await expect(page.getByRole('dialog', { name: 'Cape verwalten' })).toBeVisible();
+  await page.getByLabel('Name', { exact: true }).fill('Turnier-Cape');
+  await expect(page.getByRole('radio', { name: /Öffentlich/ })).toBeDisabled();
+  await page.waitForTimeout(300);
+  await shot('cape-manage');
+  await page.getByRole('button', { name: 'speichern', exact: true }).click();
+  const turnier = page.locator('.cape-card', { hasText: 'Turnier-Cape' });
+  await expect(turnier).toContainText('Nur für mich');
+  // A second, private cape that is deleted again from the manage dialog.
+  await page.locator('input[type="file"]').setInputFiles({ name: 'Weg damit.png', mimeType: 'image/png', buffer: testPng(64, 32, [229, 86, 107]) });
+  await page.getByRole('button', { name: 'cape hochladen' }).last().click();
+  const doomedCape = page.locator('.cape-card', { hasText: 'Weg damit' });
+  await doomedCape.hover();
+  await doomedCape.getByRole('button', { name: 'Weg damit verwalten' }).click();
+  await page.getByRole('button', { name: 'Löschen', exact: true }).click();
+  await page.getByRole('button', { name: 'Wirklich löschen?' }).click();
+  await expect(doomedCape).toHaveCount(0);
+  await page.waitForTimeout(400);
+  await shot('capes');
+  await page.getByRole('tab', { name: 'favoriten' }).click();
+  await expect(page.locator('.cape-card', { hasText: 'Turnier-Cape' })).toBeVisible();
+  const wrongCape = page.locator('input[type="file"]').setInputFiles({ name: 'falsch.png', mimeType: 'image/png', buffer: testPng(64, 64, [0, 0, 0]) });
+  await wrongCape;
+  await expect(page.getByRole('alert')).toContainText('64×32');
+  await page.getByRole('button', { name: 'Meldung schließen' }).click();
+  const templateFile = path.join(userData, 'vorlage.png');
+  await app.evaluate(({ dialog }, file) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: file }); }, templateFile);
+  await page.getByRole('button', { name: 'Vorlage' }).click();
+  await page.getByRole('menuitem', { name: /HD/ }).click();
+  await expect(page.locator('.toast')).toContainText('Vorlage gespeichert.');
+  const template = await readFile(templateFile);
+  expect([template.readUInt32BE(16), template.readUInt32BE(20)]).toEqual([512, 256]);
+  // The worn cape shows on the start page figure; taking it off removes it again.
+  expect((await page.evaluate(() => window.savira.capes.current())).data).toMatch(/^data:image\/png;base64,/);
+  await page.getByRole('button', { name: 'Spielen', exact: true }).click();
+  await page.locator('.skin-stage canvas').dragTo(page.locator('.skin-stage canvas'), { sourcePosition: { x: 200, y: 300 }, targetPosition: { x: 470, y: 300 } });
+  await page.waitForTimeout(500);
+  await shot('home-cape');
+  await page.getByRole('button', { name: 'Capes', exact: true }).click();
+  await page.getByRole('tab', { name: 'meine capes' }).click();
+  await page.locator('.cape-card', { hasText: 'Turnier-Cape' }).getByRole('button', { name: 'ablegen' }).click();
+  await expect.poll(async () => (await page.evaluate(() => window.savira.capes.current())).data).toBeNull();
+  await page.locator('.cape-card', { hasText: 'Turnier-Cape' }).getByRole('button', { name: 'tragen' }).click();
 
   await page.getByRole('button', { name: 'Einstellungen', exact: true }).click();
   await page.getByRole('tab', { name: 'erweitert' }).click();
@@ -161,6 +286,11 @@ try {
   expect(persisted.data.settings.hud.coordinates).toBe(true);
   expect(persisted.data.settings.radius).toBe(2);
   expect(persisted.data.settings.background).toBe('hexgrid');
+  const savedCapes = await page.evaluate(() => window.savira.capes.list());
+  expect(savedCapes.data.capes.map(cape => [cape.name, cape.visibility])).toEqual([['Turnier-Cape', 'private']]);
+  expect(savedCapes.data.active).toBe(savedCapes.data.capes[0].id);
+  const savedSkins = await page.evaluate(() => window.savira.skins.list());
+  expect(savedSkins.data.skins.map(skin => [skin.name, skin.variant])).toEqual([['Turnier', 'classic']]);
   expect([persisted.data.settings.emotes, persisted.data.settings.emote]).toEqual([true, 'dance']);
   expect(persisted.data.settings.discordPresence).toBe(false);
   expect(persisted.data.accounts.map(account => account.name)).toEqual(['Zweitkonto']);

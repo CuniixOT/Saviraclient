@@ -11,6 +11,25 @@ contextBridge.exposeInMainWorld('savira', {
   openFolder: () => ipcRenderer.invoke('folder'),
   selectJava: () => ipcRenderer.invoke('java'),
   window: (action) => ipcRenderer.invoke('window', action),
+  skins: {
+    list: () => ipcRenderer.invoke('skins-list'),
+    fetch: (query) => ipcRenderer.invoke('skins-fetch', query),
+    save: (skin) => ipcRenderer.invoke('skins-save', skin),
+    remove: (id) => ipcRenderer.invoke('skins-delete', id),
+    apply: (id) => ipcRenderer.invoke('skins-apply', id)
+  },
+  capes: {
+    list: () => ipcRenderer.invoke('capes-list'),
+    current: () => ipcRenderer.invoke('cape-current'),
+    vanilla: () => ipcRenderer.invoke('capes-vanilla'),
+    setVanilla: (capeId) => ipcRenderer.invoke('capes-vanilla-set', capeId),
+    add: (cape) => ipcRenderer.invoke('capes-add', cape),
+    update: (id, changes) => ipcRenderer.invoke('capes-update', id, changes),
+    remove: (id) => ipcRenderer.invoke('capes-delete', id),
+    wear: (id) => ipcRenderer.invoke('capes-wear', id),
+    favorite: (key) => ipcRenderer.invoke('capes-favorite', key),
+    template: (kind, png) => ipcRenderer.invoke('capes-template', kind, png)
+  },
   logs: {
     open: () => ipcRenderer.invoke('logs-open'),
     state: () => ipcRenderer.invoke('logs-state'),

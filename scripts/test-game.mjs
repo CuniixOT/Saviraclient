@@ -20,6 +20,10 @@ await copyFile(path.join(root, 'client-mod/build/libs/savira-client-0.1.0.jar'),
 const fixture = path.join(game, 'mods/savira-menu-test.jar');
 if (menuTest) await copyFile(path.join(root, 'client-mod/build/menu-test/savira-menu-test.jar'), fixture);
 else await rm(fixture, { force: true });
+// The menu test checks that the mod loads a cape the launcher put into the config folder.
+const capeFixture = path.join(game, 'config', 'savira-cape.png');
+if (menuTest) { await mkdir(path.dirname(capeFixture), { recursive: true }); await copyFile(path.join(root, 'client-mod/src/menuTest/resources/test-cape.png'), capeFixture); }
+else await rm(capeFixture, { force: true });
 const versionsResponse = await fetch('https://api.modrinth.com/v2/project/fabric-api/version?loaders=%5B%22fabric%22%5D&game_versions=%5B%221.21.1%22%5D');
 if (!versionsResponse.ok) throw new Error('Fabric API metadata unavailable');
 const versions = await versionsResponse.json();

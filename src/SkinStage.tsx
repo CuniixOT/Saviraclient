@@ -89,7 +89,7 @@ function makeTag(NameTag: typeof import('skinview3d').NameTagObject, viewer: Ski
  * can be turned by dragging and eases back to its pose. Fits any window size.
  * With an emote set it plays that emote every few seconds; null keeps it calm.
  */
-export function SkinStage({ skin, name, paused = false, emote = null }: { skin: string | null; name: string; paused?: boolean; emote?: Emote | null }) {
+export function SkinStage({ skin, name, paused = false, emote = null, cape = null }: { skin: string | null; name: string; paused?: boolean; emote?: Emote | null; cape?: string | null }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewerRef = useRef<SkinViewer | null>(null);
@@ -97,8 +97,8 @@ export function SkinStage({ skin, name, paused = false, emote = null }: { skin: 
   const emoteRef = useRef(emote);
   emoteRef.current = emote;
   // Latest props for the async scene setup, which may finish after they changed.
-  const latest = useRef({ skin, name });
-  latest.current = { skin, name };
+  const latest = useRef({ skin, name, cape });
+  latest.current = { skin, name, cape };
   const nameTagClass = useRef<typeof import('skinview3d').NameTagObject | null>(null);
 
   useEffect(() => {
@@ -120,6 +120,7 @@ export function SkinStage({ skin, name, paused = false, emote = null }: { skin: 
       viewer.cameraLight.intensity = .6;
       viewer.playerWrapper.position.y = SCENE_SHIFT;
       makeTag(NameTagObject, viewer, latest.current.name);
+      if (latest.current.cape) void viewer.loadCape(latest.current.cape);
       viewer.renderPaused = pausedRef.current;
 
       // Pointer state lives outside React; the render loop reads it every frame.
@@ -146,6 +147,7 @@ export function SkinStage({ skin, name, paused = false, emote = null }: { skin: 
         player.skin.leftArm.rotation.x = Math.sin(t * .5) * .04;
         player.skin.rightArm.rotation.x = -Math.sin(t * .5) * .04;
         player.position.y = Math.sin(t) * .12;   // breathing
+        player.cape.rotation.x = .2 + Math.sin(t * .8) * .05;   // the cape sways a little
         player.skin.leftLeg.rotation.x = 0;
         player.skin.rightLeg.rotation.x = 0;
         player.skin.head.rotation.z = 0;
@@ -221,6 +223,11 @@ export function SkinStage({ skin, name, paused = false, emote = null }: { skin: 
   }, []);
 
   useEffect(() => { void viewerRef.current?.loadSkin(skin || './default-skin.png'); }, [skin]);
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+    if (cape) void viewer.loadCape(cape); else viewer.resetCape();
+  }, [cape]);
   useEffect(() => {
     const viewer = viewerRef.current, NameTag = nameTagClass.current;
     if (viewer && NameTag) makeTag(NameTag, viewer, name);

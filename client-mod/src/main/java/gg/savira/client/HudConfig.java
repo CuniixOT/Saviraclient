@@ -32,6 +32,8 @@ public final class HudConfig {
     public int accent = 0x5CCF95;
     /** Replace the vanilla title screen with Savira's main menu. */
     public boolean customTitleScreen = true;
+    /** Written by the launcher: wear config/savira-cape.png as this player's cape. */
+    public boolean customCape = false;
     /** Discord invite written by the launcher; only discord.gg / discord.com links are used. */
     public String discordUrl = "";
     /** Launcher version for the main menu footer; the jar keeps its own fixed version. */

@@ -3,7 +3,8 @@
 Jede Zeile, die mit "- " beginnt, erscheint im Update-Hinweis des Launchers.
 Vor jedem Release anpassen, dann Version erhöhen und pushen.
 
-- Neues Savira-Logo im Launcher, im Spiel, als Desktop-Symbol und in Discord
-- Sechs neue Hintergrundeffekte: Waben, Netzwerk, Glühwürmchen, Schnee, Regen und Glut
-- Emotes für die Spielerfigur: Winken, Jubeln, Tanzen, Klatschen, Drehen, Nachdenken oder Zufällig (abschaltbar)
-- News auf der Startseite mit eigenen Bildern zu den letzten Updates
+- Neue Skins-Seite: Skins per Datei, Benutzername, UUID oder Link hinzufügen, mit 3D-Vorschau, umbenennen, austauschen, löschen und mit einem Klick auswählen
+- Neue Capes-Seite: Vanilla-Capes deines Kontos wechseln oder ausblenden, Favoriten, Vorlage zum Download
+- Eigene Capes hochladen und im Spiel tragen, verwalten über das Zahnrad (Veröffentlichen kommt mit dem nächsten Update)
+- Die Figur auf der Startseite trägt jetzt dein ausgewähltes Cape
+- Das neue Logo erscheint jetzt zuverlässig als Desktop-Symbol, in der Taskleiste und in Discord

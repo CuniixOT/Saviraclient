@@ -1,19 +1,23 @@
-import { useEffect, useRef, useState } from 'react';
-import { Check, CheckCircle, CornersOut, GearSix, Info, Minus, Play, Plus, PuzzlePiece, ShieldCheck, Stack, Trash, WindowsLogo, X } from '@phosphor-icons/react';
-import { api, isDesktop, logsApi, unwrap, type Accounts, type Settings, type State } from './api';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Check, CheckCircle, CornersOut, FlagBanner, GearSix, Info, Minus, Play, Plus, PuzzlePiece, ShieldCheck, Stack, Trash, TShirt, WindowsLogo, X } from '@phosphor-icons/react';
+import { api, capesApi, isDesktop, logsApi, unwrap, type Accounts, type Settings, type State } from './api';
 import { Background } from './Background';
 import { LauncherHome } from './LauncherHome';
 import { ProfilesPage } from './ProfilesPage';
 import { ModsPage } from './ModsPage';
 import { SettingsPage } from './SettingsPage';
 import { AboutPage } from './AboutPage';
+import { SkinsPage } from './SkinsPage';
+import { CapesPage } from './CapesPage';
 import { Logo, SkinHead, accentHex } from './ui';
 import { UpdateChip, useUpdates } from './Update';
 
-type Page = 'home' | 'profiles' | 'mods' | 'settings' | 'about';
+type Page = 'home' | 'profiles' | 'skins' | 'capes' | 'mods' | 'settings' | 'about';
 const nav: { id: Page; label: string; icon: typeof Play }[] = [
   { id: 'home', label: 'Spielen', icon: Play },
   { id: 'profiles', label: 'Profile', icon: Stack },
+  { id: 'skins', label: 'Skins', icon: TShirt },
+  { id: 'capes', label: 'Capes', icon: FlagBanner },
   { id: 'mods', label: 'Module', icon: PuzzlePiece },
   { id: 'settings', label: 'Einstellungen', icon: GearSix },
   { id: 'about', label: 'Über Savira', icon: Info }
@@ -71,6 +75,10 @@ export function App() {
   const active = phase === 'running' || phase === 'installing' || phase === 'preparing';
   const locked = Boolean(pending) || active;
   const applyAccounts = (next: Accounts) => setState(s => s ? { ...s, ...next } : s);
+  const refreshCape = useCallback(() => { capesApi.current().then(result => { if (result.ok) setState(s => s ? { ...s, cape: result.data } : s); }).catch(() => { /* Keeps the old cape. */ }); }, []);
+  // Another account may wear another vanilla cape.
+  const accountUuid = state?.account?.uuid;
+  useEffect(() => { if (accountUuid !== undefined) refreshCape(); }, [accountUuid, refreshCape]);
   const login = () => action('login', async () => { const next = await unwrap(api.login()); applyAccounts(next); setNotice(`Willkommen, ${next.account?.name}.`); setAccountOpen(false); });
   const switchAccount = (uuid: string) => action('account', async () => { const next = await unwrap(api.switchAccount(uuid)); applyAccounts(next); setNotice(`Aktives Konto: ${next.account?.name}.`); });
   const removeAccount = (uuid: string, name: string) => action('account', async () => { const next = await unwrap(api.logout(uuid)); applyAccounts(next); setNotice(`${name} wurde entfernt.`); });
@@ -137,6 +145,8 @@ export function App() {
           onLaunch={() => state.account ? action('launch', async () => { await unwrap(api.launch()); }) : login()}
           onProfile={selectedProfileId => save({ ...state.settings, selectedProfileId }, 'Profil gewechselt.')} />}
         {page === 'profiles' && <ProfilesPage settings={state.settings} locked={locked} onSave={async (next, message) => save(next, message)} onUse={launchProfile} />}
+        {page === 'skins' && <SkinsPage hasAccount={Boolean(state.account)} locked={locked} onNotice={setNotice} onError={setError} onApplied={({ account, accounts }) => applyAccounts({ account, accounts })} />}
+        {page === 'capes' && <CapesPage hasAccount={Boolean(state.account)} skin={state.account?.skin || null} locked={locked} onNotice={setNotice} onError={setError} onCapeChange={refreshCape} />}
         {page === 'mods' && <ModsPage settings={state.settings} locked={locked} onSave={save} />}
         {page === 'settings' && <SettingsPage state={state} locked={locked} pending={pending} onSave={save} onFolder={openFolder} onNotice={setNotice} onError={setError} updates={updates} gameRunning={active} onRadiusPreview={setRadiusPreview}
           onPickJava={async () => { try { return await unwrap(api.selectJava()); } catch (e) { setError(e instanceof Error ? e.message : 'Java konnte nicht ausgewählt werden.'); return null; } }} />}

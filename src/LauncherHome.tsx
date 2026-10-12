@@ -45,7 +45,7 @@ export function LauncherHome({ state, pending, locked, active, onLaunch, onProfi
 
   return <div className="home page-enter">
     <section className="stage" aria-label="Spiel starten">
-      <SkinStage skin={state.account?.skin || null} name={name} paused={phase === 'running'} emote={state.settings.emotes ? state.settings.emote : null} />
+      <SkinStage skin={state.account?.skin || null} name={name} paused={phase === 'running'} emote={state.settings.emotes ? state.settings.emote : null} cape={state.cape ?? null} />
 
       <div className="launch-area">
         {failed && <div className="launch-error" role="alert"><Warning size={18} weight="fill" /><p>{state.status.message}</p></div>}

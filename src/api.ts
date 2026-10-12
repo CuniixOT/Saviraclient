@@ -9,7 +9,7 @@ export type Settings = { memory: number; javaPath: string; selectedProfileId: st
 export type Account = { name: string; uuid: string; skin: string | null };
 export type Status = { phase: 'idle' | 'preparing' | 'installing' | 'running' | 'error'; message: string; progress: number };
 export type Accounts = { account: Account | null; accounts: Account[] };
-export type State = { settings: Settings; account: Account | null; accounts: Account[]; status: Status; maxMemory: number; gameDirectory: string; version: string };
+export type State = { settings: Settings; account: Account | null; accounts: Account[]; cape?: string | null; status: Status; maxMemory: number; gameDirectory: string; version: string };
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 interface Bridge {
   state(): Promise<Result<State>>;
@@ -28,7 +28,39 @@ interface Bridge {
   setup?: SetupBridge;
   update?: UpdateBridge;
   logs?: LogsBridge;
+  skins?: SkinsBridge;
+  capes?: CapesBridge;
   debug?: DebugBridge;
+}
+export type SkinVariant = 'classic' | 'slim';
+export type LibrarySkin = { id: string; name: string; variant: SkinVariant; added: number; png: string };
+export type Wardrobe = { skins: LibrarySkin[]; applied: string | null };
+/** A skin found by name, UUID or link; variant null means "detect from the texture". */
+export type FetchedSkin = { name: string; variant: SkinVariant | null; png: string };
+interface SkinsBridge {
+  list(): Promise<Result<Wardrobe>>;
+  fetch(query: string): Promise<Result<FetchedSkin>>;
+  save(skin: { id?: string; name: string; variant: SkinVariant; png?: string }): Promise<Result<Wardrobe>>;
+  remove(id: string): Promise<Result<Wardrobe>>;
+  apply(id: string): Promise<Result<Accounts & { applied: string }>>;
+}
+export type CapeVisibility = 'private' | 'public';
+export type OwnCape = { id: string; name: string; added: number; png: string; visibility: CapeVisibility };
+export type CapeLibrary = { capes: OwnCape[]; favorites: string[]; active: string | null };
+export type VanillaCape = { id: string; name: string; png: string | null; active: boolean };
+export type VanillaCapes = { capes: VanillaCape[]; active: string | null };
+interface CapesBridge {
+  list(): Promise<Result<CapeLibrary>>;
+  /** The cape the start page figure wears: own Savira cape, else the active vanilla cape. */
+  current(): Promise<Result<string | null>>;
+  vanilla(): Promise<Result<VanillaCapes>>;
+  setVanilla(capeId: string | null): Promise<Result<{ vanilla: VanillaCapes; library: CapeLibrary }>>;
+  add(cape: { name: string; png: string; visibility: CapeVisibility }): Promise<Result<CapeLibrary>>;
+  update(id: string, changes: { name?: string; visibility?: CapeVisibility }): Promise<Result<CapeLibrary>>;
+  remove(id: string): Promise<Result<CapeLibrary>>;
+  wear(id: string | null): Promise<Result<CapeLibrary>>;
+  favorite(key: string): Promise<Result<CapeLibrary>>;
+  template(kind: 'pixel' | 'hd', png: string): Promise<Result<string | null>>;
 }
 export type LogLevel = 'ERROR' | 'WARN' | 'INFO' | 'DEBUG' | 'TRACE';
 export type LogLine = { id: number; time: number; level: LogLevel; text: string };
@@ -127,4 +159,32 @@ export const logsApi: LogsBridge = window.savira?.logs ?? {
 };
 export const debugApi: DebugBridge = window.savira?.debug ?? {
   list: async () => ({ ok: true, data: [] }), read: unavailable, open: unavailable, reveal: unavailable, folder: unavailable
+};
+
+// Browser preview keeps skins in memory so the page can be designed without Electron.
+let previewSkins: LibrarySkin[] = [];
+export const skinsApi: SkinsBridge = window.savira?.skins ?? {
+  list: async () => ({ ok: true, data: { skins: previewSkins, applied: null } }),
+  fetch: unavailable,
+  save: async skin => {
+    previewSkins = skin.id ? previewSkins.map(s => s.id === skin.id ? { ...s, ...skin, png: skin.png ?? s.png } : s) : [{ id: crypto.randomUUID(), added: Date.now(), name: skin.name, variant: skin.variant, png: skin.png || '' }, ...previewSkins];
+    return { ok: true, data: { skins: previewSkins, applied: null } };
+  },
+  remove: async id => { previewSkins = previewSkins.filter(s => s.id !== id); return { ok: true, data: { skins: previewSkins, applied: null } }; },
+  apply: unavailable
+};
+
+let previewCapes: CapeLibrary = { capes: [], favorites: [], active: null };
+const capeResult = async () => ({ ok: true as const, data: previewCapes });
+export const capesApi: CapesBridge = window.savira?.capes ?? {
+  list: capeResult,
+  current: async () => ({ ok: true, data: previewCapes.capes.find(c => c.id === previewCapes.active)?.png ?? null }),
+  vanilla: unavailable,
+  setVanilla: unavailable,
+  add: async cape => { previewCapes = { ...previewCapes, capes: [{ id: crypto.randomUUID(), added: Date.now(), ...cape }, ...previewCapes.capes] }; return capeResult(); },
+  update: async (id, changes) => { previewCapes = { ...previewCapes, capes: previewCapes.capes.map(c => c.id === id ? { ...c, ...changes } : c) }; return capeResult(); },
+  remove: async id => { previewCapes = { ...previewCapes, capes: previewCapes.capes.filter(c => c.id !== id) }; return capeResult(); },
+  wear: async id => { previewCapes = { ...previewCapes, active: id }; return capeResult(); },
+  favorite: async key => { const has = previewCapes.favorites.includes(key); previewCapes = { ...previewCapes, favorites: has ? previewCapes.favorites.filter(k => k !== key) : [...previewCapes.favorites, key] }; return capeResult(); },
+  template: unavailable
 };

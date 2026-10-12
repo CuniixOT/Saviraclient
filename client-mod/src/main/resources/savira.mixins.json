@@ -2,6 +2,6 @@
   "required": true,
   "package": "gg.savira.client.mixin",
   "compatibilityLevel": "JAVA_21",
-  "client": ["MinecraftClientMixin", "MouseMixin"],
+  "client": ["AbstractClientPlayerEntityMixin", "MinecraftClientMixin", "MouseMixin"],
   "injectors": { "defaultRequire": 1 }
 }

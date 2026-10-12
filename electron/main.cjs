@@ -11,6 +11,8 @@ const log = require('./logger.cjs');
 const logfiles = require('./logfiles.cjs');
 const { createSession } = require('./gamesession.cjs');
 const { normalizeSkinUrl, validSkinPng } = require('./skin.cjs');
+const { createSkinLibrary, assertSkin } = require('./skins.cjs');
+const { createCapeLibrary } = require('./capes.cjs');
 const setup = require('./setup.cjs');
 const { createUpdater } = require('./updater.cjs');
 const { createAccountStore } = require('./accounts.cjs');
@@ -32,11 +34,13 @@ const run = promisify(execFile);
 const SAVIRA_MC = '1.21.1';
 const LOADER = '0.16.14';
 app.setName('Savira');
+// Same id as the installer's shortcuts, so Windows groups the window with them and uses their icon.
+if (process.platform === 'win32') app.setAppUserModelId('gg.savira.launcher');
 // Tests isolate their profile via this variable. It is inherited through updater → setup →
 // relaunch, so a test launcher never collides with a real Savira running on the same machine.
 if (process.env.SAVIRA_TEST_USER_DATA) app.setPath('userData', path.resolve(process.env.SAVIRA_TEST_USER_DATA));
 let win, logWin = null, settings = structuredClone(defaults), account = null, accounts = [], busy = false, loggingIn = false;
-let store = null, presence = null, page = 'home';
+let store = null, presence = null, wardrobe = null, capes = null, page = 'home';
 const launcherStarted = Date.now();
 // The running (or last) Minecraft process and its log buffer for the log window.
 let session = null, gameChild = null;
@@ -112,18 +116,136 @@ async function authenticate(interactive, legacyToken) {
   if (mc.isDemo()) throw new Error('Dieses Microsoft-Konto besitzt keine Minecraft Java Edition.');
   await store.upsert({ uuid: mc.profile.id, name: mc.profile.name, token: xbox.save() });
   await cacheSkin(mc);
+  const uuid = mc.profile.id.replace(/-/g, '').toLowerCase();
+  void vanillaCapes(mc.profile).then(result => rememberVanillaCape(uuid, result.capes)).catch(() => { /* Cape stays as it was. */ });
   await refreshAccounts();
   log.info(`Angemeldet als ${account.name}${interactive ? ' (Microsoft-Fenster)' : ' (gespeicherte Sitzung)'}`);
   return mc;
 }
-const pageLabels = { home: 'Startseite', profiles: 'Profile', mods: 'Module', settings: 'Einstellungen', about: 'Über Savira' };
+const pageLabels = { home: 'Startseite', profiles: 'Profile', skins: 'Skins', capes: 'Capes', mods: 'Module', settings: 'Einstellungen', about: 'Über Savira' };
+// Skin sources for the wardrobe: a Minecraft name or UUID (via Mojang) or a direct https image link.
+async function download(url, limit = 1_000_000) {
+  const response = await fetch(url, { signal: AbortSignal.timeout(20000), headers: { 'User-Agent': 'Savira/0.1.0' } });
+  if (!response.ok) throw new Error(`Download fehlgeschlagen (${response.status}).`);
+  if (Number(response.headers.get('content-length') || 0) > limit) throw new Error('Die Datei ist zu groß.');
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (bytes.length > limit) throw new Error('Die Datei ist zu groß.');
+  return bytes;
+}
+async function resolveSkin(query) {
+  const value = typeof query === 'string' ? query.trim() : '';
+  if (!value || value.length > 400) throw new Error('Bitte einen Benutzernamen, eine UUID oder einen Bild-Link eingeben.');
+  if (/^https:\/\//i.test(value)) {
+    const url = new URL(value);
+    // Only public hosts: no localhost or raw IP addresses from the local network.
+    if (url.hostname === 'localhost' || require('node:net').isIP(url.hostname.replace(/^\[|\]$/g, ''))) throw new Error('Dieser Link ist nicht erlaubt.');
+    const name = decodeURIComponent(url.pathname.split('/').pop() || '').replace(/\.png$/i, '').slice(0, 32).trim() || 'Neuer Skin';
+    return { name, variant: null, png: `data:image/png;base64,${assertSkin(await download(url)).toString('base64')}` };
+  }
+  let uuid = value.replace(/-/g, '');
+  if (!/^[0-9a-f]{32}$/i.test(uuid)) {
+    if (!/^[A-Za-z0-9_]{3,16}$/.test(value)) throw new Error('Unbekanntes Format. Erlaubt sind Benutzername, UUID oder ein https-Bild-Link.');
+    const response = await fetch(`https://api.mojang.com/users/profiles/minecraft/${value}`, { signal: AbortSignal.timeout(20000) });
+    if (response.status === 404 || response.status === 204) throw new Error(`Kein Minecraft-Konto mit dem Namen „${value}“ gefunden.`);
+    if (!response.ok) throw new Error(`Mojang ist gerade nicht erreichbar (${response.status}).`);
+    uuid = (await response.json()).id;
+  }
+  const response = await fetch(`https://sessionserver.mojang.com/session/minecraft/profile/${uuid}`, { signal: AbortSignal.timeout(20000) });
+  if (response.status === 204 || response.status === 404) throw new Error('Kein Minecraft-Konto mit dieser UUID gefunden.');
+  if (!response.ok) throw new Error(`Mojang ist gerade nicht erreichbar (${response.status}).`);
+  const profile = await response.json();
+  const encoded = profile.properties?.find(property => property.name === 'textures')?.value;
+  const skin = encoded ? JSON.parse(Buffer.from(encoded, 'base64').toString('utf8')).textures?.SKIN : null;
+  if (!skin?.url) throw new Error(`${profile.name} nutzt den Standard-Skin.`);
+  const bytes = assertSkin(await download(normalizeSkinUrl(skin.url)));
+  return { name: profile.name, variant: skin.metadata?.model === 'slim' ? 'slim' : 'classic', png: `data:image/png;base64,${bytes.toString('base64')}` };
+}
+async function wardrobeState() {
+  return { skins: await wardrobe.list(), applied: account ? wardrobe.appliedFor(account.uuid) : null };
+}
+// Uploads the skin to the active Minecraft account, like changing it on minecraft.net.
+async function applySkin(id) {
+  if (busy || loggingIn) throw new Error('Skins können nach dem Beenden von Minecraft gewechselt werden.');
+  if (!account) throw new Error('Bitte zuerst mit Microsoft anmelden.');
+  const skin = wardrobe.get(id), bytes = await wardrobe.texture(id);
+  const mc = await authenticate(false);
+  const form = new FormData();
+  form.append('variant', skin.variant);
+  form.append('file', new Blob([bytes], { type: 'image/png' }), 'skin.png');
+  const response = await fetch('https://api.minecraftservices.com/minecraft/profile/skins', {
+    method: 'POST', body: form, redirect: 'error', signal: AbortSignal.timeout(30000),
+    headers: { Authorization: `Bearer ${mc.mcToken}`, 'User-Agent': 'Savira/0.1.0' }
+  });
+  if (response.status === 429) throw new Error('Zu viele Skin-Wechsel hintereinander. Bitte eine Minute warten.');
+  if (!response.ok) throw new Error(`Mojang hat den Skin abgelehnt (${response.status}).`);
+  const profile = await response.json().catch(() => null);
+  if (Array.isArray(profile?.skins)) mc.profile.skins = profile.skins;
+  await cacheSkin(mc);
+  await wardrobe.markApplied(account.uuid, skin.id);
+  await refreshAccounts();
+  log.info(`Skin „${skin.name}“ für ${account.name} gesetzt`);
+  return { account, accounts, applied: skin.id };
+}
+// Vanilla capes: the ones Mojang gave this account (Migrator, Pan, …); one or none can be shown.
+async function minecraftProfile(mc) {
+  const response = await fetch('https://api.minecraftservices.com/minecraft/profile', {
+    redirect: 'error', signal: AbortSignal.timeout(20000), headers: { Authorization: `Bearer ${mc.mcToken}`, 'User-Agent': 'Savira/0.1.0' }
+  });
+  if (!response.ok) throw new Error(`Mojang ist gerade nicht erreichbar (${response.status}).`);
+  return response.json();
+}
+async function vanillaCapes(profile) {
+  const list = await Promise.all((Array.isArray(profile?.capes) ? profile.capes : []).map(async cape => {
+    let png = null;
+    try { png = `data:image/png;base64,${(await download(normalizeSkinUrl(cape.url), 500_000)).toString('base64')}`; } catch { /* Shown without picture. */ }
+    return { id: String(cape.id), name: String(cape.alias || 'Cape').replace(/_/g, ' '), png, active: cape.state === 'ACTIVE' };
+  }));
+  return { capes: list, active: list.find(cape => cape.active)?.id || null };
+}
+async function capeAccount() {
+  if (busy || loggingIn) throw new Error('Capes können nach dem Beenden von Minecraft gewechselt werden.');
+  if (!account) throw new Error('Bitte zuerst mit Microsoft anmelden.');
+  return authenticate(false);
+}
+// The figure on the start page wears the own Savira cape, otherwise the account's vanilla cape.
+const vanillaCapePath = uuid => path.join(root(), 'skins', `${uuid}-cape.png`);
+async function rememberVanillaCape(uuid, list) {
+  const active = list.find(cape => cape.active && cape.png);
+  try {
+    if (active) await atomicWrite(vanillaCapePath(uuid), Buffer.from(active.png.slice(active.png.indexOf(',') + 1), 'base64'));
+    else await fs.rm(vanillaCapePath(uuid), { force: true });
+  } catch { /* Only a preview. */ }
+}
+async function currentCape() {
+  const file = capes?.activeFile() || (account ? vanillaCapePath(account.uuid) : null);
+  if (!file) return null;
+  try { return `data:image/png;base64,${(await fs.readFile(file)).toString('base64')}`; } catch { return null; }
+}
+async function setVanillaCape(capeId) {
+  const mc = await capeAccount();
+  const id = capeId === null ? null : String(capeId);
+  if (id !== null && !/^[0-9a-f-]{36}$/i.test(id)) throw new Error('Unbekanntes Cape.');
+  const response = await fetch('https://api.minecraftservices.com/minecraft/profile/capes/active', {
+    method: id ? 'PUT' : 'DELETE', redirect: 'error', signal: AbortSignal.timeout(20000),
+    headers: { Authorization: `Bearer ${mc.mcToken}`, 'User-Agent': 'Savira/0.1.0', ...(id ? { 'Content-Type': 'application/json' } : {}) },
+    body: id ? JSON.stringify({ capeId: id }) : undefined
+  });
+  if (response.status === 429) throw new Error('Zu viele Cape-Wechsel hintereinander. Bitte eine Minute warten.');
+  if (!response.ok) throw new Error(`Mojang hat den Cape-Wechsel abgelehnt (${response.status}).`);
+  // A vanilla choice replaces the own Savira cape, so what the player picked is what they see.
+  await capes.setActive(null);
+  log.info(id ? 'Vanilla-Cape gewechselt' : 'Vanilla-Cape ausgeblendet');
+  const vanilla = await vanillaCapes(await response.json().catch(async () => minecraftProfile(mc)));
+  await rememberVanillaCape(account.uuid, vanilla.capes);
+  return { vanilla, library: await capes.list() };
+}
 const loaderLabel = loader => loader === 'savira' ? 'Savira Client' : 'Vanilla';
 // What Discord shows: the launcher page, or the profile and version being started or played.
 function updatePresence() {
   if (!presence) return;
   const playing = session && (status.phase === 'running' || status.phase === 'preparing' || status.phase === 'installing');
   const profile = playing ? session.snapshot().profile : selectedProfile();
-  const assets = { large_image: 'https://raw.githubusercontent.com/CuniixOT/Saviraclient/main/public/icon.png', large_text: `Savira Client ${app.getVersion()}` };
+  const assets = { large_image: `https://raw.githubusercontent.com/CuniixOT/Saviraclient/main/public/icon.png?v=${app.getVersion()}`, large_text: `Savira Client ${app.getVersion()}` };
   if (status.phase === 'running' && session) {
     presence.set({ details: `Spielt ${profile.name}`, state: `Minecraft ${profile.version} · ${loaderLabel(profile.loader)}`, timestamps: { start: session.snapshot().startedAt }, assets });
   } else if (status.phase === 'preparing' || status.phase === 'installing') {
@@ -161,11 +283,17 @@ async function prepareFabric(gameRoot, minecraftVersion) {
   for (const name of await fs.readdir(mods)) {
     if (name.startsWith('fabric-api-') && name.endsWith('.jar') && name !== file.filename) await fs.unlink(path.join(mods, name));
   }
+  const capeFile = capes?.activeFile(), capeTarget = path.join(gameRoot, 'config', 'savira-cape.png');
+  let customCape = false;
+  if (capeFile) {
+    try { await fs.mkdir(path.dirname(capeTarget), { recursive: true }); await fs.copyFile(capeFile, capeTarget); customCape = true; } catch (error) { log.warn('Cape konnte nicht übernommen werden', error); }
+  }
+  if (!customCape) await fs.rm(capeTarget, { force: true });
   const hudPath = path.join(gameRoot, 'config', 'savira.json');
   let inGame = {};
   try { inGame = JSON.parse(await fs.readFile(hudPath, 'utf8')) || {}; } catch { /* First launch or invalid config. */ }
   // Layout and snapping belong to the in-game editor, while launcher toggles stay authoritative.
-  await atomicWrite(hudPath, JSON.stringify({ ...settings.hud, accent: accentRgb(settings.accent), discordUrl: discordUrl(), launcherVersion: app.getVersion(), customTitleScreen: inGame.customTitleScreen !== false, layout: inGame.layout || {}, styles: inGame.styles || {}, snap: inGame.snap !== false }, null, 2));
+  await atomicWrite(hudPath, JSON.stringify({ ...settings.hud, accent: accentRgb(settings.accent), discordUrl: discordUrl(), launcherVersion: app.getVersion(), customTitleScreen: inGame.customTitleScreen !== false, customCape, layout: inGame.layout || {}, styles: inGame.styles || {}, snap: inGame.snap !== false }, null, 2));
   return id;
 }
 // The title-screen panorama ships with the game assets the player already downloaded.
@@ -347,7 +475,7 @@ else {
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.webContents.on('will-navigate', event => event.preventDefault());
     win.on('closed', () => { if (logWin && !logWin.isDestroyed()) logWin.close(); });
-    handle('state', () => ({ settings, account, accounts, status, maxMemory, gameDirectory: instance(), version: app.getVersion() }));
+    handle('state', async () => ({ settings, account, accounts, cape: await currentCape(), status, maxMemory, gameDirectory: instance(), version: app.getVersion() }));
     handle('save', async input => {
       if (busy) throw new Error('Einstellungen können nach dem Beenden von Minecraft geändert werden.');
       const next = validateSettings(input);
@@ -374,6 +502,35 @@ else {
       const target = uuid === undefined ? store.active()?.uuid : uuid;
       if (target) await store.remove(target);
       return refreshAccounts();
+    });
+    // Wardrobe: saved skins, adding from file, name, UUID or link, and wearing one.
+    handle('skins-list', wardrobeState);
+    handle('skins-fetch', resolveSkin);
+    handle('skins-save', async input => {
+      const { id, name, variant, png } = input || {};
+      if (id) await wardrobe.update(id, { name, variant, png }); else await wardrobe.add({ name, variant, png });
+      return wardrobeState();
+    });
+    handle('skins-delete', async id => { await wardrobe.remove(id); return wardrobeState(); });
+    handle('skins-apply', applySkin);
+    // Capes: own capes (worn in Savira), favourites, the account's vanilla capes and a template.
+    handle('capes-list', () => capes.list());
+    handle('capes-vanilla', async () => { const result = await vanillaCapes(await minecraftProfile(await capeAccount())); await rememberVanillaCape(account.uuid, result.capes); return result; });
+    handle('cape-current', currentCape);
+    handle('capes-vanilla-set', setVanillaCape);
+    handle('capes-add', async input => { await capes.add({ name: input?.name, png: input?.png, visibility: input?.visibility }); return capes.list(); });
+    handle('capes-update', async (id, changes) => { await capes.update(id, { name: changes?.name, visibility: changes?.visibility }); return capes.list(); });
+    handle('capes-delete', async id => { await capes.remove(id); return capes.list(); });
+    handle('capes-wear', async id => { if (busy) throw new Error('Capes können nach dem Beenden von Minecraft gewechselt werden.'); await capes.setActive(id ?? null); return capes.list(); });
+    handle('capes-favorite', async key => { await capes.toggleFavorite(key); return capes.list(); });
+    handle('capes-template', async (kind, png) => {
+      const match = typeof png === 'string' && /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(png);
+      const bytes = match ? Buffer.from(match[1], 'base64') : null;
+      if (!bytes || !validSkinPng(bytes)) throw new Error('Die Vorlage konnte nicht erstellt werden.');
+      const result = await dialog.showSaveDialog(win, { title: 'Cape-Vorlage speichern', defaultPath: path.join(app.getPath('downloads'), kind === 'hd' ? 'savira-cape-vorlage-hd.png' : 'savira-cape-vorlage.png'), filters: [{ name: 'PNG-Bild', extensions: ['png'] }] });
+      if (result.canceled || !result.filePath) return null;
+      await fs.writeFile(result.filePath, bytes);
+      return result.filePath;
     });
     handle('presence-page', next => { if (Object.hasOwn(pageLabels, next)) { page = next; updatePresence(); } });
     handle('launch', launch);
@@ -439,6 +596,10 @@ else {
     handle('update-download', () => updates.download());
     handle('update-cancel', () => updates.cancel());
     handle('update-install', () => updates.install());
+    capes = createCapeLibrary({ dir: path.join(root(), 'capes') });
+    await capes.load();
+    wardrobe = createSkinLibrary({ dir: path.join(root(), 'wardrobe') });
+    await wardrobe.load();
     store = createAccountStore({ dir: root(), encrypt: text => safeStorage.encryptString(text), decrypt: bytes => safeStorage.decryptString(bytes) });
     presence = createPresence({ clientId: discordClientId, log: message => log.info(message) });
     presence.setEnabled(settings.discordPresence);

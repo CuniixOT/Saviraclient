@@ -102,6 +102,13 @@ async function register(dir, sizeKb) {
   for (const [name, type, data] of values) await run('reg.exe', ['add', UNINSTALL_KEY, '/v', name, '/t', type, '/d', data, '/f'], { windowsHide: true });
 }
 
+// Explorer caches icons per file path, so an update with a new logo would keep showing the old one.
+// ie4uinit -show makes Windows 10/11 rebuild that cache; failing here is harmless.
+async function refreshIcons() {
+  if (sandbox() || process.platform !== 'win32') return;
+  try { await run('ie4uinit.exe', ['-show'], { windowsHide: true, timeout: 15000 }); } catch { /* Old Windows or blocked: icons update after a restart. */ }
+}
+
 async function install({ target, desktop, startMenu }, onProgress) {
   const source = sourceDir();
   const dir = resolveInstallDir(target);
@@ -149,6 +156,7 @@ async function install({ target, desktop, startMenu }, onProgress) {
 
     onProgress({ step: 'register', progress: 97, file: 'Apps & Features' });
     await register(dir, Math.round(total / 1024));
+    await refreshIcons();
     onProgress({ step: 'done', progress: 100, file: '' });
     return { dir, exe };
   } catch (error) { throw friendly(error); }

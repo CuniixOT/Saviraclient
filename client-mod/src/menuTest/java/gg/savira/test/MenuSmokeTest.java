@@ -46,6 +46,9 @@ public final class MenuSmokeTest implements ClientModInitializer {
                         check(mc.currentScreen instanceof SaviraTitleScreen, "Savira title screen not shown");
                         // A loud launcher accent: the main menu must follow it, the mod menu must stay mint.
                         SaviraClient.config.accent = 0xE5566B;
+                        // Own cape from the launcher: config/savira-cape.png must become a texture.
+                        SaviraClient.config.customCape = true;
+                        check(gg.savira.client.SaviraCape.texture() != null, "Custom cape texture not loaded");
                     }
                     case 1 -> {
                         screenshot(mc, "savira-menu-title");
@@ -123,7 +126,7 @@ public final class MenuSmokeTest implements ClientModInitializer {
                     }
                     case 10 -> {
                         check(mc.currentScreen instanceof SaviraTitleScreen, "Closing the mod menu returned to the vanilla title screen: " + mc.currentScreen);
-                        LoggerFactory.getLogger("SaviraUITest").info("SAVIRA_UI_SMOKE_OK: title, home, modules(10), settings, background, text, search, editor, drag, scale, persistence, feature, back-to-title");
+                        LoggerFactory.getLogger("SaviraUITest").info("SAVIRA_UI_SMOKE_OK: title, cape, home, modules(10), settings, background, text, search, editor, drag, scale, persistence, feature, back-to-title");
                         stage = -1;
                     }
                 }
