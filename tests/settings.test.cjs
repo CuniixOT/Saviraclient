@@ -60,3 +60,14 @@ test('validates the new background effects and player emotes', () => {
   assert.throws(() => validateSettings({ ...defaults, emote: 'dab' }));
   assert.throws(() => validateSettings({ ...defaults, emotes: 'yes' }));
 });
+
+test('takes module switches changed in the game', () => {
+  const { mergeHudFromGame } = require('../electron/settings.cjs');
+  const merged = mergeHudFromGame(defaults, { fps: false, cps: false, icon: true, accent: 123, layout: {} });
+  assert.equal(merged.hud.fps, false);
+  assert.equal(merged.hud.cps, false);
+  assert.equal(merged.hud.ping, defaults.hud.ping);
+  assert.equal(mergeHudFromGame(defaults, { ...defaults.hud }), null);
+  assert.equal(mergeHudFromGame(defaults, null), null);
+  assert.equal(mergeHudFromGame(defaults, { fps: 'nein' }), null);
+});

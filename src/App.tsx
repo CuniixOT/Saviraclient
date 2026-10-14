@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, CheckCircle, CornersOut, FlagBanner, GearSix, Info, Minus, Play, Plus, PuzzlePiece, ShieldCheck, Stack, Trash, TShirt, WindowsLogo, X } from '@phosphor-icons/react';
+import { Check, CheckCircle, CornersOut, FlagBanner, GearSix, Info, Minus, Play, Plus, ShieldCheck, Stack, Trash, TShirt, WindowsLogo, X } from '@phosphor-icons/react';
 import { api, capesApi, isDesktop, logsApi, unwrap, type Accounts, type Settings, type State } from './api';
 import { Background } from './Background';
 import { LauncherHome } from './LauncherHome';
 import { ProfilesPage } from './ProfilesPage';
-import { ModsPage } from './ModsPage';
 import { SettingsPage } from './SettingsPage';
 import { AboutPage } from './AboutPage';
 import { SkinsPage } from './SkinsPage';
@@ -13,13 +12,12 @@ import { Logo, SkinHead, accentHex } from './ui';
 import { UpdateChip, useUpdates } from './Update';
 import { CoinsChip } from './Coins';
 
-type Page = 'home' | 'profiles' | 'skins' | 'capes' | 'mods' | 'settings' | 'about';
+type Page = 'home' | 'profiles' | 'skins' | 'capes' | 'settings' | 'about';
 const nav: { id: Page; label: string; icon: typeof Play }[] = [
   { id: 'home', label: 'Spielen', icon: Play },
   { id: 'profiles', label: 'Profile', icon: Stack },
   { id: 'skins', label: 'Skins', icon: TShirt },
   { id: 'capes', label: 'Capes', icon: FlagBanner },
-  { id: 'mods', label: 'Module', icon: PuzzlePiece },
   { id: 'settings', label: 'Einstellungen', icon: GearSix },
   { id: 'about', label: 'Über Savira', icon: Info }
 ];
@@ -37,7 +35,9 @@ export function App() {
 
   useEffect(() => {
     unwrap(api.state()).then(setState).catch(e => setError(e.message));
-    return api.onStatus(status => setState(s => s ? { ...s, status } : s));
+    const offSettings = api.onSettings?.(settings => setState(s => s ? { ...s, settings } : s));
+    const offStatus = api.onStatus(status => setState(s => s ? { ...s, status } : s));
+    return () => { offStatus(); offSettings?.(); };
   }, []);
   // Re-check after a launch finishes: the first install is what downloads the panorama assets.
   const phase = state?.status.phase;
@@ -150,7 +150,6 @@ export function App() {
         {page === 'profiles' && <ProfilesPage settings={state.settings} locked={locked} onSave={async (next, message) => save(next, message)} onUse={launchProfile} />}
         {page === 'skins' && <SkinsPage hasAccount={Boolean(state.account)} locked={locked} onNotice={setNotice} onError={setError} onApplied={({ account, accounts }) => applyAccounts({ account, accounts })} />}
         {page === 'capes' && <CapesPage hasAccount={Boolean(state.account)} skin={state.account?.skin || null} locked={locked} onNotice={setNotice} onError={setError} onCapeChange={refreshCape} />}
-        {page === 'mods' && <ModsPage settings={state.settings} locked={locked} onSave={save} />}
         {page === 'settings' && <SettingsPage state={state} locked={locked} pending={pending} onSave={save} onFolder={openFolder} onNotice={setNotice} onError={setError} updates={updates} gameRunning={active} onRadiusPreview={setRadiusPreview}
           onPickJava={async () => { try { return await unwrap(api.selectJava()); } catch (e) { setError(e instanceof Error ? e.message : 'Java konnte nicht ausgewählt werden.'); return null; } }} />}
         {page === 'about' && <AboutPage version={state.version} />}

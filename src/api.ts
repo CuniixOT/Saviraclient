@@ -25,6 +25,8 @@ interface Bridge {
   selectJava(): Promise<Result<string | null>>;
   window(action: 'minimize' | 'maximize' | 'close'): Promise<Result<void>>;
   onStatus(callback: (status: Status) => void): () => void;
+  /** Settings changed by the launcher itself, e.g. module switches taken over from the game. */
+  onSettings?(callback: (settings: Settings) => void): () => void;
   setup?: SetupBridge;
   update?: UpdateBridge;
   logs?: LogsBridge;

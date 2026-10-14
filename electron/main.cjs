@@ -6,7 +6,7 @@ const { promisify } = require('node:util');
 const { createHash } = require('node:crypto');
 const { Client } = require('./minecraft.cjs');
 const { Auth } = require('msmc');
-const { accentRgb, defaults, maxMemory, validateSettings } = require('./settings.cjs');
+const { accentRgb, defaults, maxMemory, validateSettings, mergeHudFromGame } = require('./settings.cjs');
 const log = require('./logger.cjs');
 const logfiles = require('./logfiles.cjs');
 const { createSession } = require('./gamesession.cjs');
@@ -123,7 +123,7 @@ async function authenticate(interactive, legacyToken) {
   log.info(`Angemeldet als ${account.name}${interactive ? ' (Microsoft-Fenster)' : ' (gespeicherte Sitzung)'}`);
   return mc;
 }
-const pageLabels = { home: 'Startseite', profiles: 'Profile', skins: 'Skins', capes: 'Capes', mods: 'Module', settings: 'Einstellungen', about: 'Über Savira' };
+const pageLabels = { home: 'Startseite', profiles: 'Profile', skins: 'Skins', capes: 'Capes', settings: 'Einstellungen', about: 'Über Savira' };
 // Skin sources for the wardrobe: a Minecraft name or UUID (via Mojang) or a direct https image link.
 async function download(url, limit = 1_000_000) {
   const response = await fetch(url, { signal: AbortSignal.timeout(20000), headers: { 'User-Agent': 'Savira/0.1.0' } });
@@ -255,6 +255,27 @@ function updatePresence() {
     presence.set({ details: `Im Launcher · ${pageLabels[page] || 'Startseite'}`, state: `Profil: ${profile.name} (${profile.version})`, timestamps: { start: launcherStarted }, assets });
   }
 }
+// The mod menu changes module switches inside the game; bring them back into the launcher's
+// settings, otherwise the next start would overwrite them with the launcher's old values.
+async function syncHudFromGame(gameRoot) {
+  try {
+    const inGame = JSON.parse(await fs.readFile(path.join(gameRoot, 'config', 'savira.json'), 'utf8'));
+    const next = mergeHudFromGame(settings, inGame);
+    if (!next) return;
+    await atomicWrite(path.join(root(), 'settings.json'), JSON.stringify(next, null, 2));
+    settings = next;
+    if (win && !win.isDestroyed()) win.webContents.send('settings', settings);
+    log.info('Modul-Einstellungen aus dem Spiel übernommen');
+  } catch { /* No game config yet. */ }
+}
+async function syncHudFromNewestGame() {
+  let newest = null, newestTime = 0;
+  for (const profile of settings.profiles.filter(p => p.loader === 'savira')) {
+    const gameRoot = path.join(root(), 'instances', profile.id);
+    try { const time = (await fs.stat(path.join(gameRoot, 'config', 'savira.json'))).mtimeMs; if (time > newestTime) { newest = gameRoot; newestTime = time; } } catch { /* Never started. */ }
+  }
+  if (newest) await syncHudFromGame(newest);
+}
 async function prepareFabric(gameRoot, minecraftVersion) {
   if (minecraftVersion !== SAVIRA_MC) throw new Error(`Der Savira-Mod unterstützt aktuell nur Minecraft ${SAVIRA_MC}. Wähle für andere Versionen Vanilla.`);
   publish({ phase: 'installing', message: 'Fabric-Profil wird vorbereitet …', progress: 4 });
@@ -343,6 +364,7 @@ async function launch() {
     const mc = await authenticate(false);
     const gameRoot = instance();
     await fs.mkdir(gameRoot, { recursive: true });
+    if (profile.loader === 'savira') await syncHudFromGame(gameRoot);
     const custom = profile.loader === 'savira' ? await prepareFabric(gameRoot, profile.version) : undefined;
     publish({ phase: 'installing', message: 'Minecraft-Dateien werden geprüft und geladen …', progress: 10 });
     log.info(`Start: ${profile.name} (Minecraft ${profile.version}, ${profile.loader}, ${settings.memory} GB)`);
@@ -363,6 +385,7 @@ async function launch() {
     });
     launcher.on('close', code => {
       busy = false; gameChild = null;
+      if (profile.loader === 'savira') void syncHudFromGame(gameRoot);
       session?.end();
       sendToLogs('logs-ended', { code });
       log[code === 0 ? 'info' : 'warn'](`Minecraft beendet (Code ${code})`, code === 0 ? undefined : lastError);
@@ -474,6 +497,8 @@ else {
   app.whenReady().then(async () => {
     log.init(path.join(root(), 'logs'));
     try { settings = validateSettings(JSON.parse(await fs.readFile(path.join(root(), 'settings.json'), 'utf8'))); } catch { /* Use validated defaults. */ }
+    // The launcher may have been closed while a game ran: take the newest Savira game config.
+    await syncHudFromNewestGame();
     win = new BrowserWindow({ ...windowOptions, width: 1380, height: 900, minWidth: 960, minHeight: 700, title: 'Savira' });
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.webContents.on('will-navigate', event => event.preventDefault());

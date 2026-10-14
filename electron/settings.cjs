@@ -69,4 +69,13 @@ function validateSettings(input) {
   hud.scale = input.hud.scale;
   return { memory: input.memory, javaPath: input.javaPath.trim(), selectedProfileId, profiles, fullscreen: input.fullscreen, accent: isCustomAccent(accent) ? accent.toLowerCase() : accent, background, ...flags, radius, emote, hud };
 }
-module.exports = { emotes, backgrounds, accents, accentRgb, defaults, maxMemory, validateSettings, validateProfile };
+const HUD_KEYS = ['fps', 'cps', 'keystrokes', 'coordinates', 'ping', 'armor', 'potions', 'sprint', 'zoom', 'ram'];
+/** Settings with the module switches from the game's savira.json, or null when nothing changed. */
+function mergeHudFromGame(current, inGame) {
+  if (!inGame || typeof inGame !== 'object') return null;
+  const hud = { ...current.hud };
+  let changed = false;
+  for (const key of HUD_KEYS) if (typeof inGame[key] === 'boolean' && inGame[key] !== hud[key]) { hud[key] = inGame[key]; changed = true; }
+  return changed ? validateSettings({ ...current, hud }) : null;
+}
+module.exports = { mergeHudFromGame, emotes, backgrounds, accents, accentRgb, defaults, maxMemory, validateSettings, validateProfile };

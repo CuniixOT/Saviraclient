@@ -67,10 +67,8 @@ try {
   await page.getByRole('button', { name: /erstellen/ }).click();
   await expect(page.getByRole('heading', { name: /Test 1\.8\.9/ })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Module', exact: true }).click();
-  await page.getByRole('switch', { name: 'Koordinaten aktivieren' }).click();
-  await expect(page.getByRole('switch', { name: 'Koordinaten deaktivieren' })).toBeVisible();
-  await shot('mods');
+  // Modules are set in game (Right-Shift menu); the launcher has no module page any more.
+  await expect(page.getByRole('button', { name: 'Module', exact: true })).toHaveCount(0);
 
   // Skins: add from a PNG file, preview in 3D, switch model, rename, swap, search, delete.
   const skinFile = path.join(root, 'public', 'default-skin.png');
@@ -261,6 +259,14 @@ try {
   await page.waitForTimeout(800);
   await shot('desktop-blue');
 
+  // The mod menu turned FPS off in game: the launcher must take that over instead of resetting it.
+  await app.evaluate(({ app: electronApp }) => {
+    const fs = process.mainModule.require('node:fs');
+    const path = process.mainModule.require('node:path');
+    const dir = path.join(electronApp.getPath('userData'), 'instances', 'savira-1-21-1', 'config');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'savira.json'), JSON.stringify({ fps: false, icon: true }));
+  });
   // Two saved accounts (fake tokens, encrypted like real ones) for the account switcher.
   await app.evaluate(({ safeStorage, app: electronApp }) => {
     const fs = process.mainModule.require('node:fs');
@@ -288,7 +294,7 @@ try {
   expect(persisted.data.settings.javaPath).toBe(javaPath);
   expect(persisted.data.settings.accent).toBe('blue');
   expect(persisted.data.settings.logsOnLaunch).toBe(true);
-  expect(persisted.data.settings.hud.coordinates).toBe(true);
+  expect(persisted.data.settings.hud.fps).toBe(false);
   expect(persisted.data.settings.radius).toBe(2);
   expect(persisted.data.settings.background).toBe('hexgrid');
   const savedCapes = await page.evaluate(() => window.savira.capes.list());
@@ -303,7 +309,7 @@ try {
   expect(JSON.stringify(persisted.data)).not.toContain('fake-2');
   expect(persisted.data.settings.profiles.some(profile => profile.name === 'Test 1.8.9' && profile.version === '1.8.9')).toBe(true);
   expect(errors).toEqual([]);
-  console.log('Desktop-Smoke-Test erfolgreich: sichere Bridge, Profile, Module, Darstellung, Validierung, Startschutz, Eckenradius, Discord-Schalter, Kontenwechsel und Persistenz.');
+  console.log('Desktop-Smoke-Test erfolgreich: sichere Bridge, Profile, Darstellung, Validierung, Startschutz, Eckenradius, Discord-Schalter, Kontenwechsel und Persistenz.');
   console.log(`Screenshots: ${path.join(tools, 'savira-*.png')}`);
 } finally {
   if (app) await app.close();

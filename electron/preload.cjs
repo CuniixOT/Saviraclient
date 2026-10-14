@@ -79,5 +79,10 @@ contextBridge.exposeInMainWorld('savira', {
     const listener = (_event, status) => callback(status);
     ipcRenderer.on('status', listener);
     return () => ipcRenderer.removeListener('status', listener);
+  },
+  onSettings: (callback) => {
+    const listener = (_event, settings) => callback(settings);
+    ipcRenderer.on('settings', listener);
+    return () => ipcRenderer.removeListener('settings', listener);
   }
 });

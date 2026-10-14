@@ -204,8 +204,6 @@ select.input { padding-right: 30px; }
 .field > span { font-size: 13px; font-weight: 600; color: var(--text-2); }
 .field-help { color: var(--text-3); font-size: 12px; line-height: 1.5; }
 .field-error { color: var(--danger); font-size: 12px; }
-.select-field { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-2); }
-.select-field .input { width: 110px; height: 38px; }
 
 .toggle { position: relative; width: 44px; height: 24px; border-radius: calc(7px * var(--rk)); background: rgb(255 255 255 / .1); box-shadow: inset 0 2px 0 rgb(0 0 0 / .3); transition: background .25s var(--ease); }
 .toggle span { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: calc(5px * var(--rk)); background: #d8dde2; box-shadow: inset 0 -2px 0 rgb(0 0 0 / .2); transition: transform .3s var(--ease), background .2s; }
@@ -316,24 +314,6 @@ select.input { padding-right: 30px; }
 .empty p { max-width: 42ch; font-size: 13.5px; line-height: 1.6; margin-bottom: 6px; }
 
 /* Mods */
-.mods-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 18px; align-items: start; }
-.mods-nav { position: sticky; top: 0; padding: 8px; border-radius: var(--radius-lg); display: grid; gap: 3px; }
-.mods-nav > button { display: flex; justify-content: space-between; align-items: center; height: 40px; padding: 0 12px; border-radius: calc(10px * var(--rk)); font-size: 14px; color: var(--text-2); text-align: left; transition: background .2s, color .2s; }
-.mods-nav > button:hover { background: rgb(255 255 255 / .05); color: var(--text); }
-.mods-nav > button.active { background: var(--accent-soft); color: var(--accent); box-shadow: inset 2px 0 0 var(--accent); }
-.mods-nav small { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
-.mods-hint { display: flex; gap: 10px; margin-top: 10px; padding: 12px 10px 4px; border-top: 1px solid var(--line); color: var(--text-3); font-size: 12px; line-height: 1.55; }
-.mods-main { display: grid; gap: 14px; }
-.mod-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 12px; }
-.mod-card { display: flex; flex-direction: column; gap: 14px; padding: 16px; border-radius: calc(14px * var(--rk)); animation: rise .45s var(--ease) both; animation-delay: calc(var(--i) * 35ms); transition: border-color .2s, transform .25s var(--ease); }
-.mod-card:hover { transform: translateY(-2px); border-color: var(--line-strong); }
-.mod-card.is-on { border-color: var(--accent-line); }
-.mod-icon { width: 46px; height: 46px; border-radius: calc(11px * var(--rk)); display: grid; place-items: center; background: rgb(255 255 255 / .06); color: var(--text-2); box-shadow: inset 0 -3px 0 rgb(0 0 0 / .25); transition: background .25s, color .25s; }
-.mod-card.is-on .mod-icon { background: var(--accent); color: var(--on-accent); }
-.mod-copy { flex: 1; }
-.mod-copy h2 { font-size: 15px; font-weight: 600; }
-.mod-copy p { color: var(--text-3); font-size: 12.5px; line-height: 1.5; margin-top: 4px; }
-.mod-card footer { display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid var(--line); }
 
 /* Settings */
 .settings { max-width: 820px; display: grid; gap: 16px; padding-bottom: 90px; }
@@ -512,9 +492,6 @@ select.input { padding-right: 30px; }
   .news { display: none; }
   .loading { grid-template-columns: 1fr; }
   .news-skeleton { display: none; }
-  .mods-layout { grid-template-columns: 1fr; }
-  .mods-nav { position: static; display: flex; flex-wrap: wrap; }
-  .mods-hint { display: none; }
 }
 @media (max-width: 760px) {
   .launch-bar { grid-template-columns: 1fr 56px; grid-template-rows: 60px 64px; height: auto; }
@@ -717,8 +694,8 @@ select.input { padding-right: 30px; }
 @media (max-width: 900px) { .logwin-body { grid-template-columns: 1fr; } .logwin-side { display: none; } .switch-grid { grid-template-columns: 1fr; } }
 
 /* NoRisk-style labels: buttons, tabs, filters and small meta text in SmallCaps. */
-.btn, .mods-nav > button, .segmented button, .subtabs button, .rail-tip, .tag, .tag-plain, .chip, .count, .launch-meta, .account-chip small, .select-field, .news-card p, .file-meta, .update-chip, .picker-manage, .save-bar span { font-family: var(--font-pixel); letter-spacing: .05em; }
-.btn, .mods-nav > button, .segmented button, .subtabs button, .tag, .tag-plain, .chip, .count, .launch-meta, .select-field, .news-card p, .update-chip, .picker-manage, .save-bar span { text-transform: lowercase; }
+.btn, .segmented button, .subtabs button, .rail-tip, .tag, .tag-plain, .chip, .count, .launch-meta, .account-chip small, .news-card p, .file-meta, .update-chip, .picker-manage, .save-bar span { font-family: var(--font-pixel); letter-spacing: .05em; }
+.btn, .segmented button, .subtabs button, .tag, .tag-plain, .chip, .count, .launch-meta, .news-card p, .update-chip, .picker-manage, .save-bar span { text-transform: lowercase; }
 .btn { font-size: 13px; font-weight: 400; }
 .btn.pixel { font-size: 15px; }
 
