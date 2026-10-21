@@ -4,6 +4,7 @@ import { SkinStage } from './SkinStage';
 import type { State } from './api';
 import { NewsArt } from './NewsArt';
 import { news as allNews } from './news';
+import { Toggle } from './ui';
 
 type Props = {
   state: State;
@@ -15,12 +16,13 @@ type Props = {
   onProfiles: () => void;
   onFolder: () => void;
   onLogs: () => void;
+  onSkinAnimation: () => void;
 };
 
 // The start page has room for the three newest entries.
 const news = allNews.slice(0, 3);
 
-export function LauncherHome({ state, pending, locked, active, onLaunch, onProfile, onProfiles, onFolder, onLogs }: Props) {
+export function LauncherHome({ state, pending, locked, active, onLaunch, onProfile, onProfiles, onFolder, onLogs, onSkinAnimation }: Props) {
   const [picker, setPicker] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
   const name = state.account?.name || 'Steve';
@@ -43,7 +45,8 @@ export function LauncherHome({ state, pending, locked, active, onLaunch, onProfi
 
   return <div className="home page-enter">
     <section className="stage" aria-label="Spiel starten">
-      <SkinStage skin={state.account?.skin || null} name={name} paused={phase === 'running'} emote={state.settings.emotes ? state.settings.emote : null} cape={state.cape ?? null} />
+      <SkinStage skin={state.account?.skin || null} name={name} paused={phase === 'running'} animated={state.settings.emotes} cape={state.cape ?? null} />
+      <div className="stage-toggle"><span className="pixel">skin-animation</span><Toggle label="Skin-Animation" disabled={locked} value={state.settings.emotes} onChange={onSkinAnimation} /></div>
 
       <div className="launch-area">
         {failed && <div className="launch-error" role="alert"><Warning size={18} weight="fill" /><p>{state.status.message}</p></div>}

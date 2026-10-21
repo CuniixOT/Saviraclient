@@ -3,5 +3,7 @@
 Jede Zeile, die mit "- " beginnt, erscheint im Update-Hinweis des Launchers.
 Vor jedem Release anpassen, dann Version erhöhen und pushen.
 
-- Fix: Mods, die du im Spiel ein- oder ausschaltest, bleiben jetzt auch nach einem Neustart so
-- Der Reiter „Module“ im Launcher ist entfernt, Mods stellst du direkt im Spiel über Rechts-Shift ein
+- Neu: Schalter „Skin-Animation“ oben rechts auf der Startseite – deine Figur spielt die Idle-Animationen aus dem NoRisk-Launcher
+- Beim Einschalten lädt dein Skin hinter einem schimmernden Platzhalter in deiner Akzentfarbe rein
+- Der Nametag sieht jetzt aus wie in Minecraft und bewegt sich mit der Figur mit
+- Die Emote-Auswahl (Winken, Jubeln, Tanzen …) in den Einstellungen ist entfernt

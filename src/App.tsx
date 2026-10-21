@@ -146,7 +146,8 @@ export function App() {
       {!state ? <div className="loading" aria-busy="true"><div className="skeleton stage-skeleton" /><div className="skeleton news-skeleton" />{error && <button className="btn" onClick={() => location.reload()}>Erneut laden</button>}</div> : <>
         {page === 'home' && <LauncherHome state={state} pending={pending} locked={locked} active={active} onProfiles={() => setPage('profiles')} onFolder={openFolder} onLogs={() => unwrap(logsApi.open()).catch(e => setError(e.message))}
           onLaunch={() => state.account ? action('launch', async () => { await unwrap(api.launch()); }) : login()}
-          onProfile={selectedProfileId => save({ ...state.settings, selectedProfileId }, 'Profil gewechselt.')} />}
+          onProfile={selectedProfileId => save({ ...state.settings, selectedProfileId }, 'Profil gewechselt.')}
+          onSkinAnimation={() => save({ ...state.settings, emotes: !state.settings.emotes }, state.settings.emotes ? 'Skin-Animation aus.' : 'Skin-Animation an.')} />}
         {page === 'profiles' && <ProfilesPage settings={state.settings} locked={locked} onSave={async (next, message) => save(next, message)} onUse={launchProfile} />}
         {page === 'skins' && <SkinsPage hasAccount={Boolean(state.account)} locked={locked} onNotice={setNotice} onError={setError} onApplied={({ account, accounts }) => applyAccounts({ account, accounts })} />}
         {page === 'capes' && <CapesPage hasAccount={Boolean(state.account)} skin={state.account?.skin || null} locked={locked} onNotice={setNotice} onError={setError} onCapeChange={refreshCape} />}

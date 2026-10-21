@@ -1,105 +1,90 @@
 import { useEffect, useRef } from 'react';
 import type { PlayerObject, SkinViewer } from 'skinview3d';
-import type { Emote } from './api';
+import type { Group, Mesh, MeshBasicMaterial, PlaneGeometry } from 'three';
+import { makeReveal } from './skinReveal';
+import { applyClip, nextCalmIdle, resetParts, rollIdle, SPECIAL_IDLE, type Clip } from './skinEmotes';
 
 const REST_YAW = -0.38;            // calm three-quarter view instead of endless spinning
 const MODEL_HALF_WIDTH = 12;       // arms plus some room when the body turns
 const FIT_HALF_HEIGHT = 16.5;      // what skinview3d fits vertically at zoom 1
 const BASE_ZOOM = .8;
-const TAG_Y = 22;                  // just above the head; skinview3d default (25) leaves the frame
+const TAG_ABOVE_HEAD = 3.4;         // gap between the top of the head and the middle of the name tag
 const SCENE_SHIFT = -3.6;          // centres feet-to-name-tag in view
 const MAX_MODEL_PX = 760;          // on huge windows the model stops growing
-const EMOTE_FIRST = 1.6, EMOTE_GAP = 8;   // seconds until the first emote and between two
-type Move = Exclude<Emote, 'random'>;
-const MOVES: Move[] = ['wave', 'cheer', 'dance', 'clap', 'spin', 'think'];
-const DURATION: Record<Move, number> = { wave: 2.6, cheer: 2.4, dance: 3.4, clap: 2.4, spin: 1.8, think: 3.2 };
+const FADE = .35;                  // seconds an animation takes to blend in and out
+const MIN_LOADING_MS = 450;        // the placeholder shows at least this long, like in NoRisk
+type Playing = { clip: Clip; start: number };
 const smooth = (x: number) => { const v = clamp(x, 0, 1); return v * v * (3 - 2 * v); };
-/**
- * Blends one emote over the idle pose. local: seconds into the emote, e: 0…1 fade in and out.
- * Arms swing outward with +z on the left and -z on the right; -x raises them forward.
- */
-function pose(player: PlayerObject, move: Move, local: number, e: number, duration: number) {
-  const { leftArm: la, rightArm: ra, leftLeg: ll, rightLeg: rl, head } = player.skin;
-  const mix = (from: number, to: number) => from + (to - from) * e;
-  switch (move) {
-    case 'wave':
-      ra.rotation.z = mix(ra.rotation.z, -2.7 + Math.sin(local * 11) * .38);
-      ra.rotation.x = mix(ra.rotation.x, 0);
-      head.rotation.z = mix(0, Math.sin(local * 5.5) * .1);
-      break;
-    case 'cheer':
-      la.rotation.z = mix(la.rotation.z, 2.75 + Math.sin(local * 14) * .15);
-      ra.rotation.z = mix(ra.rotation.z, -2.75 - Math.sin(local * 14) * .15);
-      player.position.y += Math.abs(Math.sin(local * 6.5)) * 1.4 * e;
-      head.rotation.x = mix(head.rotation.x, -.25);
-      break;
-    case 'dance': {
-      const beat = Math.sin(local * 8);
-      la.rotation.x = mix(la.rotation.x, beat * 1.1);
-      ra.rotation.x = mix(ra.rotation.x, -beat * 1.1);
-      la.rotation.z = mix(la.rotation.z, .5 + Math.sin(local * 4) * .4);
-      ra.rotation.z = mix(ra.rotation.z, -.5 - Math.sin(local * 4) * .4);
-      ll.rotation.x = mix(0, beat * .45);
-      rl.rotation.x = mix(0, -beat * .45);
-      player.rotation.y += Math.sin(local * 4) * .45 * e;
-      player.position.y += Math.abs(beat) * .6 * e;
-      head.rotation.z = mix(0, Math.sin(local * 8) * .12);
-      break;
-    }
-    case 'clap': {
-      const open = .5 + .5 * Math.sin(local * 13);
-      la.rotation.x = mix(la.rotation.x, -1.35);
-      ra.rotation.x = mix(ra.rotation.x, -1.35);
-      la.rotation.z = mix(la.rotation.z, -.22 + open * .5);
-      ra.rotation.z = mix(ra.rotation.z, .22 - open * .5);
-      break;
-    }
-    case 'spin': {
-      const turn = smooth(local / duration);
-      player.rotation.y += turn * Math.PI * 2;
-      player.position.y += Math.sin(Math.PI * clamp(local / duration, 0, 1)) * 1.6;
-      la.rotation.z = mix(la.rotation.z, .7);
-      ra.rotation.z = mix(ra.rotation.z, -.7);
-      break;
-    }
-    case 'think':
-      ra.rotation.x = mix(ra.rotation.x, -1.7);
-      ra.rotation.z = mix(ra.rotation.z, .42);
-      la.rotation.x = mix(la.rotation.x, -.85);
-      la.rotation.z = mix(la.rotation.z, -.5);
-      head.rotation.x = mix(head.rotation.x, .12);
-      head.rotation.z = mix(0, .14 + Math.sin(local * 1.5) * .04);
-      break;
-  }
-}
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 const nameTagFont = '48px "MinecraftTen", "SmallCaps", sans-serif';
-function makeTag(NameTag: typeof import('skinview3d').NameTagObject, viewer: SkinViewer, name: string) {
-  viewer.nameTag = new NameTag(name, { font: nameTagFont, textStyle: '#ffffff', backgroundStyle: 'rgba(0,0,0,0.32)', height: 2.6 });
-  if (!viewer.nameTag) return;
-  viewer.nameTag.position.y = TAG_Y;
-  // Draw over the head instead of being hidden behind it when the head turns.
-  viewer.nameTag.material.depthTest = false;
-  viewer.nameTag.renderOrder = 10;
+type Three = typeof import('three');
+// Like the vanilla name tag: white text on a quarter-black box with one font pixel of padding (48px / 8 = 6).
+// skinview3d paints it; its texture goes on two planes back to back, so the name reads the right way from behind too.
+function makeTag(NameTag: typeof import('skinview3d').NameTagObject, three: Three, viewer: SkinViewer, name: string, old: Group | null): Group {
+  if (old) disposeTag(old);
+  const painter = new NameTag(name, { font: nameTagFont, textStyle: '#ffffff', backgroundStyle: 'rgba(0,0,0,0.25)', margin: [6, 6, 6, 6], height: 3 });
+  // Drawn over the head instead of being hidden behind it when the head turns.
+  const material = new three.MeshBasicMaterial({ transparent: true, alphaTest: 1e-5, depthTest: false });
+  const geometry = new three.PlaneGeometry(1, 1);
+  const tag = new three.Group();
+  for (const turn of [0, Math.PI]) {
+    const plane = new three.Mesh(geometry, material);
+    plane.rotation.y = turn; plane.renderOrder = 10;
+    tag.add(plane);
+  }
+  // Painted again once the Minecraft font has loaded, with a new texture and size.
+  const apply = () => {
+    if (material.map !== painter.material.map) material.map?.dispose();
+    material.map = painter.material.map; material.needsUpdate = true;
+    for (const plane of tag.children) plane.scale.set(painter.scale.x, painter.scale.y, 1);
+  };
+  apply();
+  void painter.painted.then(() => { if (tag.parent) apply(); painter.material.dispose(); });
+  viewer.playerObject.add(tag);
+  placeTag(tag, viewer.playerObject);
+  return tag;
 }
+
+function disposeTag(tag: Group) {
+  tag.removeFromParent();
+  const plane = tag.children[0] as Mesh<PlaneGeometry, MeshBasicMaterial> | undefined;
+  plane?.material.map?.dispose(); plane?.material.dispose(); plane?.geometry.dispose();
+}
+
+/**
+ * The name tag is part of the figure: it sits above the head, turns with the figure and the head,
+ * bobs with the breathing and follows the head through the animations. Positions are in player space.
+ */
+function placeTag(tag: Group, player: PlayerObject) {
+  const head = player.skin.head;
+  // The head pivot is the neck, eight pixels below the top of the head.
+  tag.position.set(head.position.x, player.skin.position.y + head.position.y + 8 * head.scale.y + TAG_ABOVE_HEAD, head.position.z);
+  tag.rotation.y = head.rotation.y;
+}
+
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
  * Player model in the middle of the launcher: idles calmly, looks toward the cursor,
  * can be turned by dragging and eases back to its pose. Fits any window size.
- * With an emote set it plays that emote every few seconds; null keeps it calm.
+ * With the skin animation on, the skin loads in behind a shimmering placeholder like in NoRisk and then keeps
+ * playing the NoRisk idle animations; off keeps it calm.
  */
-export function SkinStage({ skin, name, paused = false, emote = null, cape = null }: { skin: string | null; name: string; paused?: boolean; emote?: Emote | null; cape?: string | null }) {
+export function SkinStage({ skin, name, paused = false, animated = false, cape = null }: { skin: string | null; name: string; paused?: boolean; animated?: boolean; cape?: string | null }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewerRef = useRef<SkinViewer | null>(null);
   const pausedRef = useRef(paused);
-  const emoteRef = useRef(emote);
-  emoteRef.current = emote;
+  const animatedRef = useRef(animated);
+  animatedRef.current = animated;
   // Latest props for the async scene setup, which may finish after they changed.
   const latest = useRef({ skin, name, cape });
   latest.current = { skin, name, cape };
   const nameTagClass = useRef<typeof import('skinview3d').NameTagObject | null>(null);
+  const tagRef = useRef<Group | null>(null);
+  const threeRef = useRef<Three | null>(null);
+  const loadInRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const wrap = wrapRef.current, canvas = canvasRef.current;
@@ -107,9 +92,10 @@ export function SkinStage({ skin, name, paused = false, emote = null, cape = nul
     let disposed = false, observer: ResizeObserver | undefined;
     const cleanups: (() => void)[] = [];
 
-    void import('skinview3d').then(({ SkinViewer, FunctionAnimation, NameTagObject }) => {
+    void Promise.all([import('skinview3d'), import('three')]).then(([{ SkinViewer, FunctionAnimation, NameTagObject }, three]) => {
       if (disposed) return;
       nameTagClass.current = NameTagObject;
+      threeRef.current = three;
       const viewer = new SkinViewer({ canvas, width: wrap.clientWidth || 300, height: wrap.clientHeight || 400, skin: latest.current.skin || './default-skin.png', zoom: BASE_ZOOM, fov: 38 });
       viewerRef.current = viewer;
       viewer.background = null;
@@ -119,7 +105,7 @@ export function SkinStage({ skin, name, paused = false, emote = null, cape = nul
       viewer.globalLight.intensity = 2.6;
       viewer.cameraLight.intensity = .6;
       viewer.playerWrapper.position.y = SCENE_SHIFT;
-      makeTag(NameTagObject, viewer, latest.current.name);
+      tagRef.current = makeTag(NameTagObject, three, viewer, latest.current.name, null);
       if (latest.current.cape) void viewer.loadCape(latest.current.cape);
       viewer.renderPaused = pausedRef.current;
 
@@ -128,10 +114,32 @@ export function SkinStage({ skin, name, paused = false, emote = null, cape = nul
       const drag = { active: false, startX: 0, startYaw: REST_YAW, yaw: REST_YAW };
       let yaw = REST_YAW;
       const still = reducedMotion();
-      // Emote schedule, in seconds of animation time.
-      let clock = 0, nextAt = EMOTE_FIRST, playing: { move: Move; start: number } | null = null, lastSetting = emoteRef.current;
+      // Animation schedule, in seconds of animation time. amount fades everything out when switched off.
+      let clock = 0, playing: Playing | null = null, amount = 0;
+      let ready = !animatedRef.current, loadToken = 0;
+      const reveal = makeReveal(viewer, three, () => tagRef.current);
+      cleanups.push(() => reveal.dispose());
+
+      // Placeholder while the skin loads, then the skin shows, the placeholder fades out and the animations start.
+      const loadIn = () => {
+        const token = ++loadToken;
+        ready = false; playing = null;
+        reveal.start();
+        void Promise.all([viewer.loadSkin(latest.current.skin || './default-skin.png'), wait(MIN_LOADING_MS)])
+          .catch(() => { /* A broken skin URL keeps the previous texture. */ })
+          .then(() => {
+            if (disposed || token !== loadToken) return;
+            reveal.finish(still); ready = true;
+          });
+      };
+      loadInRef.current = loadIn;
+      if (animatedRef.current) loadIn();
+
+      // Next one when the last has finished: a calm idle or, now and then, the special one.
+      const next = (): Playing => ({ clip: rollIdle() === 'special' ? SPECIAL_IDLE : nextCalmIdle(), start: clock });
 
       viewer.animation = new FunctionAnimation((player, progress, delta) => {
+        resetParts(player);
         const k = still ? 1 : 1 - Math.exp(-delta * 7);
         head.x += (look.x - head.x) * k;
         head.y += (look.y - head.y) * k;
@@ -140,7 +148,12 @@ export function SkinStage({ skin, name, paused = false, emote = null, cape = nul
         player.rotation.y = yaw;
         player.skin.head.rotation.y = head.x * .55;
         player.skin.head.rotation.x = head.y * .32;
-        if (still) return;
+        clock += delta;
+        // The placeholder stands still in its rest pose; only dragging turns it.
+        if (reveal.loading) { player.skin.head.rotation.set(0, 0, 0); player.rotation.y = yaw; }
+        // Last in every frame: the name tag follows the head, the placeholder follows both.
+        const finishFrame = () => { if (tagRef.current) placeTag(tagRef.current, player); reveal.update(delta); };
+        if (still || reveal.loading) return finishFrame();
         const t = progress * 1.6;
         player.skin.leftArm.rotation.z = Math.cos(t) * .03 + Math.PI * .02;
         player.skin.rightArm.rotation.z = Math.cos(t + Math.PI) * .03 - Math.PI * .02;
@@ -152,19 +165,16 @@ export function SkinStage({ skin, name, paused = false, emote = null, cape = nul
         player.skin.rightLeg.rotation.x = 0;
         player.skin.head.rotation.z = 0;
 
-        clock += delta;
-        const setting = emoteRef.current;
-        // A newly picked emote shows right away; switching emotes off stops the current one.
-        if (setting !== lastSetting) { lastSetting = setting; playing = null; nextAt = clock + .3; }
-        if (!setting) return;
-        if (!playing && clock >= nextAt && !drag.active) {
-          playing = { move: setting === 'random' ? MOVES[Math.floor(Math.random() * MOVES.length)] : setting, start: clock };
-        }
+        const on = animatedRef.current;
+        amount += ((on && ready ? 1 : 0) - amount) * (1 - Math.exp(-delta * 8));
+        if (!on && amount < .01) playing = null;
+        if (on && ready && !playing && !drag.active) playing = next();
         if (playing) {
-          const duration = DURATION[playing.move], local = clock - playing.start;
-          if (local >= duration) { playing = null; nextAt = clock + EMOTE_GAP; return; }
-          pose(player, playing.move, local, smooth(local / .35) * smooth((duration - local) / .35), duration);
+          const local = clock - playing.start, length = playing.clip.length;
+          if (local >= length) playing = null;
+          else applyClip(player, playing.clip, local, smooth(local / FADE) * smooth((length - local) / FADE) * amount);
         }
+        finishFrame();
       });
 
       const onMove = (event: PointerEvent) => {
@@ -217,20 +227,30 @@ export function SkinStage({ skin, name, paused = false, emote = null, cape = nul
       observer.observe(wrap);
     });
 
-    return () => { disposed = true; observer?.disconnect(); cleanups.forEach(fn => fn()); viewerRef.current?.dispose(); viewerRef.current = null; };
+    return () => { disposed = true; observer?.disconnect(); cleanups.forEach(fn => fn()); viewerRef.current?.dispose(); viewerRef.current = null; loadInRef.current = null; if (tagRef.current) disposeTag(tagRef.current); tagRef.current = null; };
     // The scene is built once; skin and name updates below reuse it without flicker.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => { void viewerRef.current?.loadSkin(skin || './default-skin.png'); }, [skin]);
+  // With the animation on, a new skin loads in behind the silhouette again.
+  useEffect(() => {
+    if (animatedRef.current && loadInRef.current) loadInRef.current();
+    else void viewerRef.current?.loadSkin(skin || './default-skin.png');
+  }, [skin]);
+  // Switching the skin animation on loads the skin in, like the toggle in NoRisk.
+  const wasAnimated = useRef(animated);
+  useEffect(() => {
+    if (animated && !wasAnimated.current) loadInRef.current?.();
+    wasAnimated.current = animated;
+  }, [animated]);
   useEffect(() => {
     const viewer = viewerRef.current;
     if (!viewer) return;
     if (cape) void viewer.loadCape(cape); else viewer.resetCape();
   }, [cape]);
   useEffect(() => {
-    const viewer = viewerRef.current, NameTag = nameTagClass.current;
-    if (viewer && NameTag) makeTag(NameTag, viewer, name);
+    const viewer = viewerRef.current, NameTag = nameTagClass.current, three = threeRef.current;
+    if (viewer && NameTag && three) tagRef.current = makeTag(NameTag, three, viewer, name, tagRef.current);
   }, [name]);
   useEffect(() => {
     pausedRef.current = paused;

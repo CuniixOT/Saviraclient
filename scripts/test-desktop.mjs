@@ -217,21 +217,20 @@ try {
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('ArrowRight');
   await expect.poll(() => cornerOf('.panel')).toBe('3px');
-  // New background effects and the player emotes.
+  // New background effects; the skin animation is switched on the start page.
   await page.getByRole('tab', { name: 'hintergrund' }).click();
   await expect(page.getByRole('radio', { name: /Waben/ })).toBeVisible();
   await page.getByRole('radio', { name: /Waben/ }).click();
   await expect(page.locator('.backdrop-hexgrid canvas')).toHaveCount(1);
-  await expect(page.getByRole('radio', { name: /Tanzen/ })).toBeDisabled();
-  await page.getByRole('switch', { name: 'Emotes abspielen' }).click();
-  await page.getByRole('radio', { name: /Tanzen/ }).click();
-  await expect(page.getByRole('radio', { name: /Tanzen/ })).toHaveAttribute('aria-checked', 'true');
   await page.waitForTimeout(400);
-  await page.getByRole('heading', { name: 'Spielerfigur' }).scrollIntoViewIfNeeded();
-  await shot('background-emotes');
+  await shot('background-hexgrid');
   await page.getByRole('button', { name: 'Spielen', exact: true }).click();
   await page.waitForTimeout(2600);
-  await shot('emote-dance');
+  await shot('skin-animation');
+  const skinAnimation = page.getByRole('switch', { name: 'Skin-Animation' });
+  await expect(skinAnimation).toHaveAttribute('aria-checked', 'true');
+  await skinAnimation.click();
+  await expect(skinAnimation).toHaveAttribute('aria-checked', 'false');
   await page.getByRole('button', { name: 'Einstellungen', exact: true }).click();
   await page.getByRole('tab', { name: 'allgemein' }).click();
   const invalid = await page.evaluate(async () => {
@@ -302,7 +301,7 @@ try {
   expect(savedCapes.data.active).toBe(savedCapes.data.capes[0].id);
   const savedSkins = await page.evaluate(() => window.savira.skins.list());
   expect(savedSkins.data.skins.map(skin => [skin.name, skin.variant])).toEqual([['Turnier', 'classic']]);
-  expect([persisted.data.settings.emotes, persisted.data.settings.emote]).toEqual([true, 'dance']);
+  expect(persisted.data.settings.emotes).toBe(false);
   expect(persisted.data.settings.discordPresence).toBe(false);
   expect(persisted.data.accounts.map(account => account.name)).toEqual(['Zweitkonto']);
   expect(persisted.data.account.name).toBe('Zweitkonto');

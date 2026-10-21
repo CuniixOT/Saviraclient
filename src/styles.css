@@ -218,6 +218,8 @@ select.input { padding-right: 30px; }
 .skin-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; outline: none; touch-action: none; }
 .skin-stage canvas.is-dragging { cursor: grabbing; }
 .skin-stage canvas:focus-visible { outline: 2px solid var(--accent-line); outline-offset: -2px; border-radius: calc(16px * var(--rk)); }
+/* Top right of the stage, like the skin animation switch in NoRisk. */
+.stage-toggle { position: absolute; top: 4px; right: 4px; z-index: 2; display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--text-2); }
 .skin-shadow { position: absolute; left: 50%; bottom: 2%; width: min(46%, 220px); aspect-ratio: 6; transform: translateX(-50%); background: radial-gradient(closest-side, rgb(0 0 0 / .5), transparent); pointer-events: none; }
 
 .launch-area { width: min(clamp(560px, 52vw, 760px), 100%); display: grid; gap: 12px; padding-bottom: 6px; }
@@ -347,11 +349,6 @@ select.input { padding-right: 30px; }
 .range { --fill: 50%; width: 100%; height: 8px; appearance: none; border-radius: calc(4px * var(--rk)); background: linear-gradient(90deg, var(--accent) var(--fill), rgb(255 255 255 / .1) var(--fill)); cursor: pointer; }
 .range::-webkit-slider-thumb { appearance: none; width: 20px; height: 20px; border-radius: calc(6px * var(--rk)); background: #fff; box-shadow: inset 0 -3px 0 rgb(0 0 0 / .2), 0 2px 8px rgb(0 0 0 / .4); transition: transform .15s; }
 .range::-webkit-slider-thumb:hover { transform: scale(1.12); }
-.emote-choices { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); margin-bottom: 14px; transition: opacity .2s; }
-.emote-choices button svg { color: var(--text-3); margin-bottom: 2px; transition: color .2s; }
-.emote-choices button.active svg { color: var(--accent); }
-.emote-choices.is-off { opacity: .45; }
-.emote-hint { margin: -4px 0 14px; font-size: 12.5px; color: var(--text-3); }
 .range-labels { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text-3); }
 .input-row { display: flex; gap: 10px; }
 .path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: var(--text-2); padding: 11px 13px; border-radius: calc(10px * var(--rk)); background: rgb(0 0 0 / .28); border: 1px solid var(--line); }

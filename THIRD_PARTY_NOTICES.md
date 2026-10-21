@@ -17,6 +17,14 @@ Savira selbst steht unter der MIT-Lizenz (`LICENSE`). Die folgenden mitgeliefert
 - Die Datei selbst enthält keine Lizenzangabe. Sie wird unter der Lizenz des Repositorys weitergegeben, aus dem sie stammt: **GNU General Public License v3.0**, siehe `licenses/GPL-3.0.txt`.
 - Unverändert übernommen. Den Quelltext dieser Datei bildet die Schriftdatei selbst.
 
+## Animationen
+
+### NoRisk-Idle-Animationen (`src/assets/emotes/launcheridle.animation.json`, `launcheridle2.animation.json`, `launcheridle3.animation.json`)
+
+- Idle-Animationen der Spielerfigur aus dem NoRisk-Client-Launcher (`public/emotes/`), https://github.com/NoRiskClient/noriskclient-launcher
+- Lizenz des Repositorys: **GNU General Public License v3.0**, siehe `licenses/GPL-3.0.txt`.
+- Unverändert übernommen. Den Quelltext bilden die JSON-Dateien selbst. Abgespielt werden sie von Saviras eigenem Code in `src/skinEmotes.ts`.
+
 Savira ist nicht mit NoRiskClient, Mojang oder Microsoft verbunden.
 
 ### Weitere Schriften
