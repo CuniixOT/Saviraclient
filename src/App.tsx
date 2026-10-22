@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, CheckCircle, CornersOut, FlagBanner, GearSix, Info, Minus, Play, Plus, ShieldCheck, Stack, Trash, TShirt, WindowsLogo, X } from '@phosphor-icons/react';
+import { Check, CheckCircle, CornersOut, FlagBanner, GearSix, Info, Lightning, Minus, Play, Plus, ShieldCheck, Stack, Trash, TShirt, WindowsLogo, X } from '@phosphor-icons/react';
+import { ContentBrowser } from './ContentBrowser';
 import { api, capesApi, isDesktop, logsApi, profilesApi, unwrap, type Accounts, type Settings, type State } from './api';
 import { Background } from './Background';
 import { LauncherHome } from './LauncherHome';
@@ -12,10 +13,11 @@ import { Logo, SkinHead, accentHex } from './ui';
 import { UpdateChip, useUpdates } from './Update';
 import { CoinsChip } from './Coins';
 
-type Page = 'home' | 'profiles' | 'skins' | 'capes' | 'settings' | 'about';
+type Page = 'home' | 'profiles' | 'mods' | 'skins' | 'capes' | 'settings' | 'about';
 const nav: { id: Page; label: string; icon: typeof Play }[] = [
   { id: 'home', label: 'Spielen', icon: Play },
   { id: 'profiles', label: 'Profile', icon: Stack },
+  { id: 'mods', label: 'Mods', icon: Lightning },
   { id: 'skins', label: 'Skins', icon: TShirt },
   { id: 'capes', label: 'Capes', icon: FlagBanner },
   { id: 'settings', label: 'Einstellungen', icon: GearSix },
@@ -151,6 +153,8 @@ export function App() {
         {page === 'profiles' && <ProfilesPage settings={state.settings} maxMemory={state.maxMemory} locked={locked} onSave={async (next, message) => save(next, message)} onUse={launchProfile}
           onPlay={(profileId, target) => action('profile-launch', async () => { if (!state.account) applyAccounts(await unwrap(api.login())); await unwrap(profilesApi.play(profileId, target)); })}
           onSettings={(settings, message) => { setState(s => s ? { ...s, settings } : s); setNotice(message); }} onNotice={setNotice} onError={setError} />}
+        {page === 'mods' && <ContentBrowser mode="page" profile={null} kind="mods" settings={state.settings} maxMemory={state.maxMemory} onNotice={setNotice}
+          onSaveSettings={async (next, message) => save(next, message)} onSettings={(settings, message) => { setState(s => s ? { ...s, settings } : s); setNotice(message); }} />}
         {page === 'skins' && <SkinsPage hasAccount={Boolean(state.account)} locked={locked} onNotice={setNotice} onError={setError} onApplied={({ account, accounts }) => applyAccounts({ account, accounts })} />}
         {page === 'capes' && <CapesPage hasAccount={Boolean(state.account)} skin={state.account?.skin || null} locked={locked} onNotice={setNotice} onError={setError} onCapeChange={refreshCape} />}
         {page === 'settings' && <SettingsPage state={state} locked={locked} pending={pending} onSave={save} onFolder={openFolder} onNotice={setNotice} onError={setError} updates={updates} gameRunning={active} onRadiusPreview={setRadiusPreview}

@@ -22,11 +22,17 @@ export interface ProfilesBridge {
   toggle(id: string, kind: ContentKind, file: string, enabled: boolean): Promise<Result<void>>;
   remove(id: string, kind: ContentKind, file: string): Promise<Result<void>>;
   update(id: string, kind: ContentKind, file: string): Promise<Result<string>>;
-  install(id: string, kind: ContentKind, projectId: string): Promise<Result<string[]>>;
+  install(id: string, kind: ContentKind, projectId: string, versionId?: string): Promise<Result<string[]>>;
+  project(projectId: string): Promise<Result<ProjectInfo>>;
+  versions(projectId: string): Promise<Result<ProjectVersion[]>>;
+  where(projectId: string, kind: ContentKind): Promise<Result<{ id: string; installed: boolean; compatible: boolean }[]>>;
+  /** A Modrinth modpack as a new profile; returns the settings with it. */
+  installPack(projectId: string, versionId?: string): Promise<Result<Settings>>;
+  openLink(url: string): Promise<Result<void>>;
   folder(id: string, kind: ContentKind | 'worlds' | 'screenshots' | 'logs'): Promise<Result<void>>;
   addFiles(id: string, kind: ContentKind): Promise<Result<number>>;
   search(options: SearchOptions): Promise<Result<SearchResult>>;
-  tags(kind: ContentKind): Promise<Result<BrowseTags>>;
+  tags(kind: BrowseKind): Promise<Result<BrowseTags>>;
   openProject(type: string, slug: string): Promise<Result<void>>;
   worlds(id: string): Promise<Result<{ worlds: World[]; servers: Server[] }>>;
   play(id: string, target?: { world: string } | { server: string }): Promise<Result<void>>;
@@ -41,8 +47,12 @@ export interface ProfilesBridge {
   switchPack(id: string, versionId: string): Promise<Result<Settings>>;
 }
 export type ContentKind = 'mods' | 'resourcepacks' | 'shaderpacks' | 'datapacks';
+/** What the Mods page can browse: profile contents plus whole modpacks. */
+export type BrowseKind = ContentKind | 'modpacks';
+export type ProjectInfo = { id: string; slug: string; type: string; kind: BrowseKind | null; title: string; description: string; body: string; icon: string | null; downloads: number; followers: number; categories: string[]; gameVersions: string[]; loaders: string[]; client: string; server: string; license: string | null; published: string; updated: string; links: { label: string; url: string }[]; gallery: { url: string; title: string }[]; team: { name: string; role: string; avatar: string | null }[] };
+export type ProjectVersion = { id: string; name: string; number: string; type: 'release' | 'beta' | 'alpha'; gameVersions: string[]; loaders: string[]; date: string; downloads: number };
 export type ContentItem = { file: string; name: string; version: string | null; description: string | null; icon: string | null; size: number; enabled: boolean; folder: boolean; managed: boolean; modrinth: { projectId: string; slug: string; type: string; title: string } | null; update: { versionId: string; versionNumber: string } | null };
-export type SearchOptions = { kind: ContentKind; query?: string; versions?: string[]; categories?: string[]; loaders?: string[]; environment?: 'client' | 'server' | null; sort?: 'relevance' | 'downloads' | 'follows' | 'newest' | 'updated'; offset?: number };
+export type SearchOptions = { kind: BrowseKind; query?: string; versions?: string[]; categories?: string[]; loaders?: string[]; environment?: 'client' | 'server' | null; sort?: 'relevance' | 'downloads' | 'follows' | 'newest' | 'updated'; offset?: number };
 export type SearchHit = { id: string; slug: string; title: string; author: string; description: string; icon: string | null; downloads: number; categories: string[]; type: string };
 export type SearchResult = { total: number; hits: SearchHit[] };
 export type BrowseTags = { categories: string[]; versions: { id: string; type: 'release' | 'snapshot' }[]; loaders: string[] };
@@ -252,7 +262,7 @@ export const profilesApi: ProfilesBridge = window.savira?.profiles ?? {
   blockIcons: async () => ({ ok: true, data: [] }),
   iconFromFile: unavailable, iconFromUrl: unavailable,
   content: async () => ({ ok: true, data: [] }), toggle: unavailable, remove: unavailable, update: unavailable, install: unavailable, folder: unavailable, addFiles: unavailable,
-  search: async () => ({ ok: true, data: { total: 0, hits: [] } }), tags: async () => ({ ok: true, data: { categories: [], versions: [], loaders: [] } }), openProject: unavailable,
+  search: async () => ({ ok: true, data: { total: 0, hits: [] } }), project: unavailable, versions: async () => ({ ok: true, data: [] }), where: async () => ({ ok: true, data: [] }), installPack: unavailable, openLink: unavailable, tags: async () => ({ ok: true, data: { categories: [], versions: [], loaders: [] } }), openProject: unavailable,
   worlds: async () => ({ ok: true, data: { worlds: [], servers: [] } }), play: unavailable, screenshots: async () => ({ ok: true, data: [] }), openScreenshot: unavailable, deleteScreenshot: unavailable,
   stats: async () => ({ ok: true, data: { size: 0 } }), duplicate: unavailable, exportEntries: async () => ({ ok: true, data: [] }), exportPack: unavailable, packVersions: async () => ({ ok: true, data: [] }), switchPack: unavailable
 };

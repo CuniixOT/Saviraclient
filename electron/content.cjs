@@ -16,6 +16,9 @@ const KINDS = {
   shaderpacks: { dir: 'shaderpacks', ext: '.zip', type: 'shader' },
   datapacks: { dir: 'datapacks', ext: '.zip', type: 'datapack' },
 };
+// Searchable on the Mods page, but installed as a new profile instead of into one.
+const SEARCH_TYPES = { ...Object.fromEntries(Object.entries(KINDS).map(([kind, entry]) => [kind, entry.type])), modpacks: 'modpack' };
+const typeOf = kind => { if (!SEARCH_TYPES[kind]) throw new Error('Unbekannte Inhaltsart.'); return SEARCH_TYPES[kind]; };
 const API = 'https://api.modrinth.com/v2';
 const USER_AGENT = 'Savira (github.com/CuniixOT/Saviraclient)';
 const DISABLED = '.disabled';
@@ -181,15 +184,23 @@ function primaryFile(version, ext) {
 }
 
 /** Installs the newest fitting version of a Modrinth project; for mods also its required dependencies. */
-async function install(root, kind, profile, projectId, installed = null) {
-  if (!PROJECT_ID.test(projectId)) throw new Error('Ungültiges Projekt.');
+/** versionId: a specific version from the version list; otherwise the newest fitting one. */
+async function install(root, kind, profile, projectId, installed = null, versionId = null) {
+  if (!PROJECT_ID.test(projectId) || (versionId !== null && !PROJECT_ID.test(versionId))) throw new Error('Ungültiges Projekt.');
   // What is there already, so dependencies the profile has are not downloaded twice.
   if (!installed) installed = new Set((await list(root, kind, profile)).map(item => item.modrinth?.projectId).filter(Boolean));
   const { dir, ext } = kindOf(kind);
+  if (kind === 'mods' && profile.loader === 'vanilla') throw new Error('Vanilla-Profile laden keine Mods. Nimm ein Profil mit Fabric, Forge, NeoForge oder Quilt.');
   const loaders = loaderFilter(kind, profile);
   const query = `${loaders.length ? `loaders=${encodeURIComponent(JSON.stringify(loaders))}&` : ''}game_versions=${encodeURIComponent(JSON.stringify([profile.version]))}`;
-  const versions = await modrinth(`/project/${projectId}/version?${query}`);
-  const version = versions.find(item => item.version_type === 'release') || versions[0];
+  let version;
+  if (versionId) {
+    version = await modrinth(`/version/${versionId}`);
+    if (version.project_id !== projectId) throw new Error('Diese Version gehört zu einem anderen Projekt.');
+  } else {
+    const versions = await modrinth(`/project/${projectId}/version?${query}`);
+    version = versions.find(item => item.version_type === 'release') || versions[0];
+  }
   if (!version) throw new Error(`Für Minecraft ${profile.version}${loaders.length ? ` mit ${loaders[0]}` : ''} gibt es davon keine Version.`);
   const file = primaryFile(version, ext);
   if (!file) throw new Error('Die Modrinth-Version enthält keine passende Datei.');
@@ -225,7 +236,7 @@ async function update(root, kind, profile, file, trash) {
 const SORTS = ['relevance', 'downloads', 'follows', 'newest', 'updated'];
 const TAG = /^[a-z0-9_-]{1,32}$/, MC_VERSION = /^[\w.+-]{1,40}$/;
 async function search({ kind, query = '', versions = [], categories = [], loaders = [], environment = null, sort = 'relevance', offset = 0 }) {
-  const { type } = kindOf(kind);
+  const type = typeOf(kind);
   if (typeof query !== 'string' || query.length > 100) throw new Error('Ungültige Suche.');
   const pick = (value, pattern) => { if (!Array.isArray(value) || value.length > 12 || !value.every(item => typeof item === 'string' && pattern.test(item))) throw new Error('Ungültiger Filter.'); return value; };
   const facets = [[`project_type:${type}`]];
@@ -241,7 +252,7 @@ async function search({ kind, query = '', versions = [], categories = [], loader
 }
 const tagCache = new Map();
 async function tags(kind) {
-  const { type } = kindOf(kind);
+  const type = typeOf(kind);
   if (!tagCache.has('all')) tagCache.set('all', Promise.all([modrinth('/tag/category'), modrinth('/tag/game_version'), modrinth('/tag/loader')]).catch(error => { tagCache.delete('all'); throw error; }));
   const [categories, versions, loaders] = await tagCache.get('all');
   return {
@@ -331,4 +342,37 @@ async function folderSize(dir) {
   return sizes.reduce((sum, size) => sum + size, 0);
 }
 
-module.exports = { KINDS, MANAGED, list, toggle, install, update, search, tags, worlds, screenshots, screenshotPath, entryPath, folderSize, readNbt, identify, primaryFile, download, modrinth, sha };
+// Project page: everything Modrinth shows about a project, plus its team.
+const KIND_OF_TYPE = { mod: 'mods', resourcepack: 'resourcepacks', shader: 'shaderpacks', datapack: 'datapacks', modpack: 'modpacks' };
+async function project(projectId) {
+  if (typeof projectId !== 'string' || !/^[\w-]{1,64}$/.test(projectId)) throw new Error('Ungültiges Projekt.');
+  const [info, members] = await Promise.all([modrinth(`/project/${projectId}`), modrinth(`/project/${projectId}/members`).catch(() => [])]);
+  const link = value => typeof value === 'string' && /^https:\/\//.test(value) ? value : null;
+  return {
+    id: info.id, slug: info.slug, type: info.project_type, kind: KIND_OF_TYPE[info.project_type] || null, title: info.title, description: info.description, body: typeof info.body === 'string' ? info.body.slice(0, 200000) : '',
+    icon: info.icon_url || null, downloads: info.downloads, followers: info.followers, categories: [...(info.categories || []), ...(info.additional_categories || [])],
+    gameVersions: [...(info.game_versions || [])].reverse(), loaders: info.loaders || [], client: info.client_side, server: info.server_side,
+    license: info.license?.name || info.license?.id || null, published: info.published, updated: info.updated,
+    links: [['Quellcode', info.source_url], ['Fehlerverfolgung', info.issues_url], ['Wiki', info.wiki_url], ['Discord', info.discord_url], ...(info.donation_urls || []).map(item => [`Spenden (${item.platform})`, item.url])].map(([label, url]) => ({ label, url: link(url) })).filter(item => item.url),
+    gallery: (info.gallery || []).slice(0, 12).map(item => ({ url: item.url, title: item.title || '' })),
+    team: (Array.isArray(members) ? members : []).slice(0, 20).map(member => ({ name: member.user?.username, role: member.role, avatar: member.user?.avatar_url || null })),
+  };
+}
+const versionCache = new Map();
+/** All versions of a project, newest first (Fabric API has more than a thousand). */
+async function projectVersions(projectId) {
+  if (!PROJECT_ID.test(projectId)) throw new Error('Ungültiges Projekt.');
+  const hit = versionCache.get(projectId);
+  if (hit && Date.now() - hit.at < 300000) return hit.list;
+  const list = (await modrinth(`/project/${projectId}/version`)).map(version => ({ id: version.id, name: version.name, number: version.version_number, type: version.version_type, gameVersions: version.game_versions, loaders: version.loaders, date: version.date_published, downloads: version.downloads }));
+  versionCache.set(projectId, { at: Date.now(), list });
+  return list;
+}
+/** Whether a project has a version for this profile's Minecraft version and loader. */
+async function compatible(projectId, kind, profile) {
+  if (kind === 'mods' && profile.loader === 'vanilla') return false;
+  const loaders = loaderFilter(kind, profile);
+  return (await projectVersions(projectId)).some(version => version.gameVersions.includes(profile.version) && (!loaders.length || version.loaders.some(loader => loaders.includes(loader))));
+}
+
+module.exports = { KINDS, KIND_OF_TYPE, project, projectVersions, compatible, MANAGED, list, toggle, install, update, search, tags, worlds, screenshots, screenshotPath, entryPath, folderSize, readNbt, identify, primaryFile, download, modrinth, sha };

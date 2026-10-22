@@ -3,9 +3,8 @@
 Jede Zeile, die mit "- " beginnt, erscheint im Update-Hinweis des Launchers.
 Vor jedem Release anpassen, dann Version erhöhen und pushen.
 
-- Neue Profile: Vanilla, Fabric, Forge, NeoForge oder Quilt für jede Minecraft-Version, mit eigenem RAM, Gruppe und Icon (Minecraft-Blöcke, eigenes Bild oder Link)
-- Modrinth-Modpacks (.mrpack/.zip) importieren, exportieren und zwischen ihren Versionen wechseln
-- Profilseite mit Mods, Ressourcen-, Shader- und Datenpaketen: ein-/ausschalten, aktualisieren, löschen und neue direkt von Modrinth installieren
-- Welten, Server, Screenshots und Logs pro Profil; Welten und Server lassen sich direkt starten
-- Profile duplizieren, Spielzeit und Speicherplatz im Blick
-- Ohne Skin-Animation steht deine Figur in einer festen Pose wie bei NoRisk
+- Neuer Reiter „Mods“: Modpacks, Mods, Resourcepacks, Shader und Datenpakete von Modrinth durchsuchen und in jedes passende Profil installieren
+- Beim Installieren siehst du alle Profile: wo es schon drin ist, wo es passt und wo nicht
+- Projektseiten wie auf Modrinth: Beschreibung, Kompatibilität, Team, Links, Details und alle Versionen zum gezielten Installieren
+- Modpacks direkt von Modrinth als neues Profil installieren
+- Schönere Auswahllisten und Modrinth-/CurseForge-Logos

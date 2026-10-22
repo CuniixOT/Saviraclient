@@ -134,7 +134,7 @@ async function authenticate(interactive, legacyToken) {
   log.info(`Angemeldet als ${account.name}${interactive ? ' (Microsoft-Fenster)' : ' (gespeicherte Sitzung)'}`);
   return mc;
 }
-const pageLabels = { home: 'Startseite', profiles: 'Profile', skins: 'Skins', capes: 'Capes', settings: 'Einstellungen', about: 'Über Savira' };
+const pageLabels = { home: 'Startseite', profiles: 'Profile', mods: 'Mods', skins: 'Skins', capes: 'Capes', settings: 'Einstellungen', about: 'Über Savira' };
 // Skin sources for the wardrobe: a Minecraft name or UUID (via Mojang) or a direct https image link.
 async function download(url, limit = 1_000_000) {
   const response = await fetch(url, { signal: AbortSignal.timeout(20000), headers: { 'User-Agent': 'Savira/0.1.0' } });
@@ -375,7 +375,23 @@ async function importModpack() {
   const pick = await dialog.showOpenDialog(win, { title: 'Modpack importieren', properties: ['openFile'], filters: [{ name: 'Modrinth-Modpack', extensions: ['mrpack', 'zip'] }] });
   if (pick.canceled || !pick.filePaths[0]) return null;
   if ((await fs.stat(pick.filePaths[0])).size > 512 * 1024 * 1024) throw new Error('Das Modpack ist größer als 512 MB.');
-  const bytes = await fs.readFile(pick.filePaths[0]);
+  return installModpack(await fs.readFile(pick.filePaths[0]));
+}
+// A modpack from the Mods page: its newest (or chosen) version straight from Modrinth.
+async function modpackFromModrinth(projectId, versionId) {
+  if (busy || loggingIn) throw new Error('Ein Vorgang läuft bereits.');
+  if (settings.profiles.length >= 30) throw new Error('Es sind bereits 30 Profile angelegt.');
+  if (!/^[A-Za-z0-9]{8}$/.test(String(projectId)) || (versionId != null && !/^[A-Za-z0-9]{8}$/.test(String(versionId)))) throw new Error('Ungültiges Modpack.');
+  const version = versionId ? await content.modrinth(`/version/${versionId}`) : (await content.modrinth(`/project/${projectId}/version`)).find(item => item.version_type === 'release') || null;
+  if (!version || version.project_id !== projectId) throw new Error('Diese Modpack-Version gibt es nicht.');
+  const file = version.files.find(item => item.primary && item.filename.endsWith('.mrpack')) || version.files.find(item => item.filename.endsWith('.mrpack'));
+  if (!file) throw new Error('Diese Version enthält keine .mrpack-Datei.');
+  const temp = path.join(root(), 'cache', `${version.id}.mrpack`);
+  publish({ phase: 'installing', message: 'Modpack wird geladen …', progress: 1 });
+  try { await content.download(file, temp); } catch (error) { publish({ phase: 'idle', message: 'Bereit, wenn du es bist.', progress: 0 }); throw error; }
+  try { return await installModpack(await fs.readFile(temp)); } finally { await fs.rm(temp, { force: true }); }
+}
+async function installModpack(bytes) {
   const pack = readPack(bytes);
   const origin = await packs.packOrigin(bytes);
   const id = `profile-${Date.now().toString(36)}`;
@@ -672,7 +688,27 @@ else {
     handle('content-toggle', withProfile(async (profile, dir, kind, file, enabled) => { assertIdle(profile); await content.toggle(dir, kind, file, enabled === true); }));
     handle('content-delete', withProfile(async (profile, dir, kind, file) => { assertIdle(profile); await shell.trashItem(content.entryPath(dir, kind, file)); }));
     handle('content-update', withProfile(async (profile, dir, kind, file) => { assertIdle(profile); return content.update(dir, kind, profile, file, target => shell.trashItem(target)); }));
-    handle('content-install', withProfile(async (profile, dir, kind, projectId) => { assertIdle(profile); return content.install(dir, kind, profile, projectId); }));
+    handle('content-install', withProfile(async (profile, dir, kind, projectId, versionId) => { assertIdle(profile); return content.install(dir, kind, profile, projectId, null, versionId ?? null); }));
+    handle('browse-project', projectId => content.project(projectId));
+    handle('browse-versions', projectId => content.projectVersions(projectId));
+    // For the install dialog of the Mods page: in which profiles a project is, and where it would run.
+    handle('browse-where', async (projectId, kind) => {
+      if (!content.KINDS[kind]) throw new Error('Unbekannte Inhaltsart.');
+      return Promise.all(settings.profiles.map(async profile => {
+        let installed = false, compatible = false;
+        try { installed = (await content.list(instanceOf(profile), kind, profile)).some(item => item.modrinth?.projectId === projectId); } catch { /* Unreadable folder. */ }
+        try { compatible = await content.compatible(projectId, kind, profile); } catch { /* Offline. */ }
+        return { id: profile.id, installed, compatible };
+      }));
+    });
+    handle('browse-install-pack', modpackFromModrinth);
+    // Links from project pages open in the normal browser, never inside the launcher.
+    handle('open-link', async url => {
+      let parsed;
+      try { parsed = new URL(String(url)); } catch { throw new Error('Ungültiger Link.'); }
+      if (parsed.protocol !== 'https:') throw new Error('Nur https-Links werden geöffnet.');
+      await shell.openExternal(parsed.href);
+    });
     handle('content-folder', withProfile(async (profile, dir, kind) => {
       const sub = content.KINDS[kind]?.dir || SUBFOLDERS[kind];
       if (!sub) throw new Error('Unbekannter Ordner.');

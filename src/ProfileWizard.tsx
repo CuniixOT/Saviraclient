@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom';
 import { profilesApi, saviraAvailable, saviraVersions, unwrap, type BlockIcon, type GameProfile, type Loader, type LoaderVersion, type MinecraftVersion, type Settings } from './api';
 import { loaderNames, ProfileIcon } from './profileUi';
+import { Select } from './Select';
 
 type Step = 'start' | 'version' | 'loader' | 'details';
 type Builds = LoaderVersion[] | 'loading' | 'error';
@@ -156,9 +157,7 @@ export function ProfileWizard({ settings, maxMemory, editing, onClose, onSave, o
             })}
           </div>
           {loader !== 'vanilla' && <label className="field"><span>{loaderNames[loader]}-Version</span>
-            <select className="input" value={loaderVersion ?? ''} disabled={!Array.isArray(list)} onChange={event => setLoaderVersion(event.target.value)}>
-              {Array.isArray(list) ? list.map(item => <option key={item.version} value={item.version}>{item.version}{item.stable ? ' (stabil)' : ''}</option>) : <option>lädt …</option>}
-            </select>
+            {Array.isArray(list) && loaderVersion ? <Select label={`${loaderNames[loader]}-Version`} value={loaderVersion} onChange={setLoaderVersion} className="select-wide" options={list.map(item => ({ value: item.version, label: item.version, hint: item.stable ? 'stabil' : undefined }))} /> : <div className="input select-placeholder">lädt …</div>}
           </label>}
         </>}
 

@@ -1,7 +1,9 @@
+import { SortAscending, SortDescending, ToggleRight } from '@phosphor-icons/react';
 import { ArrowClockwise, ArrowLeft, ArrowSquareOut, Camera, CaretDown, Check, Clock, Copy, Cube, DotsThree, DownloadSimple, Export, FilePlus, Flask, FolderOpen, GameController, GearSix, Globe, HardDrives, Hourglass, Image, Lightning, MagnifyingGlass, Package, PencilSimple, Play, Plus, Scroll, Sparkle, Star, Stack, Trash, Tree } from '@phosphor-icons/react';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { debugApi, profilesApi, saviraAvailable, unwrap, type ContentItem, type ContentKind, type GameProfile, type LogFile, type MinecraftVersion, type Screenshot, type Server, type World } from './api';
 import { ContentBrowser } from './ContentBrowser';
+import { Select } from './Select';
 import { Menu, type MenuItem } from './ProfileDialogs';
 import { loaderNames, playedAgo, ProfileIcon } from './profileUi';
 
@@ -109,7 +111,7 @@ export function ProfileDetail({ profile, locked, onBack, onAction, onPlay, onSav
       </aside>
     </div>
 
-    {browser && <ContentBrowser profile={profile} kind={browser} installed={installed} onClose={() => { setBrowser(null); void load(browser); }} onInstalled={(kind, files) => { onNotice(`Installiert: ${files.join(', ')}`); void load(kind); }} />}
+    {browser && <ContentBrowser mode="drawer" profile={profile} kind={browser} installed={installed} onClose={() => { setBrowser(null); void load(browser); }} onInstalled={(kind, files) => { onNotice(`Installiert: ${files.join(', ')}`); void load(kind); }} />}
   </div>;
 }
 
@@ -202,7 +204,7 @@ function ContentSection({ profile, kind, items, locked, onReload, onBrowse, onNo
   return <>
     <div className="content-toolbar">
       <label className="search glass"><MagnifyingGlass size={15} /><input aria-label={`${info.noun} durchsuchen`} placeholder={`${info.noun} durchsuchen …`} value={query} onChange={event => setQuery(event.target.value)} /></label>
-      <select className="input sort-select" aria-label="Sortierung" value={sort} onChange={event => setSort(event.target.value as typeof sort)}><option value="name">Name</option><option value="enabled">Aktive zuerst</option><option value="updates">Updates zuerst</option></select>
+      <Select label="Sortierung" value={sort} onChange={setSort} width={170} options={[{ value: 'name', label: 'Name', icon: <SortAscending size={14} /> }, { value: 'enabled', label: 'Aktive zuerst', icon: <ToggleRight size={14} /> }, { value: 'updates', label: 'Updates zuerst', icon: <DownloadSimple size={14} /> }]} />
       <div className="toolbar-right">
         <button className="btn btn-icon" title="Neu laden" aria-label="Neu laden" onClick={() => void onReload()}><ArrowClockwise size={15} /></button>
         {updates.length > 0 && <button className="btn pixel" disabled={locked} onClick={updateAll}><DownloadSimple size={14} />alle aktualisieren ({updates.length})</button>}
@@ -287,7 +289,7 @@ function ScreenshotsSection({ profile, onError }: { profile: GameProfile; onErro
   const shown = [...(shots || [])].sort((a, b) => newest ? b.time - a.time : a.time - b.time);
   return <>
     <div className="content-toolbar">
-      <select className="input sort-select" aria-label="Sortierung" value={newest ? 'new' : 'old'} onChange={event => setNewest(event.target.value === 'new')}><option value="new">Neueste zuerst</option><option value="old">Älteste zuerst</option></select>
+      <Select label="Sortierung" value={newest ? 'new' : 'old'} onChange={value => setNewest(value === 'new')} width={180} options={[{ value: 'new', label: 'Neueste zuerst', icon: <SortDescending size={14} /> }, { value: 'old', label: 'Älteste zuerst', icon: <SortAscending size={14} /> }]} />
       <div className="toolbar-right"><span className="count">{shots?.length ?? 0} Screenshots</span><button className="btn btn-icon" title="Neu laden" aria-label="Neu laden" onClick={load}><ArrowClockwise size={15} /></button><button className="btn btn-icon" title="Ordner öffnen" aria-label="Ordner öffnen" onClick={() => unwrap(profilesApi.folder(profile.id, 'screenshots')).catch(e => onError(message(e)))}><FolderOpen size={15} /></button></div>
     </div>
     {!shots && <p className="wizard-loading">Screenshots werden geladen …</p>}
@@ -318,9 +320,7 @@ function LogsSection({ profile, onError }: { profile: GameProfile; onError: (tex
   const lines = useMemo(() => text.split(/\r?\n/).slice(-3000).filter(line => !filter || line.toLowerCase().includes(filter.toLowerCase())), [text, filter]);
   return <>
     <div className="content-toolbar">
-      <select className="input log-select" aria-label="Log-Datei" value={current?.path ?? ''} onChange={event => setCurrent(files?.find(file => file.path === event.target.value) || null)}>
-        {files?.map(file => <option key={file.path} value={file.path}>{file.name} · {new Date(file.modified).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })}</option>)}
-      </select>
+      {files && files.length > 0 && <Select label="Log-Datei" value={current?.path ?? ''} onChange={value => setCurrent(files.find(file => file.path === value) || null)} width={300} options={files.map(file => ({ value: file.path, label: file.name, hint: new Date(file.modified).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }), icon: <Scroll size={14} /> }))} />}
       <label className="search glass"><MagnifyingGlass size={15} /><input aria-label="Log filtern" placeholder="Zeilen filtern …" value={filter} onChange={event => setFilter(event.target.value)} /></label>
       <div className="toolbar-right">
         <button className="btn btn-icon" title="Kopieren" aria-label="Log kopieren" disabled={!text} onClick={() => void navigator.clipboard.writeText(text)}><Copy size={15} /></button>
