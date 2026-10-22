@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, CheckCircle, CornersOut, FlagBanner, GearSix, Info, Minus, Play, Plus, ShieldCheck, Stack, Trash, TShirt, WindowsLogo, X } from '@phosphor-icons/react';
-import { api, capesApi, isDesktop, logsApi, unwrap, type Accounts, type Settings, type State } from './api';
+import { api, capesApi, isDesktop, logsApi, profilesApi, unwrap, type Accounts, type Settings, type State } from './api';
 import { Background } from './Background';
 import { LauncherHome } from './LauncherHome';
 import { ProfilesPage } from './ProfilesPage';
@@ -148,7 +148,9 @@ export function App() {
           onLaunch={() => state.account ? action('launch', async () => { await unwrap(api.launch()); }) : login()}
           onProfile={selectedProfileId => save({ ...state.settings, selectedProfileId }, 'Profil gewechselt.')}
           onSkinAnimation={() => save({ ...state.settings, emotes: !state.settings.emotes }, state.settings.emotes ? 'Skin-Animation aus.' : 'Skin-Animation an.')} />}
-        {page === 'profiles' && <ProfilesPage settings={state.settings} locked={locked} onSave={async (next, message) => save(next, message)} onUse={launchProfile} />}
+        {page === 'profiles' && <ProfilesPage settings={state.settings} maxMemory={state.maxMemory} locked={locked} onSave={async (next, message) => save(next, message)} onUse={launchProfile}
+          onPlay={(profileId, target) => action('profile-launch', async () => { if (!state.account) applyAccounts(await unwrap(api.login())); await unwrap(profilesApi.play(profileId, target)); })}
+          onSettings={(settings, message) => { setState(s => s ? { ...s, settings } : s); setNotice(message); }} onNotice={setNotice} onError={setError} />}
         {page === 'skins' && <SkinsPage hasAccount={Boolean(state.account)} locked={locked} onNotice={setNotice} onError={setError} onApplied={({ account, accounts }) => applyAccounts({ account, accounts })} />}
         {page === 'capes' && <CapesPage hasAccount={Boolean(state.account)} skin={state.account?.skin || null} locked={locked} onNotice={setNotice} onError={setError} onCapeChange={refreshCape} />}
         {page === 'settings' && <SettingsPage state={state} locked={locked} pending={pending} onSave={save} onFolder={openFolder} onNotice={setNotice} onError={setError} updates={updates} gameRunning={active} onRadiusPreview={setRadiusPreview}

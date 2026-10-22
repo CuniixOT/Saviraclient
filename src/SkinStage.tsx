@@ -2,9 +2,9 @@ import { useEffect, useRef } from 'react';
 import type { PlayerObject, SkinViewer } from 'skinview3d';
 import type { Group, Mesh, MeshBasicMaterial, PlaneGeometry } from 'three';
 import { makeReveal } from './skinReveal';
-import { applyClip, nextCalmIdle, resetParts, rollIdle, SPECIAL_IDLE, type Clip } from './skinEmotes';
+import { applyClip, nextCalmIdle, resetParts, rollIdle, SPECIAL_IDLE, STILL_POSE, type Clip } from './skinEmotes';
 
-const REST_YAW = -0.38;            // calm three-quarter view instead of endless spinning
+const REST_YAW = .4;               // three-quarter view, turned like the figure in NoRisk
 const MODEL_HALF_WIDTH = 12;       // arms plus some room when the body turns
 const FIT_HALF_HEIGHT = 16.5;      // what skinview3d fits vertically at zoom 1
 const BASE_ZOOM = .8;
@@ -114,8 +114,9 @@ export function SkinStage({ skin, name, paused = false, animated = false, cape =
       const drag = { active: false, startX: 0, startYaw: REST_YAW, yaw: REST_YAW };
       let yaw = REST_YAW;
       const still = reducedMotion();
-      // Animation schedule, in seconds of animation time. amount fades everything out when switched off.
-      let clock = 0, playing: Playing | null = null, amount = 0;
+      // Animation schedule, in seconds of animation time. amount fades the animations out when switched off,
+      // live the idle motion: without skin animation the figure is a still render, like in NoRisk.
+      let clock = 0, playing: Playing | null = null, amount = 0, live = animatedRef.current ? 1 : 0;
       let ready = !animatedRef.current, loadToken = 0;
       const reveal = makeReveal(viewer, three, () => tagRef.current);
       cleanups.push(() => reveal.dispose());
@@ -140,10 +141,13 @@ export function SkinStage({ skin, name, paused = false, animated = false, cape =
 
       viewer.animation = new FunctionAnimation((player, progress, delta) => {
         resetParts(player);
+        const on = animatedRef.current;
+        if (!on) drag.active = false;
+        live += ((on ? 1 : 0) - live) * (still ? 1 : 1 - Math.exp(-delta * 6));
         const k = still ? 1 : 1 - Math.exp(-delta * 7);
-        head.x += (look.x - head.x) * k;
-        head.y += (look.y - head.y) * k;
-        // The body follows the cursor a little; while dragging it follows the hand directly.
+        head.x += ((on ? look.x : 0) - head.x) * k;
+        head.y += ((on ? look.y : 0) - head.y) * k;
+        // The body follows the cursor a little; while dragging it follows the hand directly. Switched off it turns back.
         yaw = drag.active ? drag.yaw : yaw + (REST_YAW + head.x * .32 - yaw) * (still ? 1 : 1 - Math.exp(-delta * 4));
         player.rotation.y = yaw;
         player.skin.head.rotation.y = head.x * .55;
@@ -155,17 +159,18 @@ export function SkinStage({ skin, name, paused = false, animated = false, cape =
         const finishFrame = () => { if (tagRef.current) placeTag(tagRef.current, player); reveal.update(delta); };
         if (still || reveal.loading) return finishFrame();
         const t = progress * 1.6;
-        player.skin.leftArm.rotation.z = Math.cos(t) * .03 + Math.PI * .02;
-        player.skin.rightArm.rotation.z = Math.cos(t + Math.PI) * .03 - Math.PI * .02;
-        player.skin.leftArm.rotation.x = Math.sin(t * .5) * .04;
-        player.skin.rightArm.rotation.x = -Math.sin(t * .5) * .04;
-        player.position.y = Math.sin(t) * .12;   // breathing
-        player.cape.rotation.x = .2 + Math.sin(t * .8) * .05;   // the cape sways a little
+        player.skin.leftArm.rotation.z = (Math.cos(t) * .03 + Math.PI * .02) * live;
+        player.skin.rightArm.rotation.z = (Math.cos(t + Math.PI) * .03 - Math.PI * .02) * live;
+        player.skin.leftArm.rotation.x = Math.sin(t * .5) * .04 * live;
+        player.skin.rightArm.rotation.x = -Math.sin(t * .5) * .04 * live;
+        player.position.y = Math.sin(t) * .12 * live;   // breathing
+        player.cape.rotation.x = .2 + Math.sin(t * .8) * .05 * live;   // the cape sways a little
         player.skin.leftLeg.rotation.x = 0;
         player.skin.rightLeg.rotation.x = 0;
         player.skin.head.rotation.z = 0;
+        // Switched off, the figure eases into the still pose.
+        if (live < 1) applyClip(player, STILL_POSE, 0, 1 - live);
 
-        const on = animatedRef.current;
         amount += ((on && ready ? 1 : 0) - amount) * (1 - Math.exp(-delta * 8));
         if (!on && amount < .01) playing = null;
         if (on && ready && !playing && !drag.active) playing = next();
@@ -186,16 +191,17 @@ export function SkinStage({ skin, name, paused = false, animated = false, cape =
       };
       const onLeave = (event: MouseEvent) => { if (!event.relatedTarget) { look.x = 0; look.y = 0; } };
       const onDown = (event: PointerEvent) => {
+        if (!animatedRef.current) return;   // the still render cannot be turned
         drag.active = true; drag.startX = event.clientX; drag.startYaw = yaw; drag.yaw = yaw;
         canvas.setPointerCapture(event.pointerId); canvas.classList.add('is-dragging');
       };
       const onUp = (event: PointerEvent) => {
-        if (!drag.active) return;
+        // Also when the skin animation was switched off mid-drag.
         drag.active = false; canvas.classList.remove('is-dragging');
         if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
       };
       const onKey = (event: KeyboardEvent) => {
-        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { drag.active = false; yaw += event.key === 'ArrowLeft' ? -.4 : .4; }
+        if (animatedRef.current && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) { drag.active = false; yaw += event.key === 'ArrowLeft' ? -.4 : .4; }
       };
       const onVisibility = () => { viewer.renderPaused = pausedRef.current || document.hidden; };
       window.addEventListener('pointermove', onMove);
@@ -257,8 +263,8 @@ export function SkinStage({ skin, name, paused = false, animated = false, cape =
     if (viewerRef.current) viewerRef.current.renderPaused = paused || document.hidden;
   }, [paused]);
 
-  return <div className="skin-stage" ref={wrapRef}>
-    <canvas ref={canvasRef} tabIndex={0} aria-label={`3D-Figur von ${name}. Ziehen oder Pfeiltasten zum Drehen.`} />
+  return <div className={`skin-stage ${animated ? '' : 'is-still'}`} ref={wrapRef}>
+    <canvas ref={canvasRef} tabIndex={animated ? 0 : -1} aria-label={animated ? `3D-Figur von ${name}. Ziehen oder Pfeiltasten zum Drehen.` : `3D-Figur von ${name}`} />
     <div className="skin-shadow" />
   </div>;
 }

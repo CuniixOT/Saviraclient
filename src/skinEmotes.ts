@@ -118,6 +118,16 @@ export function applyClip(player: PlayerObject, clip: Clip, time: number, weight
   player.cape.rotation.z = -body.rotation.z;
 }
 
+// Pose of the still render without skin animation, the same angles as in the NoRisk launcher (Bedrock degrees).
+const still = (x: number, y: number, z: number): Key[] => [{ time: 0, pre: [x, y, z], post: [x, y, z] }];
+export const STILL_POSE: Clip = { length: 0, tracks: {
+  head: { rotation: still(0, -10, 0) },
+  rightArm: { rotation: still(0, 0, 5) },
+  leftArm: { rotation: still(0, 0, -5) },
+  rightLeg: { rotation: still(-7.5, 20, 0) },
+  leftLeg: { rotation: still(0, -10, 0) },
+} };
+
 export const CALM_IDLES = [parse(launcherIdle as unknown as AnimationFile), parse(launcherIdle2 as unknown as AnimationFile)];
 export const SPECIAL_IDLE = parse(launcherIdle3 as unknown as AnimationFile);
 

@@ -1,102 +1,122 @@
-import { ArrowLeft, ArrowRight, Check, Cube, MagnifyingGlass, Package, Play, Plus, Trash, X } from '@phosphor-icons/react';
+import { Check, Copy, Cube, Export, FolderOpen, GearSix, Lightning, MagnifyingGlass, Package, Play, Plus, Trash } from '@phosphor-icons/react';
 import { PageHeader } from './ui';
 import { useDeferredValue, useState, type CSSProperties } from 'react';
-import type { GameProfile, Settings } from './api';
-
-const versions = ['1.21.10', '1.21.9', '1.21.8', '1.21.4', '1.21.1', '1.20.4', '1.19.4', '1.8.9'];
-type Filter = 'all' | 'savira' | 'vanilla';
+import { profilesApi, unwrap, type GameProfile, type Settings } from './api';
+import { loaderLabel, playedAgo, ProfileIcon } from './profileUi';
+import { ProfileWizard } from './ProfileWizard';
+import { ProfileDetail, type ProfileAction } from './ProfileDetail';
+import { DeleteDialog, DuplicateDialog, ExportDialog, Menu, PackVersionsDialog } from './ProfileDialogs';
 
 type Props = {
   settings: Settings;
+  maxMemory: number;
   locked: boolean;
   onSave: (settings: Settings, message: string) => Promise<void>;
   onUse: (profileId: string) => Promise<void>;
+  /** Start from the profile page, optionally into a world or onto a server; stays on the page. */
+  onPlay: (profileId: string, target?: { world: string } | { server: string }) => void;
+  /** Settings changed by the launcher itself, e.g. after a modpack import. */
+  onSettings: (settings: Settings, message: string) => void;
+  onNotice: (message: string) => void;
+  onError: (message: string) => void;
 };
+type Dialog = { kind: 'wizard'; editing: GameProfile | null } | { kind: 'duplicate' | 'export' | 'versions' | 'delete'; profile: GameProfile };
 
-export function ProfilesPage({ settings, locked, onSave, onUse }: Props) {
-  const [filter, setFilter] = useState<Filter>('all');
+export function ProfilesPage({ settings, maxMemory, locked, onSave, onUse, onPlay, onSettings, onNotice, onError }: Props) {
+  // Tabs: all, the Savira profiles and one per group.
+  const groups = [...new Set(settings.profiles.map(profile => profile.group).filter(Boolean))].sort();
+  const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
-  const [creating, setCreating] = useState(false);
-  const [step, setStep] = useState(0);
-  const [version, setVersion] = useState('1.21.1');
-  const [loader, setLoader] = useState<GameProfile['loader']>('savira');
-  const [name, setName] = useState('Savira 1.21.1');
+  const [dialog, setDialog] = useState<Dialog | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [menu, setMenu] = useState<string | null>(null);
+  const activeFilter = filter === 'all' || filter === 'savira' || groups.includes(filter) ? filter : 'all';
+  const opened = settings.profiles.find(profile => profile.id === openId) || null;
 
-  const visible = settings.profiles.filter(profile => (filter === 'all' || profile.loader === filter)
-    && `${profile.name} ${profile.version} ${profile.loader}`.toLowerCase().includes(deferredQuery));
+  const visible = settings.profiles.filter(profile => (activeFilter === 'all' || (activeFilter === 'savira' ? profile.savira : profile.group === activeFilter))
+    && `${profile.name} ${profile.version} ${profile.loader} ${profile.group}`.toLowerCase().includes(deferredQuery));
 
-  function openCreator() {
-    setVersion('1.21.1'); setLoader('savira'); setName('Savira 1.21.1'); setStep(0); setCreating(true);
+  async function saveProfile(profile: GameProfile, notice?: string) {
+    const exists = settings.profiles.some(item => item.id === profile.id);
+    const profiles = exists ? settings.profiles.map(item => item.id === profile.id ? profile : item) : [...settings.profiles, profile];
+    await onSave({ ...settings, profiles, selectedProfileId: exists ? settings.selectedProfileId : profile.id }, notice || (exists ? `Profil „${profile.name}“ gespeichert.` : `Profil „${profile.name}“ erstellt.`));
   }
-  function chooseVersion(next: string) {
-    const nextLoader = next === '1.21.1' ? loader : 'vanilla';
-    setVersion(next); setLoader(nextLoader); setName(`${nextLoader === 'savira' ? 'Savira' : 'Vanilla'} ${next}`);
-  }
-  function chooseLoader(next: GameProfile['loader']) {
-    setLoader(next); setName(`${next === 'savira' ? 'Savira' : 'Vanilla'} ${version}`);
-  }
-  async function createProfile() {
-    const id = `profile-${Date.now().toString(36)}`;
-    const profile = { id, name: name.trim(), version, loader };
-    await onSave({ ...settings, profiles: [...settings.profiles, profile], selectedProfileId: id }, `Profil „${profile.name}“ erstellt.`);
-    setCreating(false);
+  async function importPack() {
+    const next = await unwrap(profilesApi.importPack());
+    if (!next) return;
+    const profile = next.profiles.find(item => item.id === next.selectedProfileId);
+    onSettings(next, `Modpack „${profile?.name}“ ist bereit.`);
+    setDialog(null);
   }
   async function removeProfile(profile: GameProfile) {
-    if (settings.profiles.length === 1) return;
+    if (settings.profiles.length === 1) return onError('Das letzte Profil kann nicht gelöscht werden.');
     const profiles = settings.profiles.filter(item => item.id !== profile.id);
     const selectedProfileId = settings.selectedProfileId === profile.id ? profiles[0].id : settings.selectedProfileId;
-    await onSave({ ...settings, profiles, selectedProfileId }, `Profil „${profile.name}“ gelöscht.`);
+    if (openId === profile.id) setOpenId(null);
+    await onSave({ ...settings, profiles, selectedProfileId }, `Profil „${profile.name}“ gelöscht. Sein Spielordner bleibt erhalten.`);
   }
+  const openFolder = (profile: GameProfile) => unwrap(profilesApi.openFolder(profile.id)).catch(e => onError(e instanceof Error ? e.message : 'Ordner konnte nicht geöffnet werden.'));
+  function act(action: ProfileAction, profile: GameProfile) {
+    if (action === 'edit') setDialog({ kind: 'wizard', editing: profile });
+    else if (action === 'folder') void openFolder(profile);
+    else setDialog({ kind: action, profile });
+  }
+  const menuFor = (profile: GameProfile) => [
+    { label: 'Profil bearbeiten', icon: <GearSix size={15} />, onClick: () => act('edit', profile), disabled: locked },
+    { label: 'Duplizieren', icon: <Copy size={15} />, onClick: () => act('duplicate', profile), disabled: locked },
+    { label: 'Exportieren', icon: <Export size={15} />, onClick: () => act('export', profile) },
+    { label: 'Ordner öffnen', icon: <FolderOpen size={15} />, onClick: () => act('folder', profile) },
+    { label: 'Modpack-Versionen', icon: <Package size={15} />, onClick: () => act('versions', profile), disabled: !profile.pack || locked, hint: profile.pack ? undefined : 'Nur für Profile aus einem Modrinth-Modpack' },
+    { label: 'Löschen', icon: <Trash size={15} />, onClick: () => act('delete', profile), danger: true, disabled: locked || settings.profiles.length === 1 },
+  ];
+
+  const dialogs = <>
+    {dialog?.kind === 'wizard' && <ProfileWizard settings={settings} maxMemory={maxMemory} editing={dialog.editing} onClose={() => setDialog(null)} onSave={async profile => { await saveProfile(profile); setDialog(null); }} onImport={importPack} />}
+    {dialog?.kind === 'duplicate' && <DuplicateDialog profile={dialog.profile} onClose={() => setDialog(null)} onDone={(next, name) => { setDialog(null); onSettings(next, `„${name}“ wurde angelegt.`); }} />}
+    {dialog?.kind === 'export' && <ExportDialog profile={dialog.profile} onClose={() => setDialog(null)} onDone={text => { setDialog(null); onNotice(text); }} />}
+    {dialog?.kind === 'versions' && <PackVersionsDialog profile={dialog.profile} onClose={() => setDialog(null)} onDone={(next, version) => { setDialog(null); onSettings(next, `Modpack-Version ${version} ist installiert.`); }} />}
+    {dialog?.kind === 'delete' && <DeleteDialog profile={dialog.profile} onClose={() => setDialog(null)} onConfirm={() => void removeProfile(dialog.profile)} />}
+  </>;
+
+  if (opened) return <>
+    <ProfileDetail key={opened.id} profile={opened} locked={locked} onBack={() => setOpenId(null)} onAction={action => act(action, opened)} onPlay={target => onPlay(opened.id, target)}
+      onSaveProfile={(profile, notice) => saveProfile(profile, notice)} onNotice={onNotice} onError={onError} />
+    {dialogs}
+  </>;
 
   return <div className="page page-enter">
     <PageHeader kicker="instanzen" title="Profile">
-      <button className="btn btn-accent pixel" disabled={locked || settings.profiles.length >= 30} onClick={openCreator}><Plus size={16} weight="bold" />neues profil</button>
+      <button className="btn btn-accent pixel" disabled={locked || settings.profiles.length >= 30} onClick={() => setDialog({ kind: 'wizard', editing: null })}><Plus size={16} weight="bold" />erstellen</button>
     </PageHeader>
 
     <div className="toolbar">
       <div className="segmented" role="tablist" aria-label="Profile filtern">
-        {([['all', 'Alle'], ['savira', 'Savira'], ['vanilla', 'Vanilla']] as const).map(([id, label]) => <button role="tab" aria-selected={filter === id} className={filter === id ? 'active' : ''} key={id} onClick={() => setFilter(id)}>{label}</button>)}
+        {[['all', 'Alle'], ['savira', 'Savira'], ...groups.map(group => [group, group])].map(([id, label]) => <button role="tab" aria-selected={activeFilter === id} className={activeFilter === id ? 'active' : ''} key={id} onClick={() => setFilter(id)}>{label}</button>)}
       </div>
-      <label className="search glass"><MagnifyingGlass size={17} /><input aria-label="Profile suchen" value={query} onChange={event => setQuery(event.target.value)} placeholder="Profile suchen" /></label>
+      <label className="search glass"><MagnifyingGlass size={17} /><input aria-label="Profile suchen" value={query} onChange={event => setQuery(event.target.value)} placeholder="Profile durchsuchen …" /></label>
       <span className="count">{settings.profiles.length} / 30</span>
     </div>
 
-    <div className="profile-grid">{visible.map((profile, index) => {
+    <div className="profile-list">{visible.map((profile, index) => {
       const selected = profile.id === settings.selectedProfileId;
-      return <article className={`profile-card glass ${selected ? 'is-selected' : ''}`} key={profile.id} style={{ '--i': index } as CSSProperties}>
-        <div className={`profile-art ${profile.loader}`}>{profile.loader === 'savira' ? <Package size={28} weight="fill" /> : <Cube size={28} weight="fill" />}<span className="pixel">{profile.version}</span></div>
+      // The whole row opens the profile; its buttons do their own thing.
+      return <article className={`profile-row glass ${selected ? 'is-selected' : ''}`} key={profile.id} style={{ '--i': index } as CSSProperties} onClick={event => { if (!(event.target as HTMLElement).closest('button, .menu')) setOpenId(profile.id); }}>
+        <ProfileIcon profile={profile} size={56} />
         <div className="profile-copy">
-          <h2>{profile.name}{selected && <span className="tag"><Check size={10} weight="bold" />aktiv</span>}</h2>
-          <p>{profile.loader === 'savira' ? 'Fabric · Savira Client' : 'Vanilla'} · eigener Spielordner</p>
+          <h2><button className="profile-open" onClick={() => setOpenId(profile.id)}>{profile.name}</button>{selected && <span className="tag"><Check size={10} weight="bold" />aktiv</span>}</h2>
+          <p><span><Cube size={13} weight="fill" />{profile.version}</span><i /><span><Package size={13} weight="fill" />{loaderLabel(profile)}</span><i /><span>{playedAgo(profile.lastPlayed)}</span>{profile.group && <><i /><span>{profile.group}</span></>}</p>
         </div>
         <div className="profile-actions">
-          <button className="btn btn-accent pixel" disabled={locked} onClick={() => onUse(profile.id)}><Play size={15} weight="fill" />{selected ? 'spielen' : 'starten'}</button>
-          <button className="btn btn-icon" aria-label={`${profile.name} löschen`} title="Profil löschen" disabled={locked || settings.profiles.length === 1} onClick={() => removeProfile(profile)}><Trash size={17} /></button>
+          <button className="btn pixel" disabled={locked} onClick={() => onUse(profile.id)}><Play size={15} weight="fill" />spielen</button>
+          <button className="btn pixel" onClick={() => setOpenId(profile.id)}><Lightning size={15} weight="fill" />mods</button>
+          <div className="menu-anchor"><button className="btn btn-icon" aria-label={`Optionen für ${profile.name}`} aria-expanded={menu === profile.id} onClick={() => setMenu(current => current === profile.id ? null : profile.id)}><GearSix size={17} /></button>
+            {menu === profile.id && <Menu items={menuFor(profile)} onClose={() => setMenu(null)} />}</div>
         </div>
       </article>;
     })}
-    {visible.length === 0 && <div className="empty glass"><Package size={34} weight="thin" /><h2 className="pixel">Nichts gefunden</h2><p>Keine Profile passen zu „{query}“. Ändere die Suche oder lege ein neues Profil an.</p><button className="btn" onClick={() => { setQuery(''); setFilter('all'); }}>Filter zurücksetzen</button></div>}
+    {visible.length === 0 && <div className="empty glass"><Package size={34} weight="thin" /><h2 className="pixel">Nichts gefunden</h2><p>Keine Profile passen zu deiner Suche. Ändere sie oder lege ein neues Profil an.</p><button className="btn" onClick={() => { setQuery(''); setFilter('all'); }}>Filter zurücksetzen</button></div>}
     </div>
-
-    {creating && <div className="modal-backdrop" onMouseDown={() => setCreating(false)}>
-      <section className="modal glass" role="dialog" aria-modal="true" aria-labelledby="profile-dialog-title" onMouseDown={event => event.stopPropagation()}>
-        <header className="modal-head"><div><p className="kicker pixel">schritt {step + 1} / 2</p><h2 id="profile-dialog-title" className="pixel">{step === 0 ? 'Version wählen' : 'Profil einrichten'}</h2></div><button className="btn btn-icon" aria-label="Dialog schließen" onClick={() => setCreating(false)}><X size={18} /></button></header>
-        {step === 0 ? <>
-          <div className="version-grid">{versions.map(item => <button className={version === item ? 'active' : ''} key={item} onClick={() => chooseVersion(item)}><strong className="pixel">{item}</strong><small>{item === '1.21.1' ? 'Savira verfügbar' : 'Release'}</small>{version === item && <Check size={14} weight="bold" />}</button>)}</div>
-          <footer className="modal-foot"><span>Minecraft {version}</span><button className="btn btn-accent pixel" onClick={() => setStep(1)}>weiter <ArrowRight size={15} /></button></footer>
-        </> : <>
-          <div className="form">
-            <label className="field"><span>Profilname</span><input className="input" aria-label="Profilname" maxLength={40} value={name} onChange={event => setName(event.target.value)} />{!name.trim() && <small className="field-error">Bitte einen Namen eingeben.</small>}</label>
-            <div className="field"><span>Loader</span><div className="loader-grid">
-              <button className={loader === 'vanilla' ? 'active' : ''} onClick={() => chooseLoader('vanilla')}><Cube size={22} weight="fill" /><strong>Vanilla</strong><small>Ohne Mods</small></button>
-              <button className={loader === 'savira' ? 'active' : ''} disabled={version !== '1.21.1'} onClick={() => chooseLoader('savira')}><Package size={22} weight="fill" /><strong>Savira</strong><small>Fabric + HUD</small></button>
-            </div>{version !== '1.21.1' && <small className="field-help">Der Savira-Mod gibt es aktuell nur für 1.21.1. Dieses Profil startet Vanilla.</small>}</div>
-            <dl className="summary"><div><dt>Minecraft</dt><dd>{version}</dd></div><div><dt>RAM</dt><dd>{settings.memory} GB</dd></div><div><dt>Ordner</dt><dd>getrennt</dd></div></dl>
-          </div>
-          <footer className="modal-foot"><button className="btn" onClick={() => setStep(0)}><ArrowLeft size={15} />Zurück</button><button className="btn btn-accent pixel" disabled={!name.trim()} onClick={createProfile}><Check size={15} weight="bold" />erstellen</button></footer>
-        </>}
-      </section>
-    </div>}
+    {dialogs}
   </div>;
 }

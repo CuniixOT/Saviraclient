@@ -58,14 +58,22 @@ try {
   await page.getByRole('button', { name: 'Profile', exact: true }).click();
   await expect(page.getByLabel('Profile suchen')).toBeVisible();
   await shot('profiles');
-  await page.getByRole('button', { name: 'neues profil' }).click();
-  await expect(page.getByRole('dialog', { name: 'version wählen' })).toBeVisible();
+  // New profile: own profile → version (list from Mojang) → loader → details.
+  await page.getByRole('button', { name: 'erstellen', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Neues Profil' })).toBeVisible();
   await shot('profile-create');
-  await page.getByRole('button', { name: /1\.8\.9/ }).click();
+  await page.getByRole('button', { name: /Eigenes Profil/ }).click();
+  await page.getByLabel('Versionen suchen').fill('1.8.9');
+  await page.getByRole('option', { name: /^1\.8\.9 Release/ }).click();
+  await page.getByRole('button', { name: /weiter/ }).click();
+  await page.getByRole('radio', { name: /^Vanilla/ }).click();
   await page.getByRole('button', { name: /weiter/ }).click();
   await page.getByLabel('Profilname').fill('Test 1.8.9');
-  await page.getByRole('button', { name: /erstellen/ }).click();
+  await page.getByLabel('Gruppe (optional)').fill('Tests');
+  await shot('profile-details');
+  await page.getByRole('button', { name: /profil erstellen/ }).click();
   await expect(page.getByRole('heading', { name: /Test 1\.8\.9/ })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Tests' })).toBeVisible();
 
   // Modules are set in game (Right-Shift menu); the launcher has no module page any more.
   await expect(page.getByRole('button', { name: 'Module', exact: true })).toHaveCount(0);

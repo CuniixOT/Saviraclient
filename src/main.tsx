@@ -7,6 +7,7 @@ import { LogWindow } from './LogWindow';
 import { NewsArt } from './NewsArt';
 import { news } from './news';
 import './styles.css';
+import './profile.css';
 
 // The same bundle serves the launcher and its installer; main.cjs picks the mode via the URL.
 const mode = new URLSearchParams(location.search).get('mode');

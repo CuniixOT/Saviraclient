@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, safeStorage, shell, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, safeStorage, shell, dialog, nativeImage } = require('electron');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { execFile } = require('node:child_process');
@@ -6,7 +6,12 @@ const { promisify } = require('node:util');
 const { createHash } = require('node:crypto');
 const { Client } = require('./minecraft.cjs');
 const { Auth } = require('msmc');
-const { accentRgb, defaults, maxMemory, validateSettings, mergeHudFromGame } = require('./settings.cjs');
+const { accentRgb, defaults, maxMemory, validateSettings, validateProfile, mergeHudFromGame, loaders, saviraVersions } = require('./settings.cjs');
+const { minecraftVersions, loaderVersions, installLoader } = require('./loaders.cjs');
+const { readPack } = require('./modpacks.cjs');
+const { blockIcons } = require('./blockicons.cjs');
+const content = require('./content.cjs');
+const packs = require('./packs.cjs');
 const log = require('./logger.cjs');
 const logfiles = require('./logfiles.cjs');
 const { createSession } = require('./gamesession.cjs');
@@ -32,8 +37,6 @@ const discordUrl = () => DISCORD_INVITE.test(packageInfo.saviraLinks?.discord ||
 const discordClientId = /^\d{17,20}$/.test(packageInfo.saviraLinks?.discordClientId || '') ? packageInfo.saviraLinks.discordClientId : '';
 const updatePublicKey = process.env.SAVIRA_UPDATE_PUBLIC_KEY || packageInfo.saviraUpdate?.publicKey || '';
 const run = promisify(execFile);
-const SAVIRA_MC = '1.21.1';
-const LOADER = '0.16.14';
 app.setName('Savira');
 // Same id as the installer's shortcuts, so Windows groups the window with them and uses their icon.
 if (process.platform === 'win32') app.setAppUserModelId('gg.savira.launcher');
@@ -49,6 +52,14 @@ let status = { phase: 'idle', message: 'Bereit, wenn du es bist.', progress: 0 }
 const root = () => app.getPath('userData');
 const selectedProfile = () => settings.profiles.find(profile => profile.id === settings.selectedProfileId) || settings.profiles[0];
 const instance = () => path.join(root(), 'instances', selectedProfile().id);
+function profileById(id) {
+  const profile = settings.profiles.find(item => item.id === id);
+  if (!profile) throw new Error('Das Profil gibt es nicht mehr.');
+  return profile;
+}
+const instanceOf = profile => path.join(root(), 'instances', profile.id);
+// Changing files of a profile while its game runs would break it.
+function assertIdle(profile) { if (busy && session?.snapshot().profile.id === profile.id) throw new Error('Das geht erst, wenn Minecraft beendet ist.'); }
 // Before 0.1.7 a single account lived in account.bin / skin.png; it is moved into the account store.
 const legacyTokenPath = () => path.join(root(), 'account.bin');
 const legacySkinPath = () => path.join(root(), 'skin.png');
@@ -240,7 +251,8 @@ async function setVanillaCape(capeId) {
   await rememberVanillaCape(account.uuid, vanilla.capes);
   return { vanilla, library: await capes.list() };
 }
-const loaderLabel = loader => loader === 'savira' ? 'Savira Client' : 'Vanilla';
+const loaderNames = { vanilla: 'Vanilla', fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge', quilt: 'Quilt' };
+const loaderLabel = profile => profile.savira ? 'Savira Client' : loaderNames[profile.loader] || 'Vanilla';
 // What Discord shows: the launcher page, or the profile and version being started or played.
 function updatePresence() {
   if (!presence) return;
@@ -248,7 +260,7 @@ function updatePresence() {
   const profile = playing ? session.snapshot().profile : selectedProfile();
   const assets = { large_image: `https://raw.githubusercontent.com/CuniixOT/Saviraclient/main/public/icon.png?v=${app.getVersion()}`, large_text: `Savira Client ${app.getVersion()}` };
   if (status.phase === 'running' && session) {
-    presence.set({ details: `Spielt ${profile.name}`, state: `Minecraft ${profile.version} · ${loaderLabel(profile.loader)}`, timestamps: { start: session.snapshot().startedAt }, assets });
+    presence.set({ details: `Spielt ${profile.name}`, state: `Minecraft ${profile.version} · ${loaderLabel(profile)}`, timestamps: { start: session.snapshot().startedAt }, assets });
   } else if (status.phase === 'preparing' || status.phase === 'installing') {
     presence.set({ details: `Startet ${profile.name}`, state: `Minecraft ${profile.version} wird vorbereitet`, timestamps: { start: launcherStarted }, assets });
   } else {
@@ -270,23 +282,23 @@ async function syncHudFromGame(gameRoot) {
 }
 async function syncHudFromNewestGame() {
   let newest = null, newestTime = 0;
-  for (const profile of settings.profiles.filter(p => p.loader === 'savira')) {
+  for (const profile of settings.profiles.filter(p => p.savira)) {
     const gameRoot = path.join(root(), 'instances', profile.id);
     try { const time = (await fs.stat(path.join(gameRoot, 'config', 'savira.json'))).mtimeMs; if (time > newestTime) { newest = gameRoot; newestTime = time; } } catch { /* Never started. */ }
   }
   if (newest) await syncHudFromGame(newest);
 }
-async function prepareFabric(gameRoot, minecraftVersion) {
-  if (minecraftVersion !== SAVIRA_MC) throw new Error(`Der Savira-Mod unterstützt aktuell nur Minecraft ${SAVIRA_MC}. Wähle für andere Versionen Vanilla.`);
-  publish({ phase: 'installing', message: 'Fabric-Profil wird vorbereitet …', progress: 4 });
-  const id = `fabric-loader-${LOADER}-${minecraftVersion}`;
-  const profile = await json(`https://meta.fabricmc.net/v2/versions/loader/${minecraftVersion}/${LOADER}/profile/json`);
-  await atomicWrite(path.join(gameRoot, 'versions', id, `${id}.json`), JSON.stringify(profile));
+const SAVIRA_JAR = 'savira-client-0.1.0.jar';
+// A Fabric profile without Savira features must not keep the mod from an earlier start.
+async function removeSavira(gameRoot) { await fs.rm(path.join(gameRoot, 'mods', SAVIRA_JAR), { force: true }); }
+// The Savira mod, Fabric API and the mod's config; the Fabric profile itself comes from installLoader.
+async function prepareSavira(gameRoot, minecraftVersion) {
+  if (!saviraVersions.includes(minecraftVersion)) throw new Error(`Der Savira-Mod unterstützt aktuell nur Minecraft ${saviraVersions.join(', ')}.`);
   const mods = path.join(gameRoot, 'mods');
   await fs.mkdir(mods, { recursive: true });
-  const source = app.isPackaged ? path.join(process.resourcesPath, 'mods', 'savira-client-0.1.0.jar') : path.join(__dirname, '..', 'client-mod', 'build', 'libs', 'savira-client-0.1.0.jar');
-  try { await fs.access(source); } catch { throw new Error('Savira-Mod fehlt. Bitte zuerst „npm run build:mod“ ausführen oder das Vanilla-Profil wählen.'); }
-  await fs.copyFile(source, path.join(mods, 'savira-client-0.1.0.jar'));
+  const source = app.isPackaged ? path.join(process.resourcesPath, 'mods', SAVIRA_JAR) : path.join(__dirname, '..', 'client-mod', 'build', 'libs', SAVIRA_JAR);
+  try { await fs.access(source); } catch { throw new Error('Savira-Mod fehlt. Bitte zuerst „npm run build:mod“ ausführen oder im Profil die Savira-Funktionen ausschalten.'); }
+  await fs.copyFile(source, path.join(mods, SAVIRA_JAR));
   const versions = await json(`https://api.modrinth.com/v2/project/fabric-api/version?loaders=%5B%22fabric%22%5D&game_versions=%5B%22${minecraftVersion}%22%5D`);
   const version = versions.find(v => v.version_type === 'release');
   const file = version?.files.find(f => f.primary) || version?.files[0];
@@ -318,7 +330,6 @@ async function prepareFabric(gameRoot, minecraftVersion) {
   try { inGame = JSON.parse(await fs.readFile(hudPath, 'utf8')) || {}; } catch { /* First launch or invalid config. */ }
   // Layout and snapping belong to the in-game editor, while launcher toggles stay authoritative.
   await atomicWrite(hudPath, JSON.stringify({ ...settings.hud, accent: accentRgb(settings.accent), discordUrl: discordUrl(), launcherVersion: app.getVersion(), customTitleScreen: inGame.customTitleScreen !== false, customCape, panoramaDir: panoramas ? panoramas.dir : '', menuBackground: typeof inGame.menuBackground === 'string' && /^[a-z]{1,16}$/.test(inGame.menuBackground) ? inGame.menuBackground : 'current', layout: inGame.layout || {}, styles: inGame.styles || {}, icon: inGame.icon !== false, iconType: ['default', 'beta', 'creator'].includes(inGame.iconType) ? inGame.iconType : 'default', iconNametag: inGame.iconNametag !== false, iconTablist: inGame.iconTablist !== false, iconSpace: inGame.iconSpace !== false, uiSounds: inGame.uiSounds !== false, nametag: inGame.nametag !== false, nametagF5: inGame.nametagF5 !== false, nametagShadow: inGame.nametagShadow === true, nametagNoBackground: inGame.nametagNoBackground === true, snap: inGame.snap !== false }, null, 2));
-  return id;
 }
 // The title-screen panorama ships with the game assets the player already downloaded.
 // Nothing from Mojang is bundled; without an installed instance the renderer uses its own art.
@@ -347,7 +358,75 @@ async function panorama() {
   }
   return null;
 }
-async function launch() {
+async function storeSettings(next) {
+  await atomicWrite(path.join(root(), 'settings.json'), JSON.stringify(next, null, 2));
+  settings = next;
+  if (win && !win.isDestroyed()) win.webContents.send('settings', settings);
+}
+// For "zuletzt gespielt" in the profile list.
+async function markPlayed(id) {
+  try { await storeSettings({ ...settings, profiles: settings.profiles.map(profile => profile.id === id ? { ...profile, lastPlayed: Date.now() } : profile) }); }
+  catch (error) { log.warn('Spielzeit konnte nicht gespeichert werden', error); }
+}
+// A Modrinth modpack becomes a new profile: mods downloaded and checked, overrides unpacked.
+async function importModpack() {
+  if (busy || loggingIn) throw new Error('Ein Vorgang läuft bereits.');
+  if (settings.profiles.length >= 30) throw new Error('Es sind bereits 30 Profile angelegt.');
+  const pick = await dialog.showOpenDialog(win, { title: 'Modpack importieren', properties: ['openFile'], filters: [{ name: 'Modrinth-Modpack', extensions: ['mrpack', 'zip'] }] });
+  if (pick.canceled || !pick.filePaths[0]) return null;
+  if ((await fs.stat(pick.filePaths[0])).size > 512 * 1024 * 1024) throw new Error('Das Modpack ist größer als 512 MB.');
+  const bytes = await fs.readFile(pick.filePaths[0]);
+  const pack = readPack(bytes);
+  const origin = await packs.packOrigin(bytes);
+  const id = `profile-${Date.now().toString(36)}`;
+  const defaultMemory = settings.memory * 1024;
+  const profile = validateProfile({ id, name: pack.name, version: pack.minecraft, loader: pack.loader, loaderVersion: pack.loaderVersion, savira: false, memory: pack.loader === 'vanilla' ? defaultMemory : Math.min(maxMemory * 1024, Math.max(defaultMemory, 6144)), group: 'Modpacks', icon: pack.icon, pack: origin }, defaultMemory);
+  const gameRoot = path.join(root(), 'instances', id);
+  busy = true;
+  try {
+    log.info(`Modpack-Import: ${pack.name} (Minecraft ${pack.minecraft}, ${pack.loader} ${pack.loaderVersion || ''}, ${pack.files.length} Dateien)`);
+    publish({ phase: 'installing', message: `${pack.name}: Mods werden geladen …`, progress: 2 });
+    await packs.installTracked(pack, gameRoot, (done, total) => publish({ message: `${pack.name}: Mods werden geladen (${done}/${total}) …`, progress: Math.round(done / total * 95) }));
+    await storeSettings(validateSettings({ ...settings, profiles: [...settings.profiles, profile], selectedProfileId: id }));
+    publish({ phase: 'idle', message: `Modpack „${pack.name}“ ist bereit.`, progress: 0 });
+    return settings;
+  } catch (error) {
+    await fs.rm(gameRoot, { recursive: true, force: true });
+    log.warn('Modpack-Import fehlgeschlagen', error);
+    publish({ phase: 'idle', message: 'Bereit, wenn du es bist.', progress: 0 });
+    throw error;
+  } finally { busy = false; }
+}
+// Profile pictures: the type comes from the first bytes, not from the file name.
+function imageType(bytes) {
+  if (bytes.length > 12 && bytes.readUInt32BE(0) === 0x89504e47) return 'image/png';
+  if (bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg';
+  if (bytes.length > 6 && bytes.subarray(0, 4).toString('latin1') === 'GIF8') return 'image/gif';
+  if (bytes.length > 12 && bytes.subarray(0, 4).toString('latin1') === 'RIFF' && bytes.subarray(8, 12).toString('latin1') === 'WEBP') return 'image/webp';
+  return null;
+}
+const MAX_IMAGE = 5 * 1024 * 1024;
+function imageData(bytes) {
+  const type = imageType(bytes);
+  if (!type || bytes.length > MAX_IMAGE) throw new Error('Bitte ein PNG-, JPG-, GIF- oder WebP-Bild bis 5 MB wählen.');
+  return `data:${type};base64,${bytes.toString('base64')}`;
+}
+async function iconFromFile() {
+  const pick = await dialog.showOpenDialog(win, { title: 'Profilbild wählen', properties: ['openFile'], filters: [{ name: 'Bilder', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp'] }] });
+  if (pick.canceled || !pick.filePaths[0]) return null;
+  if ((await fs.stat(pick.filePaths[0])).size > MAX_IMAGE) throw new Error('Das Bild ist größer als 5 MB.');
+  return imageData(await fs.readFile(pick.filePaths[0]));
+}
+async function iconFromUrl(value) {
+  let url;
+  try { url = new URL(String(value)); } catch { throw new Error('Das ist keine gültige Adresse.'); }
+  if (url.protocol !== 'https:') throw new Error('Bitte eine https-Adresse angeben.');
+  const response = await fetch(url, { signal: AbortSignal.timeout(20000), headers: { 'User-Agent': 'Savira (Minecraft Launcher)' } });
+  if (!response.ok) throw new Error(`Das Bild konnte nicht geladen werden (HTTP ${response.status}).`);
+  if (Number(response.headers.get('content-length')) > MAX_IMAGE) throw new Error('Das Bild ist größer als 5 MB.');
+  return imageData(Buffer.from(await response.arrayBuffer()));
+}
+async function launch(quickPlay = null) {
   if (busy || loggingIn) throw new Error('Ein Vorgang läuft bereits.');
   if (!account) throw new Error('Bitte zuerst mit Microsoft anmelden.');
   busy = true;
@@ -357,21 +436,26 @@ async function launch() {
     let java;
     try { java = await run(settings.javaPath, ['-version'], { timeout: 10000, windowsHide: true }); }
     catch { throw new Error('Java wurde nicht gefunden. Bitte Java 21 installieren und unter Einstellungen auswählen.'); }
-    const major = Number((java.stderr + java.stdout).match(/version "(\d+)/)?.[1]);
-    if (profile.version !== '1.8.9' && major !== 21) throw new Error(`Minecraft ${profile.version} benötigt in Savira Java 21. Bitte den passenden Java-Pfad auswählen.`);
-    if (profile.version === '1.8.9' && ![8, 17, 21].includes(major)) throw new Error('Minecraft 1.8.9 benötigt eine kompatible Java-Version (8, 17 oder 21).');
+    // "1.8.0_402" is Java 8, "21.0.2" Java 21; the version file of the game says what it needs.
+    const reported = (java.stderr + java.stdout).match(/version "(\d+)(?:\.(\d+))?/);
+    const major = reported ? (reported[1] === '1' ? Number(reported[2]) : Number(reported[1])) : 0;
     publish({ message: 'Minecraft-Anmeldung wird erneuert …' });
     const mc = await authenticate(false);
     const gameRoot = instance();
     await fs.mkdir(gameRoot, { recursive: true });
-    if (profile.loader === 'savira') await syncHudFromGame(gameRoot);
-    const custom = profile.loader === 'savira' ? await prepareFabric(gameRoot, profile.version) : undefined;
+    if (profile.savira) await syncHudFromGame(gameRoot);
+    let custom;
+    if (profile.loader !== 'vanilla') {
+      publish({ phase: 'installing', message: `${loaderNames[profile.loader]} ${profile.loaderVersion} wird vorbereitet …`, progress: 4 });
+      custom = await installLoader({ root: gameRoot, loader: profile.loader, minecraft: profile.version, loaderVersion: profile.loaderVersion, javaPath: settings.javaPath, progress: message => publish({ message: `${loaderNames[profile.loader]}: ${message}` }) });
+    }
+    if (profile.savira) await prepareSavira(gameRoot, profile.version); else await removeSavira(gameRoot);
     publish({ phase: 'installing', message: 'Minecraft-Dateien werden geprüft und geladen …', progress: 10 });
-    log.info(`Start: ${profile.name} (Minecraft ${profile.version}, ${profile.loader}, ${settings.memory} GB)`);
+    log.info(`Start: ${profile.name} (Minecraft ${profile.version}, ${loaderNames[profile.loader]}${profile.loaderVersion ? ` ${profile.loaderVersion}` : ''}${profile.savira ? ' + Savira' : ''}, ${profile.memory} MB)`);
     const launcher = new Client();
     launcher.on('progress', e => publish({ message: `Minecraft: ${e.type} (${e.task}/${e.total})`, progress: e.total ? Math.min(95, 10 + Math.round(e.task / e.total * 85)) : 10 }));
     session = createSession({
-      profile: { id: profile.id, name: profile.name, version: profile.version, loader: profile.loader, memory: settings.memory }, account: account?.name || '',
+      profile: { id: profile.id, name: profile.name, version: profile.version, loader: profile.savira ? 'savira' : profile.loader, memory: Math.round(profile.memory / 102.4) / 10 }, account: account?.name || '',
       onLines: lines => sendToLogs('logs-lines', lines),
       onStats: stats => sendToLogs('logs-stats', stats)
     });
@@ -385,7 +469,9 @@ async function launch() {
     });
     launcher.on('close', code => {
       busy = false; gameChild = null;
-      if (profile.loader === 'savira') void syncHudFromGame(gameRoot);
+      const played = session ? Math.max(0, Math.round((Date.now() - session.snapshot().startedAt) / 1000)) : 0;
+      void storeSettings({ ...settings, profiles: settings.profiles.map(item => item.id === profile.id ? { ...item, playTime: (item.playTime || 0) + played } : item) }).catch(() => {});
+      if (profile.savira) void syncHudFromGame(gameRoot);
       session?.end();
       sendToLogs('logs-ended', { code });
       log[code === 0 ? 'info' : 'warn'](`Minecraft beendet (Code ${code})`, code === 0 ? undefined : lastError);
@@ -393,9 +479,9 @@ async function launch() {
       publish({ phase: code === 0 ? 'idle' : 'error', message: code === 0 ? 'Minecraft wurde beendet. Bis zur nächsten Runde.' : `Minecraft wurde mit Code ${code} beendet. ${lastError || 'Details stehen im Spielordner unter logs/latest.log.'}`, progress: 0 });
     });
     const child = await launcher.launch({
-      authorization: mc.mclc(), root: gameRoot, javaPath: settings.javaPath,
+      authorization: mc.mclc(), root: gameRoot, javaPath: settings.javaPath, javaMajor: major, quickPlay,
       version: { number: profile.version, type: 'release', ...(custom ? { custom } : {}) },
-      memory: { min: '1G', max: `${settings.memory}G` },
+      memory: { min: '512M', max: `${profile.memory}M` },
       window: { width: 1280, height: 800, fullscreen: settings.fullscreen },
       overrides: { detached: false }, timeout: 60000
     });
@@ -406,6 +492,7 @@ async function launch() {
     // The log window was told "not running" while files downloaded; now the game process exists.
     sendToLogs('logs-reset', logsState());
     log.info(`Minecraft läuft (PID ${child.pid})`);
+    await markPlayed(profile.id);
     if (busy) {
       publish({ phase: 'running', message: 'Minecraft läuft. Viel Spaß mit Savira.', progress: 100 });
       if (settings.hideOnLaunch) win?.hide();
@@ -560,8 +647,129 @@ else {
       await fs.writeFile(result.filePath, bytes);
       return result.filePath;
     });
+    // Profile wizard: version lists, modpack import, profile folders and pictures.
+    handle('versions-minecraft', () => minecraftVersions());
+    handle('versions-loader', (loader, minecraft) => {
+      if (!loaders.includes(loader) || loader === 'vanilla' || typeof minecraft !== 'string' || !/^[\w.+ -]{1,40}$/.test(minecraft)) throw new Error('Ungültige Anfrage.');
+      return loaderVersions(loader, minecraft);
+    });
+    handle('profile-import', importModpack);
+    handle('profile-folder', async id => {
+      const profile = settings.profiles.find(item => item.id === id);
+      if (!profile) throw new Error('Das Profil gibt es nicht mehr.');
+      const dir = path.join(root(), 'instances', profile.id);
+      await fs.mkdir(dir, { recursive: true });
+      const error = await shell.openPath(dir);
+      if (error) throw new Error(error);
+    });
+    handle('profile-icons', () => blockIcons(root()));
+    handle('profile-icon-file', iconFromFile);
+    handle('profile-icon-url', iconFromUrl);
+    // Profile page: contents, worlds, screenshots, stats, duplicate, export and pack versions.
+    const withProfile = callback => async (id, ...args) => { const profile = profileById(id); return callback(profile, instanceOf(profile), ...args); };
+    const SUBFOLDERS = { worlds: 'saves', screenshots: 'screenshots', logs: 'logs' };
+    handle('content-list', withProfile((profile, dir, kind) => content.list(dir, kind, profile)));
+    handle('content-toggle', withProfile(async (profile, dir, kind, file, enabled) => { assertIdle(profile); await content.toggle(dir, kind, file, enabled === true); }));
+    handle('content-delete', withProfile(async (profile, dir, kind, file) => { assertIdle(profile); await shell.trashItem(content.entryPath(dir, kind, file)); }));
+    handle('content-update', withProfile(async (profile, dir, kind, file) => { assertIdle(profile); return content.update(dir, kind, profile, file, target => shell.trashItem(target)); }));
+    handle('content-install', withProfile(async (profile, dir, kind, projectId) => { assertIdle(profile); return content.install(dir, kind, profile, projectId); }));
+    handle('content-folder', withProfile(async (profile, dir, kind) => {
+      const sub = content.KINDS[kind]?.dir || SUBFOLDERS[kind];
+      if (!sub) throw new Error('Unbekannter Ordner.');
+      await fs.mkdir(path.join(dir, sub), { recursive: true });
+      const error = await shell.openPath(path.join(dir, sub));
+      if (error) throw new Error(error);
+    }));
+    handle('content-add-files', withProfile(async (profile, dir, kind) => {
+      assertIdle(profile);
+      const target = content.KINDS[kind];
+      if (!target) throw new Error('Unbekannte Inhaltsart.');
+      const pick = await dialog.showOpenDialog(win, { title: 'Dateien hinzufügen', properties: ['openFile', 'multiSelections'], filters: [{ name: target.ext === '.jar' ? 'Mods' : 'Pakete', extensions: [target.ext.slice(1)] }] });
+      if (pick.canceled) return 0;
+      await fs.mkdir(path.join(dir, target.dir), { recursive: true });
+      let added = 0;
+      for (const file of pick.filePaths.filter(item => item.toLowerCase().endsWith(target.ext))) {
+        await fs.copyFile(file, content.entryPath(dir, kind, path.basename(file)));
+        added++;
+      }
+      return added;
+    }));
+    handle('browse-search', options => content.search(options || {}));
+    handle('browse-tags', kind => content.tags(kind));
+    handle('browse-open', async (type, slug) => {
+      if (!['mod', 'resourcepack', 'shader', 'datapack', 'modpack'].includes(type) || typeof slug !== 'string' || !/^[\w-]{1,64}$/.test(slug)) throw new Error('Ungültiges Projekt.');
+      await shell.openExternal(`https://modrinth.com/${type}/${slug}`);
+    });
+    handle('profile-worlds', withProfile((profile, dir) => content.worlds(dir)));
+    // Spielen from the profile page, optionally straight into a world or onto a server.
+    handle('profile-play', async (id, target) => {
+      const profile = profileById(id);
+      let quickPlay = null;
+      if (target?.world !== undefined) {
+        if (typeof target.world !== 'string' || !/^[^\\/:*?"<>|\x00-\x1f]{1,128}$/.test(target.world) || target.world === '..' || target.world === '.') throw new Error('Ungültige Welt.');
+        try { await fs.access(path.join(instanceOf(profile), 'saves', target.world, 'level.dat')); } catch { throw new Error('Diese Welt gibt es nicht mehr.'); }
+        quickPlay = { world: target.world };
+      } else if (target?.server !== undefined) {
+        if (typeof target.server !== 'string' || !/^[\w.-]{1,253}(:\d{1,5})?$/.test(target.server)) throw new Error('Ungültige Serveradresse.');
+        quickPlay = { server: target.server };
+      }
+      if (settings.selectedProfileId !== profile.id) await storeSettings({ ...settings, selectedProfileId: profile.id });
+      await launch(quickPlay);
+    });
+    handle('profile-screenshots', withProfile((profile, dir) => content.screenshots(dir, async file => {
+      try { return (await nativeImage.createThumbnailFromPath(file, { width: 360, height: 220 })).toDataURL(); }
+      catch { const image = nativeImage.createFromPath(file); return image.isEmpty() ? null : image.resize({ width: 360 }).toDataURL(); }
+    })));
+    handle('profile-screenshot-open', withProfile(async (profile, dir, file, reveal) => {
+      const target = content.screenshotPath(dir, file);
+      if (reveal === true) return shell.showItemInFolder(target);
+      const error = await shell.openPath(target);
+      if (error) throw new Error(error);
+    }));
+    handle('profile-screenshot-delete', withProfile(async (profile, dir, file) => { await shell.trashItem(content.screenshotPath(dir, file)); }));
+    handle('profile-stats', withProfile(async (profile, dir) => ({ size: await content.folderSize(dir) })));
+    handle('profile-duplicate', withProfile(async (profile, dir, name) => {
+      if (busy) throw new Error('Ein Vorgang läuft bereits.');
+      if (settings.profiles.length >= 30) throw new Error('Es sind bereits 30 Profile angelegt.');
+      const copy = validateProfile({ ...profile, id: `profile-${Date.now().toString(36)}`, name: typeof name === 'string' && name.trim() ? name : `${profile.name} (Kopie)`, lastPlayed: null, playTime: 0 }, settings.memory * 1024);
+      busy = true;
+      try {
+        publish({ phase: 'installing', message: `${profile.name} wird dupliziert …`, progress: 30 });
+        try { await fs.cp(dir, instanceOf(copy), { recursive: true, errorOnExist: true, force: false }); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+        await storeSettings(validateSettings({ ...settings, profiles: [...settings.profiles, copy] }));
+        return settings;
+      } catch (error) { await fs.rm(instanceOf(copy), { recursive: true, force: true }); throw error; }
+      finally { busy = false; publish({ phase: 'idle', message: 'Bereit, wenn du es bist.', progress: 0 }); }
+    }));
+    handle('profile-export-entries', withProfile((profile, dir) => packs.exportEntries(dir)));
+    handle('profile-export', withProfile(async (profile, dir, options) => {
+      const include = Array.isArray(options?.include) ? options.include.slice(0, 200) : [];
+      const fileName = String(options?.name || profile.name).replace(/[\\/:*?"<>|\x00-\x1f]/g, '').trim().slice(0, 60) || 'Savira-Profil';
+      const pick = await dialog.showSaveDialog(win, { title: 'Profil exportieren', defaultPath: path.join(app.getPath('downloads'), `${fileName}.mrpack`), filters: [{ name: 'Modrinth-Modpack', extensions: ['mrpack'] }] });
+      if (pick.canceled || !pick.filePath) return null;
+      const result = await packs.exportPack(dir, profile, include, pick.filePath);
+      if (options?.reveal === true) shell.showItemInFolder(pick.filePath);
+      return { ...result, file: pick.filePath };
+    }));
+    handle('pack-versions', withProfile(profile => {
+      if (!profile.pack) throw new Error('Dieses Profil stammt aus keinem Modrinth-Modpack.');
+      return packs.packVersions(profile.pack.projectId);
+    }));
+    handle('pack-switch', withProfile(async (profile, dir, versionId) => {
+      if (!profile.pack) throw new Error('Dieses Profil stammt aus keinem Modrinth-Modpack.');
+      if (busy) throw new Error('Ein Vorgang läuft bereits.');
+      if (typeof versionId !== 'string' || !/^[A-Za-z0-9]{8}$/.test(versionId)) throw new Error('Ungültige Version.');
+      busy = true;
+      try {
+        publish({ phase: 'installing', message: `${profile.name}: Modpack-Version wird gewechselt …`, progress: 5 });
+        const { pack, origin } = await packs.switchPack(dir, profile.pack.projectId, versionId, message => publish({ message: `${profile.name}: ${message}` }));
+        const next = validateProfile({ ...profile, version: pack.minecraft, loader: pack.loader, loaderVersion: pack.loaderVersion, savira: false, pack: { ...profile.pack, ...origin } }, settings.memory * 1024);
+        await storeSettings({ ...settings, profiles: settings.profiles.map(item => item.id === profile.id ? next : item) });
+        return settings;
+      } finally { busy = false; publish({ phase: 'idle', message: 'Bereit, wenn du es bist.', progress: 0 }); }
+    }));
     handle('presence-page', next => { if (Object.hasOwn(pageLabels, next)) { page = next; updatePresence(); } });
-    handle('launch', launch);
+    handle('launch', () => launch());
     handle('panorama', panorama);
     handle('folder', async () => { await fs.mkdir(instance(), { recursive: true }); const error = await shell.openPath(instance()); if (error) throw new Error(error); });
     handle('java', async () => {

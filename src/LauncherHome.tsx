@@ -1,10 +1,11 @@
-import { ArrowClockwise, ArrowRight, CaretUp, Check, CheckCircle, Cube, FolderOpen, Newspaper, Package, Play, Terminal, Warning } from '@phosphor-icons/react';
+import { ArrowClockwise, ArrowRight, CaretUp, Check, CheckCircle, FolderOpen, Newspaper, Play, Terminal, Warning } from '@phosphor-icons/react';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { SkinStage } from './SkinStage';
 import type { State } from './api';
 import { NewsArt } from './NewsArt';
 import { news as allNews } from './news';
 import { Toggle } from './ui';
+import { loaderLabel, ProfileIcon } from './profileUi';
 
 type Props = {
   state: State;
@@ -55,13 +56,13 @@ export function LauncherHome({ state, pending, locked, active, onLaunch, onProfi
         <div className="launch-bar">
           <div className="profile-picker" ref={pickerRef}>
             <button className="glass picker-button" disabled={locked} aria-haspopup="listbox" aria-expanded={picker} onClick={() => setPicker(open => !open)}>
-              <span className={`picker-icon ${profile.loader}`}>{profile.loader === 'savira' ? <Package size={20} weight="fill" /> : <Cube size={20} weight="fill" />}</span>
-              <span className="picker-copy"><strong>{profile.name}</strong><small>{profile.loader === 'savira' ? 'Fabric · Savira' : 'Vanilla'} · {profile.version}</small></span>
+              <ProfileIcon profile={profile} size={44} />
+              <span className="picker-copy"><strong>{profile.name}</strong><small>{profile.version} · {loaderLabel(profile)}</small></span>
               <CaretUp size={14} className={picker ? '' : 'flip'} />
             </button>
             {picker && <div className="glass picker-menu" role="listbox" aria-label="Spielprofil">
               {state.settings.profiles.map(item => <button role="option" aria-selected={item.id === profile.id} key={item.id} onClick={() => { setPicker(false); if (item.id !== profile.id) onProfile(item.id); }}>
-                <span className={`picker-icon ${item.loader}`}>{item.loader === 'savira' ? <Package size={16} weight="fill" /> : <Cube size={16} weight="fill" />}</span>
+                <ProfileIcon profile={item} size={32} />
                 <span className="picker-copy"><strong>{item.name}</strong><small>{item.version}</small></span>
                 {item.id === profile.id && <Check size={14} weight="bold" />}
               </button>)}

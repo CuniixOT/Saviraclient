@@ -1,5 +1,56 @@
 export type Hud = { fps: boolean; cps: boolean; keystrokes: boolean; coordinates: boolean; ping: boolean; armor: boolean; potions: boolean; sprint: boolean; zoom: boolean; ram: boolean; scale: number };
-export type GameProfile = { id: string; name: string; version: string; loader: 'savira' | 'vanilla' };
+export type Loader = 'vanilla' | 'fabric' | 'forge' | 'neoforge' | 'quilt';
+/** memory in MB; icon a data URL; savira: the Savira mod (Fabric, saviraVersions only). */
+export type GameProfile = { id: string; name: string; version: string; loader: Loader; loaderVersion: string | null; savira: boolean; memory: number; group: string; icon: string | null; lastPlayed: number | null; playTime: number; pack: PackOrigin | null };
+export type PackOrigin = { projectId: string; versionId: string; versionNumber: string; title: string };
+/** Minecraft versions with the Savira mod; keep in line with electron/settings.cjs. */
+export const saviraVersions = ['1.21.1'];
+export const saviraAvailable = (version: string, loader: Loader) => loader === 'fabric' && saviraVersions.includes(version);
+export type MinecraftVersion = { id: string; type: 'release' | 'snapshot'; released: string };
+export type LoaderVersion = { version: string; stable: boolean };
+export type BlockIcon = { id: string; png: string };
+export interface ProfilesBridge {
+  minecraftVersions(): Promise<Result<MinecraftVersion[]>>;
+  loaderVersions(loader: Exclude<Loader, 'vanilla'>, minecraft: string): Promise<Result<LoaderVersion[]>>;
+  /** Asks for a .mrpack/.zip; null when cancelled, otherwise the settings with the new profile. */
+  importPack(): Promise<Result<Settings | null>>;
+  openFolder(id: string): Promise<Result<void>>;
+  blockIcons(): Promise<Result<BlockIcon[]>>;
+  iconFromFile(): Promise<Result<string | null>>;
+  iconFromUrl(url: string): Promise<Result<string>>;
+  content(id: string, kind: ContentKind): Promise<Result<ContentItem[]>>;
+  toggle(id: string, kind: ContentKind, file: string, enabled: boolean): Promise<Result<void>>;
+  remove(id: string, kind: ContentKind, file: string): Promise<Result<void>>;
+  update(id: string, kind: ContentKind, file: string): Promise<Result<string>>;
+  install(id: string, kind: ContentKind, projectId: string): Promise<Result<string[]>>;
+  folder(id: string, kind: ContentKind | 'worlds' | 'screenshots' | 'logs'): Promise<Result<void>>;
+  addFiles(id: string, kind: ContentKind): Promise<Result<number>>;
+  search(options: SearchOptions): Promise<Result<SearchResult>>;
+  tags(kind: ContentKind): Promise<Result<BrowseTags>>;
+  openProject(type: string, slug: string): Promise<Result<void>>;
+  worlds(id: string): Promise<Result<{ worlds: World[]; servers: Server[] }>>;
+  play(id: string, target?: { world: string } | { server: string }): Promise<Result<void>>;
+  screenshots(id: string): Promise<Result<Screenshot[]>>;
+  openScreenshot(id: string, file: string, reveal?: boolean): Promise<Result<void>>;
+  deleteScreenshot(id: string, file: string): Promise<Result<void>>;
+  stats(id: string): Promise<Result<{ size: number }>>;
+  duplicate(id: string, name: string): Promise<Result<Settings>>;
+  exportEntries(id: string): Promise<Result<ExportEntry[]>>;
+  exportPack(id: string, options: { name: string; include: string[]; reveal: boolean }): Promise<Result<{ file: string; downloads: number; overrides: number } | null>>;
+  packVersions(id: string): Promise<Result<PackVersion[]>>;
+  switchPack(id: string, versionId: string): Promise<Result<Settings>>;
+}
+export type ContentKind = 'mods' | 'resourcepacks' | 'shaderpacks' | 'datapacks';
+export type ContentItem = { file: string; name: string; version: string | null; description: string | null; icon: string | null; size: number; enabled: boolean; folder: boolean; managed: boolean; modrinth: { projectId: string; slug: string; type: string; title: string } | null; update: { versionId: string; versionNumber: string } | null };
+export type SearchOptions = { kind: ContentKind; query?: string; versions?: string[]; categories?: string[]; loaders?: string[]; environment?: 'client' | 'server' | null; sort?: 'relevance' | 'downloads' | 'follows' | 'newest' | 'updated'; offset?: number };
+export type SearchHit = { id: string; slug: string; title: string; author: string; description: string; icon: string | null; downloads: number; categories: string[]; type: string };
+export type SearchResult = { total: number; hits: SearchHit[] };
+export type BrowseTags = { categories: string[]; versions: { id: string; type: 'release' | 'snapshot' }[]; loaders: string[] };
+export type World = { folder: string; name: string; mode: string | null; version: string | null; lastPlayed: number; icon: string | null };
+export type Server = { name: string; address: string; icon: string | null };
+export type Screenshot = { file: string; time: number; thumbnail: string | null };
+export type ExportEntry = { name: string; folder: boolean; modified: number; selected: boolean };
+export type PackVersion = { id: string; number: string; name: string; date: string; downloads: number; gameVersions: string[]; loaders: string[]; changelog: string };
 export type AccentPreset = 'mint' | 'emerald' | 'teal' | 'cyan' | 'blue' | 'indigo' | 'violet' | 'pink' | 'rose' | 'red' | 'orange' | 'amber' | 'slate';
 /** A preset name or a custom "#rrggbb" colour. */
 export type Accent = AccentPreset | `#${string}`;
@@ -31,6 +82,7 @@ interface Bridge {
   logs?: LogsBridge;
   skins?: SkinsBridge;
   capes?: CapesBridge;
+  profiles?: ProfilesBridge;
   debug?: DebugBridge;
 }
 export type SkinVariant = 'classic' | 'slim';
@@ -98,7 +150,7 @@ interface UpdateBridge {
 }
 declare global { interface Window { savira?: Bridge } }
 export const isDesktop = Boolean(window.savira);
-export const defaultSettings: Settings = { memory: 4, javaPath: 'java', selectedProfileId: 'savira-1-21-1', profiles: [{ id: 'savira-1-21-1', name: 'Savira 1.21.1', version: '1.21.1', loader: 'savira' }, { id: 'vanilla-1-21-1', name: 'Vanilla 1.21.1', version: '1.21.1', loader: 'vanilla' }], fullscreen: false, accent: 'mint', background: 'panorama', autoUpdate: true, animations: true, hideOnLaunch: false, logsOnLaunch: false, discordPresence: true, radius: 12, emotes: true, hud: { fps: true, cps: true, keystrokes: true, coordinates: false, ping: true, armor: true, potions: true, sprint: true, zoom: false, ram: true, scale: 1 } };
+export const defaultSettings: Settings = { memory: 4, javaPath: 'java', selectedProfileId: 'savira-1-21-1', profiles: [{ id: 'savira-1-21-1', name: 'Savira 1.21.1', version: '1.21.1', loader: 'fabric', loaderVersion: '0.16.14', savira: true, memory: 4096, group: '', icon: null, lastPlayed: null, playTime: 0, pack: null }, { id: 'vanilla-1-21-1', name: 'Vanilla 1.21.1', version: '1.21.1', loader: 'vanilla', loaderVersion: null, savira: false, memory: 4096, group: '', icon: null, lastPlayed: null, playTime: 0, pack: null }], fullscreen: false, accent: 'mint', background: 'panorama', autoUpdate: true, animations: true, hideOnLaunch: false, logsOnLaunch: false, discordPresence: true, radius: 12, emotes: true, hud: { fps: true, cps: true, keystrokes: true, coordinates: false, ping: true, armor: true, potions: true, sprint: true, zoom: false, ram: true, scale: 1 } };
 const unavailable = async <T,>(): Promise<Result<T>> => ({ ok: false, error: 'Diese Funktion ist im Desktop-Launcher verfügbar. Starte Savira mit „npm run dev“.' });
 export const api: Bridge = window.savira ?? {
   state: async () => {
@@ -188,4 +240,19 @@ export const capesApi: CapesBridge = window.savira?.capes ?? {
   wear: async id => { previewCapes = { ...previewCapes, active: id }; return capeResult(); },
   favorite: async key => { const has = previewCapes.favorites.includes(key); previewCapes = { ...previewCapes, favorites: has ? previewCapes.favorites.filter(k => k !== key) : [...previewCapes.favorites, key] }; return capeResult(); },
   template: unavailable
+};
+
+// Browser preview: a short fixed version list, so the profile wizard can be designed without Electron.
+const previewVersions: MinecraftVersion[] = ['26.3', '26.2', '26.1.2', '26.1', '1.21.11', '1.21.10', '1.21.4', '1.21.1', '1.20.1', '1.8.9'].map((id): MinecraftVersion => ({ id, type: 'release', released: '' }))
+  .concat(['26.4-snapshot-5', '26.4-snapshot-4'].map((id): MinecraftVersion => ({ id, type: 'snapshot', released: '' })));
+export const profilesApi: ProfilesBridge = window.savira?.profiles ?? {
+  minecraftVersions: async () => ({ ok: true, data: previewVersions }),
+  loaderVersions: async loader => ({ ok: true, data: (loader === 'forge' ? ['52.1.20', '52.1.19'] : loader === 'neoforge' ? ['21.1.264', '21.1.263'] : ['0.20.1', '0.19.5']).map((version, i) => ({ version, stable: i === 1 || loader !== 'fabric' })) }),
+  importPack: unavailable, openFolder: unavailable,
+  blockIcons: async () => ({ ok: true, data: [] }),
+  iconFromFile: unavailable, iconFromUrl: unavailable,
+  content: async () => ({ ok: true, data: [] }), toggle: unavailable, remove: unavailable, update: unavailable, install: unavailable, folder: unavailable, addFiles: unavailable,
+  search: async () => ({ ok: true, data: { total: 0, hits: [] } }), tags: async () => ({ ok: true, data: { categories: [], versions: [], loaders: [] } }), openProject: unavailable,
+  worlds: async () => ({ ok: true, data: { worlds: [], servers: [] } }), play: unavailable, screenshots: async () => ({ ok: true, data: [] }), openScreenshot: unavailable, deleteScreenshot: unavailable,
+  stats: async () => ({ ok: true, data: { size: 0 } }), duplicate: unavailable, exportEntries: async () => ({ ok: true, data: [] }), exportPack: unavailable, packVersions: async () => ({ ok: true, data: [] }), switchPack: unavailable
 };
