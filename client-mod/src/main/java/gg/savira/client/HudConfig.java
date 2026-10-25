@@ -46,6 +46,8 @@ public final class HudConfig {
     /** Nametag module: own nametag in third person (F5), text shadow, no background box. */
     /** Savira's own interface sounds in the menus (headphones button next to the search). */
     public boolean uiSounds = true;
+    /** Right-Shift menu in the dark look instead of the light frosted one (sun/moon button). */
+    public boolean menuDark = false;
     public boolean nametag = true, nametagF5 = true, nametagShadow = false, nametagNoBackground = false;
     /** Discord invite written by the launcher; only discord.gg / discord.com links are used. */
     public String discordUrl = "";

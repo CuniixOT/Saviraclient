@@ -52,12 +52,6 @@ public final class MenuStyle {
     /** Flat, nearly square look shared by the main menu and the Right-Shift menu. */
     public static final int CORNER = 1, GLASS = 0xE00C0F13, GLASS_HOVER = 0xF0141920, EDGE = 0xFF252A32, ICON = 0xFFD7DCE1;
 
-    /** Square switch, 22x12: accent track with a white knob when on. */
-    public static void toggle(DrawContext c, int x, int y, boolean on) {
-        round(c, x, y, 22, 12, CORNER, on ? accent() : 0xFF2B3038);
-        round(c, on ? x + 12 : x + 2, y + 2, 8, 8, CORNER, on ? 0xFFFFFFFF : 0xFF8A939D);
-    }
-
     /** Flat button: accent fill for the primary one, glass with an edge otherwise. */
     public static ButtonWidget button(int x, int y, int w, int h, String label, boolean primary, ButtonWidget.PressAction action) {
         return new ButtonWidget(x, y, w, h, Text.literal(label), action, narration -> narration.get()) {
