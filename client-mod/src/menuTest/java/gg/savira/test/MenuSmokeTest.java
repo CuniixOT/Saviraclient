@@ -18,7 +18,7 @@ import org.lwjgl.glfw.GLFW;
 import org.slf4j.LoggerFactory;
 
 public final class MenuSmokeTest implements ClientModInitializer {
-    private int ticks, stage, scrolledFrom;
+    private int ticks, stage, scrolledFrom, lightWaits;
     private Screen screen;
     private void check(boolean value, String message) { if (!value) throw new IllegalStateException(message); }
     private void button(String text) {
@@ -96,7 +96,7 @@ public final class MenuSmokeTest implements ClientModInitializer {
                     }
                     case 3 -> {
                         screenshot(mc, "savira-menu-modules");
-                        check(HudModule.values().length == 12, "Module count");
+                        check(HudModule.values().length == 13, "Module count");
                         button("FPS-Anzeige"); check(!HudModule.FPS.enabled(), "Module toggle failed");
                         check(gg.savira.client.SaviraToasts.any(), "No notification after toggling a module");
                         // Headphones button: UI sounds off and on again, saved.
@@ -104,7 +104,7 @@ public final class MenuSmokeTest implements ClientModInitializer {
                         button("UI-Sounds"); check(SaviraClient.config.uiSounds, "UI sounds not turned back on");
                         // New modules come first in the grid.
                         ButtonWidget first = screen.children().stream().filter(w -> w instanceof ButtonWidget b && b.getMessage().getString().contains(": ")).map(w -> (ButtonWidget) w).findFirst().orElseThrow();
-                        check(first.getMessage().getString().startsWith("Nametag"), "Newest module not on top: " + first.getMessage().getString());
+                        check(first.getMessage().getString().startsWith("Light Level"), "Newest module not on top: " + first.getMessage().getString());
                         LoggerFactory.getLogger("SaviraUITest").info("Savira-Sounds bereit: " + gg.savira.client.SaviraSounds.ready());
                         button("FPS-Anzeige"); check(HudModule.FPS.enabled(), "Module re-enable failed");
                         button("Effekte"); check(!HudModule.POTIONS.enabled(), "Potion toggle failed");
@@ -239,7 +239,82 @@ public final class MenuSmokeTest implements ClientModInitializer {
                     }
                     case 18 -> {
                         check(mc.currentScreen instanceof SaviraTitleScreen, "Closing the mod menu returned to the vanilla title screen: " + mc.currentScreen);
-                        LoggerFactory.getLogger("SaviraUITest").info("SAVIRA_UI_SMOKE_OK: title, news, background, cape, home, home-drag, hide, new-tag, new-first, toasts, ui-sounds, icon, nametag, modules(12), settings, background, slider-reset, color-picker, dark-theme, smooth-scroll, text, search, editor, drag, scale, persistence, feature, back-to-title");
+                        // Light Level needs a world: start a fresh demo world (no account needed).
+                        mc.createIntegratedServerLoader().createAndStart("SaviraLight" + System.currentTimeMillis(), net.minecraft.server.MinecraftServer.DEMO_LEVEL_INFO,
+                            net.minecraft.world.gen.GeneratorOptions.DEMO_OPTIONS, net.minecraft.world.gen.WorldPresets::createDemoOptions, mc.currentScreen);
+                    }
+                    case 19 -> {
+                        if (mc.player == null || mc.world == null || mc.getServer() == null || mc.getServer().getPlayerManager().getPlayerList().isEmpty()) { stage--; return; }
+                        mc.setScreen(null);
+                        mc.options.hudHidden = true;
+                        // A stone platform high up (open sky: unlit blocks spawn at night), a torch in the middle
+                        // and a closed stone room on one side (no light at all: spawnable any time).
+                        var server = mc.getServer();
+                        server.execute(() -> {
+                            var world = server.getOverworld();
+                            var player = server.getPlayerManager().getPlayerList().get(0);
+                            int y = 200;
+                            for (int x = -12; x <= 12; x++) for (int z = -12; z <= 12; z++) {
+                                world.setBlockState(new net.minecraft.util.math.BlockPos(x, y - 1, z), net.minecraft.block.Blocks.STONE.getDefaultState());
+                                for (int h = 0; h < 6; h++) world.setBlockState(new net.minecraft.util.math.BlockPos(x, y + h, z), net.minecraft.block.Blocks.AIR.getDefaultState());
+                            }
+                            for (int x = 1; x <= 8; x++) for (int z = -4; z <= 4; z++) for (int h = 0; h <= 3; h++) {
+                                boolean shell = h == 3 || x == 1 || x == 8 || z == -4 || z == 4;
+                                if (shell) world.setBlockState(new net.minecraft.util.math.BlockPos(x, y + h, z), net.minecraft.block.Blocks.STONE.getDefaultState());
+                            }
+                            world.setBlockState(new net.minecraft.util.math.BlockPos(-5, y, 0), net.minecraft.block.Blocks.TORCH.getDefaultState());
+                            world.setTimeOfDay(6000);
+                            // Hovering over the corner, looking at the torch and the room.
+                            player.getAbilities().allowFlying = true; player.getAbilities().flying = true; player.sendAbilitiesUpdate();
+                            player.teleport(world, -12.5, y + 7, -10.5, -48f, 38f);
+                        });
+                    }
+                    case 20 -> { mc.setScreen(null); }
+                    case 21 -> {
+                        mc.setScreen(null);
+                        check(mc.player.getY() > 190, "Player not on the test platform: " + mc.player.getPos());
+                        SaviraClient.config.lightLevel = true; SaviraClient.config.lightRange = 24;
+                        SaviraClient.config.lightMode = "NUMBER"; gg.savira.client.LightLevel.rescanNow();
+                    }
+                    case 22 -> {
+                        // Light is computed after the blocks change; give it up to ~12 s before judging.
+                        boolean ready = gg.savira.client.LightLevel.count("SAFE") > 0 && gg.savira.client.LightLevel.count("NIGHT") > 0 && gg.savira.client.LightLevel.count("SPAWNABLE") > 0;
+                        mc.setScreen(null);
+                        if (!ready && ++lightWaits < 10) { gg.savira.client.LightLevel.rescanNow(); stage--; return; }
+                        var below = mc.player.getBlockPos().down();
+                        LoggerFactory.getLogger("SaviraUITest").info("Light-Debug: pos=" + mc.player.getBlockPos() + " unten=" + mc.world.getBlockState(below) + " an=" + SaviraClient.config.lightLevel + " block=" + mc.world.getLightLevel(net.minecraft.world.LightType.BLOCK, mc.player.getBlockPos()) + " himmel=" + mc.world.getLightLevel(net.minecraft.world.LightType.SKY, mc.player.getBlockPos()) + " versuche=" + lightWaits);
+                        LoggerFactory.getLogger("SaviraUITest").info("Light Level: " + gg.savira.client.LightLevel.count("SAFE") + " sicher, " + gg.savira.client.LightLevel.count("NIGHT") + " nachts, " + gg.savira.client.LightLevel.count("SPAWNABLE") + " spawnbar");
+                        check(gg.savira.client.LightLevel.count("SAFE") > 0, "No lit blocks around the torch");
+                        check(gg.savira.client.LightLevel.count("NIGHT") > 0, "No open-sky blocks that spawn at night");
+                        check(gg.savira.client.LightLevel.count("SPAWNABLE") > 0, "No dark blocks inside the closed room");
+                        screenshot(mc, "savira-light-number");
+                        SaviraClient.config.lightMode = "CROSS";
+                    }
+                    case 23 -> { screenshot(mc, "savira-light-cross"); SaviraClient.config.lightMode = "OUTLINE"; }
+                    case 24 -> { screenshot(mc, "savira-light-outline"); SaviraClient.config.lightMode = "FILL"; }
+                    case 25 -> {
+                        screenshot(mc, "savira-light-fill");
+                        // Only spawnable: the lit blocks disappear.
+                        SaviraClient.config.lightOnlySpawnable = true; gg.savira.client.LightLevel.rescanNow();
+                    }
+                    case 26 -> {
+                        check(gg.savira.client.LightLevel.count("SAFE") == 0 && gg.savira.client.LightLevel.spotCount() > 0, "Only spawnable still shows safe blocks");
+                        // Settings page of the module, with the toggle key, range, mode and colours.
+                        SaviraClient.config.lightOnlySpawnable = false;
+                        mc.options.hudHidden = false;
+                        screen = new HudScreen(); mc.setScreen(screen);
+                        button("Mod-Menü");
+                    }
+                    case 27 -> { click(widget("Light Level"), 12, 12, 1); }
+                    case 28 -> {
+                        check(widgetExists("Taste") && widgetExists("Reichweite") && widgetExists("Spawnbar") && widgetExists("Nachts spawnbar") && widgetExists("Sicher"), "Light Level settings incomplete");
+                        button("Taste");
+                        screen.keyPressed(GLFW.GLFW_KEY_L, 0, 0);
+                        check(!SaviraClient.lightKey.isUnbound(), "Toggle key not bound");
+                    }
+                    case 29 -> {
+                        screenshot(mc, "savira-light-settings");
+                        LoggerFactory.getLogger("SaviraUITest").info("SAVIRA_UI_SMOKE_OK: title, news, background, cape, home, home-drag, hide, new-tag, new-first, toasts, ui-sounds, icon, nametag, modules(13), settings, background, slider-reset, color-picker, dark-theme, smooth-scroll, text, search, editor, drag, scale, persistence, feature, back-to-title, light-level(world, number, cross, outline, fill, only-spawnable, settings, key)");
                         stage = -1;
                     }
                 }

@@ -5,6 +5,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
@@ -13,13 +14,24 @@ public final class SaviraClient implements ClientModInitializer {
     public static HudConfig config;
     public static boolean zoomActive;
     private static Integer savedFov;
+    /** Turns the Light Level module on and off; unbound until set in its settings. */
+    public static KeyBinding lightKey;
 
     @Override
     public void onInitializeClient() {
         config = HudConfig.load();
         KeyBinding menu = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.savira.menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_SHIFT, "category.savira"));
         KeyBinding zoom = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.savira.zoom", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_C, "category.savira"));
+        lightKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.savira.lightlevel", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, "category.savira"));
+        WorldRenderEvents.AFTER_TRANSLUCENT.register(LightLevel::render);
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            while (lightKey.wasPressed()) {
+                if (client.currentScreen != null) continue;
+                HudModule.LIGHT_LEVEL.toggle(); config.save();
+                SaviraSounds.play(config.lightLevel ? SaviraSounds.Sound.ON : SaviraSounds.Sound.OFF);
+                SaviraToasts.show("Light Level", config.lightLevel ? "Aktiviert" : "Deaktiviert");
+            }
+            LightLevel.tick(client);
             while (menu.wasPressed()) {
                 if (client.currentScreen == null && client.player != null) client.setScreen(new HudScreen());
             }

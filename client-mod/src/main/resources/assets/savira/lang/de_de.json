@@ -1,5 +1,6 @@
 {
   "category.savira": "Savira Client",
   "key.savira.menu": "HUD-Einstellungen öffnen",
-  "key.savira.zoom": "Zoom (halten)"
+  "key.savira.zoom": "Zoom (halten)",
+  "key.savira.lightlevel": "Light Level an/aus"
 }

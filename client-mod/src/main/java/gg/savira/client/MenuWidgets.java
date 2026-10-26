@@ -146,6 +146,22 @@ public final class MenuWidgets {
         return self[0];
     }
 
+    /** Key binding button like NoRisk's "Not Bound": click, then press a key; Escape removes it. */
+    public static Control keyButton(int x, int y, int w, String label, Supplier<String> text, BooleanSupplier listening, Runnable onClick) {
+        return new Control(x, y, w, CYCLE_H, label, b -> onClick.run()) {
+            @Override
+            protected void renderWidget(DrawContext c, int mx, int my, float delta) {
+                MenuTheme t = t();
+                boolean wait = listening.getAsBoolean();
+                c.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(), wait ? t.cardOn() : t.box());
+                c.drawBorder(getX(), getY(), getWidth(), getHeight(), wait ? t.cardOnEdge() : hover() ? t.boxHover() : t.switchEdge());
+                var font = MinecraftClient.getInstance().textRenderer;
+                String shown = wait ? "> Taste drücken <" : text.get();
+                MenuText.plain(c, shown, getX() + (getWidth() - font.getWidth(shown)) / 2f, getY() + (getHeight() - 7) / 2f, 1f, wait ? 0xFFFFFFFF : t.text());
+            }
+        };
+    }
+
     /** Header button with a caps label, like NoRisk's "OFF" and "RESET". */
     public static Control labelButton(int x, int y, int w, int h, String label, Supplier<String> text, IntSupplier fill, ButtonWidget.PressAction action) {
         return new Control(x, y, w, h, label, action) {

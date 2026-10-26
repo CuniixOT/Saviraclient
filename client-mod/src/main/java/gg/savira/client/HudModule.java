@@ -15,7 +15,8 @@ public enum HudModule {
     ZOOM("Zoom", "Gameplay", "C halten zum Heranzoomen.", Items.SPYGLASS, .45f, .02f, 96, 27),
     RAM("Arbeitsspeicher", "Performance", "Genutzter und maximaler RAM.", Items.REDSTONE, .98f, .28f, 118, 27),
     ICON("Icon", "Savira", "Dein Savira-Icon vor dem Namen in Nametag und Tab-Liste.", Items.NETHER_STAR, 0, 0, 0, 0),
-    NAMETAG("Nametag", "Gameplay", "Dein Nametag in F5, Textschatten und Hintergrund der Namen.", Items.NAME_TAG, 0, 0, 0, 0);
+    NAMETAG("Nametag", "Gameplay", "Dein Nametag in F5, Textschatten und Hintergrund der Namen.", Items.NAME_TAG, 0, 0, 0, 0),
+    LIGHT_LEVEL("Light Level", "Welt", "Zeigt die Lichtstufe der Blöcke um dich herum, damit du Mob-Spawns erkennst und verhinderst.", Items.TORCH, 0, 0, 0, 0);
 
     public final String title, category, description;
     public final Item icon;
@@ -26,7 +27,7 @@ public enum HudModule {
         this.icon = icon; this.x = x; this.y = y; this.width = width; this.height = height;
     }
     /** Drawn on the HUD (and movable in the editor); the Icon module only changes names. */
-    public boolean onHud() { return this != ICON && this != NAMETAG; }
+    public boolean onHud() { return this != ICON && this != NAMETAG && this != LIGHT_LEVEL; }
     /** Single-line modules whose text can be customised; others draw their own layout. */
     public boolean textual() { return defaultText() != null; }
     public String defaultText() {
@@ -56,6 +57,7 @@ public enum HudModule {
     /** Release date of each module; the newest ones are listed first and tagged "NEU". */
     public java.time.LocalDate released() {
         return switch (this) {
+            case LIGHT_LEVEL -> java.time.LocalDate.of(2026, 10, 26);
             case NAMETAG -> java.time.LocalDate.of(2026, 10, 13);
             case ICON -> java.time.LocalDate.of(2026, 10, 12);
             case ZOOM, POTIONS, RAM -> java.time.LocalDate.of(2026, 9, 7);
@@ -69,7 +71,7 @@ public enum HudModule {
             case FPS -> c.fps; case CPS -> c.cps; case KEYSTROKES -> c.keystrokes;
             case PING -> c.ping; case COORDINATES -> c.coordinates; case ARMOR -> c.armor;
             case POTIONS -> c.potions; case SPRINT -> c.sprint; case ZOOM -> c.zoom;
-            case RAM -> c.ram; case ICON -> c.icon; case NAMETAG -> c.nametag;
+            case RAM -> c.ram; case ICON -> c.icon; case NAMETAG -> c.nametag; case LIGHT_LEVEL -> c.lightLevel;
         };
     }
     public void toggle() {
@@ -79,7 +81,7 @@ public enum HudModule {
             case KEYSTROKES -> c.keystrokes = !c.keystrokes; case PING -> c.ping = !c.ping;
             case COORDINATES -> c.coordinates = !c.coordinates; case ARMOR -> c.armor = !c.armor;
             case POTIONS -> c.potions = !c.potions; case SPRINT -> c.sprint = !c.sprint;
-            case ZOOM -> c.zoom = !c.zoom; case RAM -> c.ram = !c.ram; case ICON -> c.icon = !c.icon; case NAMETAG -> c.nametag = !c.nametag;
+            case ZOOM -> c.zoom = !c.zoom; case RAM -> c.ram = !c.ram; case ICON -> c.icon = !c.icon; case NAMETAG -> c.nametag = !c.nametag; case LIGHT_LEVEL -> c.lightLevel = !c.lightLevel;
         }
     }
 }

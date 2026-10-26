@@ -88,6 +88,7 @@ public final class HudScreen extends Screen {
 
     private void show(Page next) {
         if (isWindow(next) && !isWindow(page)) { windowAt = Util.getMeasuringTimeMs(); SaviraSounds.play(SaviraSounds.Sound.WINDOW); }
+        listeningKey = false;
         persist(); page = next; scroll = 0; scrollPos = 0; draggingBar = false; dragging = null; selected = null; picker = null;
         rebuild();
     }
@@ -374,6 +375,13 @@ public final class HudScreen extends Screen {
             cfg.placement(m).size = 1f;
             if (m == HudModule.ICON) { cfg.iconType = "default"; cfg.iconNametag = cfg.iconTablist = cfg.iconSpace = true; }
             if (m == HudModule.NAMETAG) { cfg.nametagF5 = true; cfg.nametagShadow = cfg.nametagNoBackground = false; }
+            if (m == HudModule.LIGHT_LEVEL) {
+                HudConfig fresh = new HudConfig();
+                cfg.lightRange = fresh.lightRange; cfg.lightMode = fresh.lightMode; cfg.lightOnlySpawnable = fresh.lightOnlySpawnable;
+                cfg.lightTextSize = fresh.lightTextSize; cfg.lightAlpha = fresh.lightAlpha;
+                cfg.lightColorSpawnable = fresh.lightColorSpawnable; cfg.lightColorNight = fresh.lightColorNight; cfg.lightColorSafe = fresh.lightColorSafe;
+                LightLevel.rescanNow();
+            }
             persist(); rebuild();
             SaviraToasts.show(m.title, "Einstellungen zurückgesetzt");
         }));
@@ -381,6 +389,7 @@ public final class HudScreen extends Screen {
         rowY = wy + 106;
         if (m == HudModule.ICON) buildIconSettings();
         else if (m == HudModule.NAMETAG) buildNametagSettings();
+        else if (m == HudModule.LIGHT_LEVEL) buildLightSettings();
         else buildStyleSettings(m);
         rowsEnd = rowY;
     }
@@ -474,6 +483,42 @@ public final class HudScreen extends Screen {
             addDrawableChild(MenuWidgets.toggle(right() - MenuWidgets.SWITCH_W, rowY, s[0], get, () -> { flip.run(); persist(); SaviraToasts.show("Icon", s[0] + ": " + (get.getAsBoolean() ? "an" : "aus")); }));
             row(s[0], MenuWidgets.SWITCH_H);
         }
+    }
+
+    /** Waiting for a key for the Light Level toggle. */
+    private boolean listeningKey;
+
+    /** Light Level module: toggle key, range, look, colours, like NoRisk's settings page. */
+    private void buildLightSettings() {
+        HudConfig cfg = SaviraClient.config;
+        int r = right();
+        section("Allgemein");
+        addDrawableChild(MenuWidgets.keyButton(r - 140, rowY, 140, "Taste", () -> SaviraClient.lightKey.isUnbound() ? "Nicht belegt" : SaviraClient.lightKey.getBoundKeyLocalizedText().getString(), () -> listeningKey, () -> listeningKey = !listeningKey));
+        row("Taste", MenuWidgets.CYCLE_H);
+        addDrawableChild(MenuWidgets.slider(r - MenuWidgets.SLIDER_W, rowY, "Reichweite", 1, 32, 1, 16, () -> cfg.lightRange, v -> Integer.toString((int) v), v -> { cfg.lightRange = (int) v; persist(); LightLevel.rescanNow(); }));
+        row("Reichweite", MenuWidgets.SLIDER_H);
+        section("Anzeige");
+        addDrawableChild(MenuWidgets.cycle(r - MenuWidgets.CYCLE_W, rowY, () -> LightLevel.Mode.parse(cfg.lightMode).label, step -> {
+            cfg.lightMode = LightLevel.Mode.parse(cfg.lightMode).next(step).name(); persist(); rebuild();
+        }));
+        row("Modus", MenuWidgets.CYCLE_H);
+        addDrawableChild(MenuWidgets.checkbox(r - MenuWidgets.CHECK, rowY, "Nur Spawnbare", () -> cfg.lightOnlySpawnable, () -> { cfg.lightOnlySpawnable = !cfg.lightOnlySpawnable; persist(); LightLevel.rescanNow(); }));
+        row("Nur Spawnbare", MenuWidgets.CHECK);
+        LightLevel.Mode mode = LightLevel.Mode.parse(cfg.lightMode);
+        if (mode == LightLevel.Mode.NUMBER) {
+            addDrawableChild(MenuWidgets.slider(r - MenuWidgets.SLIDER_W, rowY, "Textgröße", .5, 2, .1, 1, () -> cfg.lightTextSize, v -> String.format(Locale.ROOT, "%.1f", v), v -> { cfg.lightTextSize = (float) v; persist(); }));
+            row("Textgröße", MenuWidgets.SLIDER_H);
+        } else if (mode == LightLevel.Mode.FILL) {
+            addDrawableChild(MenuWidgets.slider(r - MenuWidgets.SLIDER_W, rowY, "Deckkraft", .1, 1, .05, .4, () -> cfg.lightAlpha, v -> String.format(Locale.ROOT, "%.2f", v), v -> { cfg.lightAlpha = (float) v; persist(); }));
+            row("Deckkraft", MenuWidgets.SLIDER_H);
+        }
+        section("Farben");
+        addDrawableChild(MenuWidgets.swatch(r - MenuWidgets.SWATCH, rowY, "Spawnbar", () -> cfg.lightColorSpawnable, w -> openPicker(w, cfg.lightColorSpawnable, color -> { cfg.lightColorSpawnable = color; persist(); })));
+        row("Spawnbar", MenuWidgets.SWATCH);
+        addDrawableChild(MenuWidgets.swatch(r - MenuWidgets.SWATCH, rowY, "Nachts spawnbar", () -> cfg.lightColorNight, w -> openPicker(w, cfg.lightColorNight, color -> { cfg.lightColorNight = color; persist(); })));
+        row("Nachts spawnbar", MenuWidgets.SWATCH);
+        addDrawableChild(MenuWidgets.swatch(r - MenuWidgets.SWATCH, rowY, "Sicher", () -> cfg.lightColorSafe, w -> openPicker(w, cfg.lightColorSafe, color -> { cfg.lightColorSafe = color; persist(); })));
+        row("Sicher", MenuWidgets.SWATCH);
     }
 
     /** Nametag module: own name in F5, shadow and background of player names. */
@@ -801,6 +846,14 @@ public final class HudScreen extends Screen {
 
     @Override
     public boolean keyPressed(int key, int scan, int modifiers) {
+        if (listeningKey) {
+            listeningKey = false;
+            SaviraClient.lightKey.setBoundKey(key == GLFW.GLFW_KEY_ESCAPE ? net.minecraft.client.util.InputUtil.UNKNOWN_KEY : net.minecraft.client.util.InputUtil.fromKeyCode(key, scan));
+            net.minecraft.client.option.KeyBinding.updateKeysByCode();
+            client.options.write();
+            SaviraToasts.show("Light Level", SaviraClient.lightKey.isUnbound() ? "Taste entfernt" : "Taste: " + SaviraClient.lightKey.getBoundKeyLocalizedText().getString());
+            return true;
+        }
         if (key == GLFW.GLFW_KEY_ESCAPE && picker != null) { closePicker(); return true; }
         if (key == GLFW.GLFW_KEY_ESCAPE && page != Page.HOME) { show(page == Page.SETTINGS ? Page.MODS : Page.HOME); return true; }
         if (picker == null && selected != null && !(getFocused() instanceof TextFieldWidget) && key >= GLFW.GLFW_KEY_RIGHT && key <= GLFW.GLFW_KEY_UP) {

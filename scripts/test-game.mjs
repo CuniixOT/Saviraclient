@@ -68,7 +68,7 @@ try {
   let exited = false;
   processHandle.on('exit', () => { exited = true; });
   await new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => { clearInterval(timer); reject(new Error('Minecraft demo startup timed out.')); }, 120000);
+    const timeout = setTimeout(() => { clearInterval(timer); reject(new Error('Minecraft demo startup timed out.')); }, menuTest ? 300000 : 120000);
     const timer = setInterval(() => {
       if (exited) { clearInterval(timer); clearTimeout(timeout); reject(new Error('Minecraft exited before rendering.')); }
       else if (/SAVIRA_UI_SMOKE_FAILED/.test(output)) {

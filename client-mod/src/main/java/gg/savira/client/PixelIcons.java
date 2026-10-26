@@ -43,7 +43,7 @@ public final class PixelIcons {
     public static String[] module(HudModule module) {
         return switch (module) {
             case FPS -> FPS; case CPS -> CPS; case KEYSTROKES -> KEYS; case PING -> PING; case COORDINATES -> PIN;
-            case ARMOR -> ARMOR; case POTIONS -> POTION; case SPRINT -> SPRINT; case ZOOM -> ZOOM; case RAM -> RAM; case ICON -> FRIENDS; case NAMETAG -> PLAYER;
+            case ARMOR -> ARMOR; case POTIONS -> POTION; case SPRINT -> SPRINT; case ZOOM -> ZOOM; case RAM -> RAM; case ICON -> FRIENDS; case NAMETAG -> PLAYER; case LIGHT_LEVEL -> PIN;
         };
     }
 

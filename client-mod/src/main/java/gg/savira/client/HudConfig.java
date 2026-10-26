@@ -48,6 +48,12 @@ public final class HudConfig {
     public boolean uiSounds = true;
     /** Right-Shift menu in the dark look instead of the light frosted one (sun/moon button). */
     public boolean menuDark = false;
+    /** Light Level module: marks where monsters can spawn around the player. */
+    public boolean lightLevel = false, lightOnlySpawnable = false;
+    public int lightRange = 16;
+    public String lightMode = "NUMBER";
+    public float lightTextSize = 1f, lightAlpha = .4f;
+    public int lightColorSpawnable = 0xFF2828, lightColorNight = 0xE8B400, lightColorSafe = 0x2BE02B;
     public boolean nametag = true, nametagF5 = true, nametagShadow = false, nametagNoBackground = false;
     /** Discord invite written by the launcher; only discord.gg / discord.com links are used. */
     public String discordUrl = "";

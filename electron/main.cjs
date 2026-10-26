@@ -288,6 +288,18 @@ async function syncHudFromNewestGame() {
   }
   if (newest) await syncHudFromGame(newest);
 }
+// The Light Level module is set up in game; keep its settings when the launcher rewrites savira.json.
+function lightLevelFrom(inGame) {
+  const number = (value, min, max, fallback) => typeof value === 'number' && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+  const color = (value, fallback) => Number.isInteger(value) && value >= 0 && value <= 0xFFFFFF ? value : fallback;
+  return {
+    lightLevel: inGame.lightLevel === true, lightOnlySpawnable: inGame.lightOnlySpawnable === true,
+    lightRange: Math.round(number(inGame.lightRange, 1, 32, 16)),
+    lightMode: ['NUMBER', 'CROSS', 'OUTLINE', 'FILL'].includes(inGame.lightMode) ? inGame.lightMode : 'NUMBER',
+    lightTextSize: number(inGame.lightTextSize, .5, 2, 1), lightAlpha: number(inGame.lightAlpha, .05, 1, .4),
+    lightColorSpawnable: color(inGame.lightColorSpawnable, 0xFF2828), lightColorNight: color(inGame.lightColorNight, 0xE8B400), lightColorSafe: color(inGame.lightColorSafe, 0x2BE02B),
+  };
+}
 const SAVIRA_JAR = 'savira-client-0.1.0.jar';
 // A Fabric profile without Savira features must not keep the mod from an earlier start.
 async function removeSavira(gameRoot) { await fs.rm(path.join(gameRoot, 'mods', SAVIRA_JAR), { force: true }); }
@@ -329,7 +341,7 @@ async function prepareSavira(gameRoot, minecraftVersion) {
   let inGame = {};
   try { inGame = JSON.parse(await fs.readFile(hudPath, 'utf8')) || {}; } catch { /* First launch or invalid config. */ }
   // Layout and snapping belong to the in-game editor, while launcher toggles stay authoritative.
-  await atomicWrite(hudPath, JSON.stringify({ ...settings.hud, accent: accentRgb(settings.accent), discordUrl: discordUrl(), launcherVersion: app.getVersion(), customTitleScreen: inGame.customTitleScreen !== false, customCape, panoramaDir: panoramas ? panoramas.dir : '', menuBackground: typeof inGame.menuBackground === 'string' && /^[a-z]{1,16}$/.test(inGame.menuBackground) ? inGame.menuBackground : 'current', layout: inGame.layout || {}, styles: inGame.styles || {}, icon: inGame.icon !== false, iconType: ['default', 'beta', 'creator'].includes(inGame.iconType) ? inGame.iconType : 'default', iconNametag: inGame.iconNametag !== false, iconTablist: inGame.iconTablist !== false, iconSpace: inGame.iconSpace !== false, uiSounds: inGame.uiSounds !== false, menuDark: inGame.menuDark === true, nametag: inGame.nametag !== false, nametagF5: inGame.nametagF5 !== false, nametagShadow: inGame.nametagShadow === true, nametagNoBackground: inGame.nametagNoBackground === true, snap: inGame.snap !== false }, null, 2));
+  await atomicWrite(hudPath, JSON.stringify({ ...settings.hud, accent: accentRgb(settings.accent), discordUrl: discordUrl(), launcherVersion: app.getVersion(), customTitleScreen: inGame.customTitleScreen !== false, customCape, panoramaDir: panoramas ? panoramas.dir : '', menuBackground: typeof inGame.menuBackground === 'string' && /^[a-z]{1,16}$/.test(inGame.menuBackground) ? inGame.menuBackground : 'current', layout: inGame.layout || {}, styles: inGame.styles || {}, icon: inGame.icon !== false, iconType: ['default', 'beta', 'creator'].includes(inGame.iconType) ? inGame.iconType : 'default', iconNametag: inGame.iconNametag !== false, iconTablist: inGame.iconTablist !== false, iconSpace: inGame.iconSpace !== false, uiSounds: inGame.uiSounds !== false, menuDark: inGame.menuDark === true, ...lightLevelFrom(inGame), nametag: inGame.nametag !== false, nametagF5: inGame.nametagF5 !== false, nametagShadow: inGame.nametagShadow === true, nametagNoBackground: inGame.nametagNoBackground === true, snap: inGame.snap !== false }, null, 2));
 }
 // The title-screen panorama ships with the game assets the player already downloaded.
 // Nothing from Mojang is bundled; without an installed instance the renderer uses its own art.
