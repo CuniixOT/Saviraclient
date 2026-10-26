@@ -49,6 +49,7 @@ public final class MenuSmokeTest implements ClientModInitializer {
                 switch (stage++) {
                     case 0 -> {
                         check(mc.currentScreen instanceof SaviraTitleScreen, "Savira title screen not shown");
+                        screenshot(mc, "savira-menu-title-idle");
                         // A loud launcher accent: the main menu must follow it, the mod menu must stay mint.
                         SaviraClient.config.accent = 0xE5566B;
                         // Own cape from the launcher: config/savira-cape.png must become a texture.
@@ -69,7 +70,8 @@ public final class MenuSmokeTest implements ClientModInitializer {
                         check(title.choosePanorama("Nether Update"), "Nether Update missing in the picker");
                         check(title.backgroundId().equals("nether") && "nether".equals(SaviraClient.config.menuBackground), "Panorama choice not applied");
                         check(gg.savira.client.SaviraPanoramas.renderer("nether") != null, "Nether panorama not loaded");
-                        button("Hintergrund");
+                        check(!title.pickerOpen(), "Picker still open after choosing");
+                        title.previewBanner(true);
                     }
                     case 1 -> {
                         screenshot(mc, "savira-menu-title");

@@ -31,3 +31,9 @@ Savira ist nicht mit NoRiskClient, Mojang oder Microsoft verbunden.
 ### Weitere Schriften
 
 - Geist (`@fontsource-variable/geist`), SIL Open Font License 1.1
+
+### Inter (`client-mod/src/main/resources/assets/savira/font/inter.ttf`)
+
+- Schrift „Inter“ von The Inter Project Authors, https://github.com/rsms/inter, bezogen aus https://github.com/google/fonts (`ofl/inter`)
+- Lizenz: **SIL Open Font License 1.1**, siehe `licenses/OFL-Inter.txt`
+- Unverändert übernommen; im Hauptmenü des Spiels verwendet.
