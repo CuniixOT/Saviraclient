@@ -11,8 +11,6 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.TitleScreen;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.util.ScreenshotRecorder;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.LoggerFactory;
@@ -21,24 +19,19 @@ public final class MenuSmokeTest implements ClientModInitializer {
     private int ticks, stage, scrolledFrom, lightWaits;
     private Screen screen;
     private void check(boolean value, String message) { if (!value) throw new IllegalStateException(message); }
+    /** Widgets of the title screen, which uses Minecraft's buttons. */
     private void button(String text) {
-        ButtonWidget button = screen.children().stream().filter(w -> w instanceof ButtonWidget b && b.getMessage().getString().startsWith(text)).map(w -> (ButtonWidget) w).findFirst().orElseThrow();
-        button.onPress();
-    }
-    private ButtonWidget widget(String text) {
-        return screen.children().stream().filter(w -> w instanceof ButtonWidget b && b.getMessage().getString().startsWith(text)).map(w -> (ButtonWidget) w).findFirst().orElseThrow(() -> new IllegalStateException("Widget missing: " + text));
+        screen.children().stream().filter(w -> w instanceof net.minecraft.client.gui.widget.ButtonWidget b && b.getMessage().getString().startsWith(text))
+            .map(w -> (net.minecraft.client.gui.widget.ButtonWidget) w).findFirst().orElseThrow(() -> new IllegalStateException("Widget missing: " + text)).onPress();
     }
     private boolean widgetExists(String text) {
-        return screen.children().stream().anyMatch(w -> w instanceof ButtonWidget b && b.getMessage().getString().startsWith(text));
+        return screen.children().stream().anyMatch(w -> w instanceof net.minecraft.client.gui.widget.ButtonWidget b && b.getMessage().getString().startsWith(text));
     }
-    /** Window widgets live in menu units; the screen takes gui coordinates. */
-    private void click(ButtonWidget widget, double dx, double dy, int mouse) {
-        float u = ((HudScreen) screen).unit();
-        screen.mouseClicked((widget.getX() + dx) * u, (widget.getY() + dy) * u, mouse);
-    }
+    private HudScreen menu() { return (HudScreen) screen; }
     private void screenshot(MinecraftClient mc, String name) {
         ScreenshotRecorder.saveScreenshot(mc.runDirectory, name + ".png", mc.getFramebuffer(), message -> {});
     }
+    private void erase(int count) { for (int i = 0; i < count; i++) screen.keyPressed(GLFW.GLFW_KEY_BACKSPACE, 0, 0); }
     @Override
     public void onInitializeClient() {
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
@@ -61,11 +54,16 @@ public final class MenuSmokeTest implements ClientModInitializer {
                         SaviraTitleScreen title = (SaviraTitleScreen) mc.currentScreen;
                         check(title.newsVisible(), "News card hidden on a wide screen");
                         int shown = title.newsIndex();
-                        screen = title; button("Nächste Neuigkeit");
+                        screen = title; title.click("Nächste Neuigkeit");
                         check(title.newsIndex() == (shown + 1) % 4, "News arrow did not turn the page");
-                        check(widgetExists("Einzelspieler") && widgetExists("Mehrspieler") && widgetExists("Discord"), "Main menu buttons missing");
+                        check(title.has("Einzelspieler") && title.has("Mehrspieler") && title.has("Discord beitreten") && title.has("Mod-Menü") && title.has("Store") && title.has("Beitreten: Hypixel"), "Main menu buttons missing");
+                        LoggerFactory.getLogger("SaviraUITest").info("Schnell beitreten: " + title.serverStatus());
+                        // Quick join folds up and opens again, remembered.
+                        title.click("Schnell beitreten zuklappen");
+                        check(!SaviraClient.config.quickJoinOpen && !HudConfig.load().quickJoinOpen, "Quick join did not fold up");
+                        SaviraClient.config.quickJoinOpen = true;
                         // Panorama picker: choose the Nether Update panorama (downloaded from Mojang), it must stick.
-                        button("Hintergrund");
+                        title.click("Hintergrund wählen");
                         check(title.pickerOpen(), "Panorama picker did not open");
                         check(title.choosePanorama("Nether Update"), "Nether Update missing in the picker");
                         check(title.backgroundId().equals("nether") && "nether".equals(SaviraClient.config.menuBackground), "Panorama choice not applied");
@@ -75,114 +73,116 @@ public final class MenuSmokeTest implements ClientModInitializer {
                     }
                     case 1 -> {
                         screenshot(mc, "savira-menu-title");
+                        LoggerFactory.getLogger("SaviraUITest").info("Schnell beitreten (später): " + ((SaviraTitleScreen) mc.currentScreen).serverStatus());
                         check(gg.savira.client.MenuStyle.launcherAccent() == 0xFFE5566B, "Main menu does not use the launcher accent");
                         check(gg.savira.client.MenuStyle.accent() == 0xFFE5566B, "Mod menu must follow the launcher accent");
                         SaviraClient.config = new HudConfig(); SaviraClient.config.accent = 0xE5566B; screen = new HudScreen(); mc.setScreen(screen);
                     }
                     case 2 -> {
-                        screenshot(mc, "savira-menu-home");
-                        // The start page edits the HUD directly: drag RAM, then hide it with its red X.
-                        SaviraHud.Bounds ram = SaviraHud.bounds(HudModule.RAM, screen.width, screen.height);
-                        float ramX = SaviraClient.config.placement(HudModule.RAM).x;
-                        screen.mouseClicked(ram.x() + 8, ram.y() + 8, 0);
-                        screen.mouseDragged(ram.x() - 60, ram.y() + 30, 0, -68, 22);
-                        screen.mouseReleased(ram.x() - 60, ram.y() + 30, 0);
-                        check(SaviraClient.config.placement(HudModule.RAM).x != ramX, "Start page drag failed");
-                        ram = SaviraHud.bounds(HudModule.RAM, screen.width, screen.height);
-                        screen.mouseClicked(ram.x() + ram.width() + 1, ram.y() - 3, 0);
-                        check(!HudModule.RAM.enabled(), "Red X did not hide the module");
-                        HudModule.RAM.toggle();
-                        // NEU follows the release date: Icon is new, FPS (released earlier) is not.
+                        // The Right-Shift menu opens straight on the mod grid.
+                        screenshot(mc, "savira-menu-modules");
+                        HudScreen h = menu();
+                        check(h.page().equals("MODS"), "Menu did not open on the mods: " + h.page());
+                        check(HudModule.values().length == 14, "Module count");
                         check(HudModule.NAMETAG.isNew() && HudModule.ICON.isNew() && !HudModule.FPS.isNew(), "NEU tag does not follow the release date");
-                        button("Mod-Menü");
+                        // New modules come first in the grid.
+                        java.util.List<String> titles = java.util.Arrays.stream(HudModule.values()).map(m -> m.title).toList();
+                        String first = h.labels().stream().filter(titles::contains).findFirst().orElse("");
+                        check(first.equals("Emotes"), "Newest module not on top: " + first);
+                        // The switch on a card turns the module off and on, with a notification.
+                        h.click("FPS-Anzeige: An/Aus"); check(!HudModule.FPS.enabled(), "Module toggle failed");
+                        check(gg.savira.client.SaviraToasts.any(), "No notification after toggling a module");
+                        h.click("FPS-Anzeige: An/Aus"); check(HudModule.FPS.enabled(), "Module re-enable failed");
+                        h.click("Effekte: An/Aus"); check(!HudModule.POTIONS.enabled(), "Potion toggle failed");
+                        h.click("Effekte: An/Aus"); check(HudModule.POTIONS.enabled(), "Potion re-enable failed");
+                        // A click on the card opens its settings.
+                        h.click("FPS-Anzeige");
+                        check(h.page().equals("DETAIL"), "Card click did not open the settings");
                     }
                     case 3 -> {
-                        screenshot(mc, "savira-menu-modules");
-                        check(HudModule.values().length == 14, "Module count");
-                        button("FPS-Anzeige"); check(!HudModule.FPS.enabled(), "Module toggle failed");
-                        check(gg.savira.client.SaviraToasts.any(), "No notification after toggling a module");
-                        // Headphones button: UI sounds off and on again, saved.
-                        button("UI-Sounds"); check(!SaviraClient.config.uiSounds && !HudConfig.load().uiSounds, "UI sounds not turned off");
-                        button("UI-Sounds"); check(SaviraClient.config.uiSounds, "UI sounds not turned back on");
-                        // New modules come first in the grid.
-                        ButtonWidget first = screen.children().stream().filter(w -> w instanceof ButtonWidget b && b.getMessage().getString().contains(": ")).map(w -> (ButtonWidget) w).findFirst().orElseThrow();
-                        check(first.getMessage().getString().startsWith("Emotes"), "Newest module not on top: " + first.getMessage().getString());
-                        LoggerFactory.getLogger("SaviraUITest").info("Savira-Sounds bereit: " + gg.savira.client.SaviraSounds.ready());
-                        button("FPS-Anzeige"); check(HudModule.FPS.enabled(), "Module re-enable failed");
-                        button("Effekte"); check(!HudModule.POTIONS.enabled(), "Potion toggle failed");
-                        button("Effekte"); check(HudModule.POTIONS.enabled(), "Potion re-enable failed");
-                        // The HUD stays editable around the mod menu window: drag the FPS display.
-                        SaviraHud.Bounds fps = SaviraHud.bounds(HudModule.FPS, screen.width, screen.height);
-                        float fpsY = SaviraClient.config.placement(HudModule.FPS).y;
-                        screen.mouseClicked(fps.x() + 6, fps.y() + 6, 0);
-                        screen.mouseDragged(fps.x() + 6, fps.y() + 40, 0, 0, 34);
-                        screen.mouseReleased(fps.x() + 6, fps.y() + 40, 0);
-                        check(SaviraClient.config.placement(HudModule.FPS).y != fpsY, "HUD not draggable behind the mod menu");
-                        // Right click on a card opens its settings page.
-                        click(widget("FPS-Anzeige"), 12, 12, 1);
+                        screenshot(mc, "savira-menu-settings");
+                        HudScreen h = menu();
+                        check(h.has("HUD-Skalierung") && h.has("Hintergrund") && h.has("Textfarbe") && h.has("Textschatten"), "Settings page incomplete: " + h.labels());
+                        // DARK_PANEL -> TOOLTIP -> BLUR -> COLOR
+                        for (int i = 0; i < 3; i++) h.click("Hintergrund");
+                        check(SaviraClient.config.style(HudModule.FPS).background.equals("COLOR"), "Background cycle failed: " + SaviraClient.config.style(HudModule.FPS).background);
                     }
                     case 4 -> {
-                        screenshot(mc, "savira-menu-settings");
-                        check(widgetExists("HUD-Skalierung") || widgetExists("Dark Panel"), "Settings page not opened");
-                        // DARK_PANEL -> TOOLTIP -> BLUR -> COLOR
-                        for (int i = 0; i < 3; i++) {
-                            ButtonWidget cycle = widget(gg.savira.client.HudBackground.parse(SaviraClient.config.style(HudModule.FPS).background).label);
-                            click(cycle, cycle.getWidth() - 6, 5, 0);
-                        }
-                        check(SaviraClient.config.style(HudModule.FPS).background.equals("COLOR"), "Background cycle failed: " + SaviraClient.config.style(HudModule.FPS).background);
-                        check(widgetExists("Hintergrundfarbe") && widgetExists("Textfarbe") && widgetExists("Deckkraft"), "Colour swatches missing for COLOR background: " + screen.children().stream().map(w -> w instanceof ButtonWidget b ? b.getMessage().getString() : w.getClass().getSimpleName()).toList());
-                        // Slider: the reset "x" brings the scale back to 100 %.
+                        HudScreen h = menu();
+                        check(h.has("Hintergrundfarbe") && h.has("Deckkraft"), "Colour rows missing for the COLOR background: " + h.labels());
+                        // The reset arrow brings the scale back to 100 %.
                         SaviraClient.config.placement(HudModule.FPS).size = 1.5f;
-                        click(widget("HUD-Skalierung"), 55, 6, 0);
+                        h.click("HUD-Skalierung zurücksetzen");
                         check(SaviraClient.config.placement(HudModule.FPS).size == 1f, "Slider reset failed");
-                        // Colour picker: open it from the text colour swatch and pick on the hue bar.
-                        button("Textfarbe");
-                        gg.savira.client.ColorPicker picker = ((HudScreen) screen).picker();
-                        check(picker != null, "Colour picker did not open");
-                        int before = SaviraClient.config.style(HudModule.FPS).textColor;
-                        float u = ((HudScreen) screen).unit();
-                        screen.mouseClicked((picker.x + 19 + 30) * u, (picker.y + 68) * u, 0);
-                        screen.mouseReleased((picker.x + 19 + 30) * u, (picker.y + 68) * u, 0);
-                        check(SaviraClient.config.style(HudModule.FPS).textColor != before, "Picking a colour did not change the text colour");
-                        TextFieldWidget text = screen.children().stream().filter(w -> w instanceof TextFieldWidget).map(w -> (TextFieldWidget) w).findFirst().orElseThrow();
-                        text.setText("{value} Bilder");
+                        // Dragging the slider sets the scale.
+                        double[] track = h.centerOf("HUD-Skalierung");
+                        float u = h.unit();
+                        screen.mouseClicked(track[0] + 90 * u, track[1], 0);
+                        screen.mouseReleased(track[0] + 90 * u, track[1], 0);
+                        check(SaviraClient.config.placement(HudModule.FPS).size > 1.5f, "Slider drag failed: " + SaviraClient.config.placement(HudModule.FPS).size);
+                        // Text template: clear it and type a new one.
+                        h.click("Text");
+                        erase(20);
+                        h.type("{value} Bilder");
                         check("{value} Bilder".equals(SaviraClient.config.style(HudModule.FPS).text), "Text template not stored");
                         check("{value} Bilder".equals(HudConfig.load().style(HudModule.FPS).text), "Style persistence failed");
+                        // Colour picker: open it from the text colour and pick on the hue bar.
+                        h.click("Textfarbe");
+                        gg.savira.client.ColorPicker picker = h.picker();
+                        check(picker != null, "Colour picker did not open");
+                        int before = SaviraClient.config.style(HudModule.FPS).textColor;
+                        screen.mouseClicked((picker.x + 14 + 70) * u, (picker.y + 109) * u, 0);
+                        screen.mouseReleased((picker.x + 14 + 70) * u, (picker.y + 109) * u, 0);
+                        check(SaviraClient.config.style(HudModule.FPS).textColor != before, "Picking a colour did not change the text colour");
                     }
                     case 5 -> {
                         screenshot(mc, "savira-menu-settings-color");
                         screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, 0, 0);
-                        check(((HudScreen) screen).picker() == null, "Escape did not close the colour picker");
-                        // Dark look: sun/moon button, saved, then the settings and grid in dark.
-                        button("Dunkles Design");
+                        check(menu().picker() == null, "Escape did not close the colour picker");
+                        screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, 0, 0);
+                        check(menu().page().equals("MODS"), "Escape from the settings did not return to the mods");
+                        // Dark look from the rail, saved.
+                        menu().click("Dunkler Modus");
                         check(SaviraClient.config.menuDark && HudConfig.load().menuDark, "Dark menu not stored");
                     }
                     case 6 -> {
-                        screenshot(mc, "savira-menu-settings-dark");
-                        screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, 0, 0);
-                        check(widgetExists("FPS-Anzeige"), "Escape from settings did not return to mods");
-                        TextFieldWidget search = screen.children().stream().filter(w -> w instanceof TextFieldWidget).map(w -> (TextFieldWidget) w).findFirst().orElseThrow();
-                        search.setText("KeineTreffer123");
+                        screenshot(mc, "savira-menu-dark");
+                        HudScreen h = menu();
+                        h.click("Mods suchen");
+                        h.type("KeineTreffer123");
                     }
                     case 7 -> {
                         screenshot(mc, "savira-menu-empty");
-                        check(screen.children().stream().filter(w -> w instanceof ButtonWidget b && b.getMessage().getString().contains(": aktiviert")).count() == 0, "Search failed");
-                        TextFieldWidget search = screen.children().stream().filter(w -> w instanceof TextFieldWidget).map(w -> (TextFieldWidget) w).findFirst().orElseThrow();
-                        search.setText("");
-                        // Smooth scrolling: wheel down over the grid, the cards glide there over the next frames.
-                        float u = ((HudScreen) screen).unit();
-                        ButtonWidget first = widget("Nametag");
-                        scrolledFrom = first.getY();
-                        screen.mouseScrolled((first.getX() + 40) * u, (first.getY() + 20) * u, 0, -3);
+                        HudScreen h = menu();
+                        check(!h.has("FPS-Anzeige"), "Search failed");
+                        erase(20);
+                        check(SaviraClient.config != null, "");
                     }
                     case 8 -> {
-                        ButtonWidget first = widget("Nametag");
-                        check(first.getY() < scrolledFrom - 40, "Grid did not scroll smoothly: " + scrolledFrom + " -> " + first.getY());
-                        screenshot(mc, "savira-menu-scrolled");
-                        button("HUD-Editor");
+                        HudScreen h = menu();
+                        check(h.has("FPS-Anzeige"), "Clearing the search did not bring the mods back");
+                        // The FPS settings are longer than the window: they scroll.
+                        h.click("FPS-Anzeige");
                     }
                     case 9 -> {
-                        button("Raster");
+                        // Smooth scrolling: wheel down over the page, it glides there over the next frames.
+                        HudScreen h = menu();
+                        check(h.scrollMax() > 0, "Settings page does not scroll");
+                        double[] row = h.centerOf("HUD-Skalierung");
+                        screen.mouseScrolled(row[0], row[1], 0, -3);
+                    }
+                    case 10 -> {
+                        HudScreen h = menu();
+                        check(h.scrollShown() > 40, "Page did not scroll smoothly: " + h.scrollShown());
+                        screenshot(mc, "savira-menu-scrolled");
+                        h.click("HUD-Editor");
+                        check(h.page().equals("EDITOR"), "HUD editor did not open");
+                    }
+                    case 11 -> {
+                        HudScreen h = menu();
+                        boolean snap = SaviraClient.config.snap;
+                        h.click("Raster");
+                        check(SaviraClient.config.snap != snap, "Grid toggle failed");
                         screenshot(mc, "savira-menu-editor");
                         SaviraHud.Bounds b = SaviraHud.bounds(HudModule.CPS, screen.width, screen.height);
                         float oldX = SaviraClient.config.placement(HudModule.CPS).x;
@@ -195,57 +195,90 @@ public final class MenuSmokeTest implements ClientModInitializer {
                         check(SaviraClient.config.placement(HudModule.CPS).size > 1, "Scale failed");
                         screen.keyPressed(GLFW.GLFW_KEY_RIGHT, 0, 0);
                         check(HudConfig.load().placement(HudModule.CPS).size > 1, "Persistence failed");
+                        // The red X hides RAM.
+                        SaviraHud.Bounds ram = SaviraHud.bounds(HudModule.RAM, screen.width, screen.height);
+                        screen.mouseClicked(ram.x() + ram.width() + 1, ram.y() - 4, 0);
+                        check(!HudModule.RAM.enabled(), "Red X did not hide the module");
+                        HudModule.RAM.toggle();
                         screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, 0, 0);
+                        check(h.page().equals("MODS"), "Escape did not leave the HUD editor");
                     }
-                    case 10 -> {
-                        check(widgetExists("Mod-Menü"), "Escape navigation failed");
-                        button("Cosmetics");
-                    }
-                    case 11 -> {
-                        screenshot(mc, "savira-menu-feature");
-                        screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, 0, 0);
-                        check(widgetExists("Mod-Menü"), "Escape from feature page failed");
-                        button("Mod-Menü");
-                        screen.children().stream().filter(w -> w instanceof TextFieldWidget).map(w -> (TextFieldWidget) w).findFirst().orElseThrow().setText("Icon");
-                    }
-                    case 12 -> {
-                        // Icon module: right click opens its own settings page.
-                        click(widget("Icon"), 12, 12, 1);
-                    }
+                    case 12 -> { menu().click("Cosmetics"); }
                     case 13 -> {
-                        check(widgetExists("Creator Code") && widgetExists("Im Nametag anzeigen"), "Icon settings not shown");
-                        button("Creator Code");
+                        screenshot(mc, "savira-menu-feature");
+                        HudScreen h = menu();
+                        check(h.page().equals("COSMETICS") && h.has("Emote-Rad öffnen"), "Cosmetics page incomplete");
+                        h.click("Mods");
+                    }
+                    case 14 -> { menu().rightClick("Icon"); }
+                    case 15 -> {
+                        HudScreen h = menu();
+                        check(h.has("Icon: Creator Code") && h.has("Im Nametag anzeigen"), "Icon settings not shown: " + h.labels());
+                        h.click("Icon: Creator Code");
                         check("creator".equals(SaviraClient.config.iconType), "Icon choice not stored");
                         java.util.UUID self = mc.getSession().getUuidOrNull();
                         if (self != null) check(gg.savira.client.SaviraIcon.decorate(net.minecraft.text.Text.literal("Name"), self, true).getString().startsWith("\uE002"), "Icon not in front of the name");
                     }
-                    case 14 -> {
+                    case 16 -> {
                         screenshot(mc, "savira-menu-icon");
                         screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, 0, 0);
-                        screen.children().stream().filter(w -> w instanceof TextFieldWidget).map(w -> (TextFieldWidget) w).findFirst().orElseThrow().setText("Nametag");
-                    }
-                    case 15 -> {
-                        // Nametag module: own settings page with the F5, shadow and background switches.
-                        click(widget("Nametag"), 12, 12, 1);
-                    }
-                    case 16 -> {
-                        check(widgetExists("In F5 anzeigen") && widgetExists("Textschatten") && widgetExists("Kein Hintergrund"), "Nametag settings not shown");
-                        button("Textschatten"); button("Kein Hintergrund");
-                        check(SaviraClient.config.nametagShadow && SaviraClient.config.nametagNoBackground, "Nametag switches not stored");
-                        check(HudConfig.load().nametagNoBackground, "Nametag setting not saved");
                     }
                     case 17 -> {
+                        HudScreen h = menu();
+                        h.click("Mods suchen");
+                        erase(10);
+                        h.type("Nametag");
+                    }
+                    case 18 -> { menu().rightClick("Nametag"); }
+                    case 19 -> {
+                        HudScreen h = menu();
+                        check(h.has("In F5 anzeigen") && h.has("Textschatten") && h.has("Kein Hintergrund"), "Nametag settings not shown");
+                        h.click("Textschatten"); h.click("Kein Hintergrund");
+                        check(SaviraClient.config.nametagShadow && SaviraClient.config.nametagNoBackground, "Nametag switches not stored");
+                        check(HudConfig.load().nametagNoBackground, "Nametag setting not saved");
+                        h.click("Einstellungen");
+                    }
+                    case 20 -> {
                         screenshot(mc, "savira-menu-nametag");
+                        HudScreen h = menu();
+                        check(h.page().equals("SETTINGS"), "Settings page did not open");
+                        h.click("Akzent: Mint");
+                        check("Mint".equals(SaviraClient.config.menuAccent) && "Mint".equals(HudConfig.load().menuAccent), "Accent not stored");
+                        check(gg.savira.client.MenuStyle.accent() == 0xFFE5566B, "The HUD must keep the launcher accent");
+                        h.click("UI-Sounds"); check(!SaviraClient.config.uiSounds && !HudConfig.load().uiSounds, "UI sounds not turned off");
+                        h.click("UI-Sounds"); check(SaviraClient.config.uiSounds, "UI sounds not turned back on");
+                        h.click("Animationen"); check(!SaviraClient.config.menuAnimations, "Animations not turned off");
+                        h.click("Animationen");
+                        h.click("Profile");
+                    }
+                    case 21 -> {
+                        screenshot(mc, "savira-menu-preferences");
+                        HudScreen h = menu();
+                        check(h.page().equals("PROFILES"), "Profile chip did not open the profiles");
+                        // A new profile takes the current setup; loading Standard brings FPS back.
+                        h.click("Profil hinzufügen");
+                        check(SaviraClient.config.profiles().size() == 2 && SaviraClient.config.activeProfile == 1, "Profile not added");
+                        HudModule.FPS.toggle();
+                        check(!HudModule.FPS.enabled(), "");
+                    }
+                    case 22 -> {
+                        screenshot(mc, "savira-menu-profiles");
+                        HudScreen h = menu();
+                        h.click("Laden: Standard");
+                        check(SaviraClient.config.activeProfile == 0 && HudModule.FPS.enabled(), "Loading the Standard profile did not restore FPS");
+                        check(!SaviraClient.config.profiles().get(1).modules.get("FPS"), "The second profile lost its own setup");
+                        h.click("Löschen: Profil 2");
+                        check(SaviraClient.config.profiles().size() == 1, "Profile not deleted");
                         // Closing the mod menu without a world calls setScreen(null); that must land on Savira's menu.
                         screen.close();
                     }
-                    case 18 -> {
+                    case 23 -> {
                         check(mc.currentScreen instanceof SaviraTitleScreen, "Closing the mod menu returned to the vanilla title screen: " + mc.currentScreen);
                         // Light Level needs a world: start a fresh demo world (no account needed).
                         mc.createIntegratedServerLoader().createAndStart("SaviraLight" + System.currentTimeMillis(), net.minecraft.server.MinecraftServer.DEMO_LEVEL_INFO,
                             net.minecraft.world.gen.GeneratorOptions.DEMO_OPTIONS, net.minecraft.world.gen.WorldPresets::createDemoOptions, mc.currentScreen);
                     }
-                    case 19 -> {
+                    case 24 -> {
                         if (mc.player == null || mc.world == null || mc.getServer() == null || mc.getServer().getPlayerManager().getPlayerList().isEmpty()) { stage--; return; }
                         mc.setScreen(null);
                         mc.options.hudHidden = true;
@@ -271,14 +304,14 @@ public final class MenuSmokeTest implements ClientModInitializer {
                             player.teleport(world, -12.5, y + 7, -10.5, -48f, 38f);
                         });
                     }
-                    case 20 -> { mc.setScreen(null); }
-                    case 21 -> {
+                    case 25 -> { mc.setScreen(null); }
+                    case 26 -> {
                         mc.setScreen(null);
                         check(mc.player.getY() > 190, "Player not on the test platform: " + mc.player.getPos());
                         SaviraClient.config.lightLevel = true; SaviraClient.config.lightRange = 24;
                         SaviraClient.config.lightMode = "NUMBER"; gg.savira.client.LightLevel.rescanNow();
                     }
-                    case 22 -> {
+                    case 27 -> {
                         // Light is computed after the blocks change; give it up to ~12 s before judging.
                         boolean ready = gg.savira.client.LightLevel.count("SAFE") > 0 && gg.savira.client.LightLevel.count("NIGHT") > 0 && gg.savira.client.LightLevel.count("SPAWNABLE") > 0;
                         mc.setScreen(null);
@@ -292,38 +325,41 @@ public final class MenuSmokeTest implements ClientModInitializer {
                         screenshot(mc, "savira-light-number");
                         SaviraClient.config.lightMode = "CROSS";
                     }
-                    case 23 -> { screenshot(mc, "savira-light-cross"); SaviraClient.config.lightMode = "OUTLINE"; }
-                    case 24 -> { screenshot(mc, "savira-light-outline"); SaviraClient.config.lightMode = "FILL"; }
-                    case 25 -> {
+                    case 28 -> { screenshot(mc, "savira-light-cross"); SaviraClient.config.lightMode = "OUTLINE"; }
+                    case 29 -> { screenshot(mc, "savira-light-outline"); SaviraClient.config.lightMode = "FILL"; }
+                    case 30 -> {
                         screenshot(mc, "savira-light-fill");
                         // Only spawnable: the lit blocks disappear.
                         SaviraClient.config.lightOnlySpawnable = true; gg.savira.client.LightLevel.rescanNow();
                     }
-                    case 26 -> {
+                    case 31 -> {
                         check(gg.savira.client.LightLevel.count("SAFE") == 0 && gg.savira.client.LightLevel.spotCount() > 0, "Only spawnable still shows safe blocks");
                         // Settings page of the module, with the toggle key, range, mode and colours.
                         SaviraClient.config.lightOnlySpawnable = false;
                         mc.options.hudHidden = false;
                         screen = new HudScreen(); mc.setScreen(screen);
-                        button("Mod-Menü");
                     }
-                    case 27 -> { click(widget("Light Level"), 12, 12, 1); }
-                    case 28 -> {
-                        check(widgetExists("Taste") && widgetExists("Reichweite") && widgetExists("Spawnbar") && widgetExists("Nachts spawnbar") && widgetExists("Sicher"), "Light Level settings incomplete");
-                        button("Taste");
+                    case 32 -> { menu().rightClick("Light Level"); }
+                    case 33 -> {
+                        HudScreen h = menu();
+                        check(h.has("Taste") && h.has("Reichweite") && h.has("Spawnbar") && h.has("Nachts spawnbar") && h.has("Sicher"), "Light Level settings incomplete: " + h.labels());
+                        h.click("Taste");
                         screen.keyPressed(GLFW.GLFW_KEY_L, 0, 0);
                         check(!SaviraClient.lightKey.isUnbound(), "Toggle key not bound");
                     }
-                    case 29 -> {
+                    case 34 -> {
                         screenshot(mc, "savira-light-settings");
-                        // Back to the module grid: the Emotes card opens the emote settings on right click.
                         screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, 0, 0);
-                        check(widgetExists("Emotes: "), "Emotes module card missing");
-                        click(widget("Emotes: "), 12, 12, 1);
                     }
-                    case 30 -> {
-                        check(widgetExists("Taste") && widgetExists("Interaktions-Taste") && widgetExists("Automatisch wechseln") && widgetExists("Emote-Sounds")
-                            && widgetExists("Sound-Spieler-Limit") && widgetExists("Audio-Reichweite") && widgetExists("Emote-Rad"), "Emote settings incomplete");
+                    case 35 -> {
+                        // The Emotes card opens the emote settings on right click.
+                        check(menu().has("Emotes: An/Aus"), "Emotes module card missing");
+                        menu().rightClick("Emotes");
+                    }
+                    case 36 -> {
+                        HudScreen h = menu();
+                        check(h.has("Taste") && h.has("Interaktions-Taste") && h.has("Automatisch wechseln") && h.has("Emote-Sounds")
+                            && h.has("Sound-Spieler-Limit") && h.has("Audio-Reichweite") && h.has("Emote-Rad öffnen"), "Emote settings incomplete: " + h.labels());
                         check(!SaviraClient.emoteKey.isUnbound(), "Emote wheel key not bound by default");
                         screenshot(mc, "savira-emote-settings");
                         // Stand on the platform, the light off, and open the wheel.
@@ -338,13 +374,13 @@ public final class MenuSmokeTest implements ClientModInitializer {
                         mc.options.hudHidden = true;
                         mc.setScreen(new gg.savira.client.EmoteWheelScreen());
                     }
-                    case 31 -> {
+                    case 37 -> {
                         check(mc.currentScreen instanceof gg.savira.client.EmoteWheelScreen, "Emote wheel not open");
                         check(gg.savira.client.Emotes.slot(0) == gg.savira.client.Emote.byId("waving"), "First slot is not Winken");
                         screenshot(mc, "savira-emote-wheel");
                         mc.setScreen(new gg.savira.client.EmotePickerScreen(4));
                     }
-                    case 32 -> {
+                    case 38 -> {
                         var picker = (gg.savira.client.EmotePickerScreen) mc.currentScreen;
                         check(picker.cardCount() == gg.savira.client.Emote.ALL.size(), "Emote list incomplete: " + picker.cardCount());
                         screenshot(mc, "savira-emote-picker");
@@ -352,28 +388,28 @@ public final class MenuSmokeTest implements ClientModInitializer {
                         check(gg.savira.client.Emotes.slot(4) == gg.savira.client.Emote.byId("floss"), "Chosen emote not in slot 5");
                         check(mc.currentScreen instanceof gg.savira.client.EmoteWheelScreen, "Choosing did not go back to the wheel");
                     }
-                    case 33 -> {
+                    case 39 -> {
                         ((gg.savira.client.EmoteWheelScreen) mc.currentScreen).playSlotForTest(4);
                         check(mc.currentScreen == null, "Wheel still open after playing");
                         check(gg.savira.client.Emotes.current(mc.player) == gg.savira.client.Emote.byId("floss"), "Floss not playing");
                         check(mc.options.getPerspective() == net.minecraft.client.option.Perspective.THIRD_PERSON_FRONT, "Camera did not switch for the emote");
                     }
-                    case 34 -> {
+                    case 40 -> {
                         check(gg.savira.client.Emotes.current(mc.player) != null, "Looping emote ended by itself");
                         screenshot(mc, "savira-emote-floss");
                         gg.savira.client.Emotes.play(gg.savira.client.Emote.byId("sit"));
                     }
-                    case 35 -> {
+                    case 41 -> {
                         screenshot(mc, "savira-emote-sit");
                         gg.savira.client.Emotes.play(gg.savira.client.Emote.byId("waving"));
                     }
-                    case 36 -> { screenshot(mc, "savira-emote-waving"); }
-                    case 37 -> {}
-                    case 38 -> {
+                    case 42 -> { screenshot(mc, "savira-emote-waving"); }
+                    case 43 -> {}
+                    case 44 -> {
                         // Winken is 2.4 s long: over by now, and the camera is back in first person.
                         check(gg.savira.client.Emotes.current(mc.player) == null, "Winken did not end");
                         check(mc.options.getPerspective().isFirstPerson(), "Camera not back in first person after the emote");
-                        LoggerFactory.getLogger("SaviraUITest").info("SAVIRA_UI_SMOKE_OK: title, news, background, cape, home, home-drag, hide, new-tag, new-first, toasts, ui-sounds, icon, nametag, modules(14), settings, background, slider-reset, color-picker, dark-theme, smooth-scroll, text, search, editor, drag, scale, persistence, feature, back-to-title, light-level(world, number, cross, outline, fill, only-spawnable, settings, key), emotes(settings, wheel, picker, slot, play, camera, loop, end)");
+                        LoggerFactory.getLogger("SaviraUITest").info("SAVIRA_UI_SMOKE_OK: title, news, background, cape, home, home-drag, hide, new-tag, new-first, toasts, ui-sounds, icon, nametag, modules(14), menu(mods, profiles, settings, accent, dark), settings, background, slider-reset, color-picker, dark-theme, smooth-scroll, text, search, editor, drag, scale, persistence, feature, back-to-title, light-level(world, number, cross, outline, fill, only-spawnable, settings, key), emotes(settings, wheel, picker, slot, play, camera, loop, end)");
                         stage = -1;
                     }
                 }

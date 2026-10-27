@@ -1,90 +1,118 @@
 package gg.savira.client;
 
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.text.Text;
 import java.util.function.IntConsumer;
 
 /**
- * NoRisk's colour picker: preview square, saturation/brightness field, hue bar and a hex box.
- * Opens next to a swatch; changes apply live. Coordinates are menu units.
+ * Colour picker of the Right-Shift menu, in the design's look: preview, saturation/brightness
+ * field, hue bar and a hex box you can type into. Opens next to a colour swatch; changes apply
+ * live. Coordinates are the menu's design pixels.
  */
 public final class ColorPicker {
-    public static final int W = 139, H = 104;
-    private static final int PAD = 19, SV_X = 57, TOP = 27, SV_W = 60, SV_H = 34, HUE_Y = 65, HUE_W = 101, HUE_H = 7, HEX_Y = 77;
+    public static final int W = 236, H = 176;
+    private static final int PAD = 14, TOP = 40, PREVIEW = 52, SV_X = PAD + PREVIEW + 12, SV_W = W - SV_X - PAD, SV_H = 52, HUE_Y = 104, HUE_H = 10, HEX_Y = 126, HEX_H = 30;
     public final int x, y;
-    public final TextFieldWidget hex;
     private final IntConsumer onChange;
     private float hue, sat, val;
     private int drag; // 0 nothing, 1 field, 2 hue bar
-    private boolean typing;
+    /** Hex text while typing; null when it just shows the colour. */
+    private String typed;
 
     public ColorPicker(int x, int y, int rgb, IntConsumer onChange) {
         this.x = x; this.y = y; this.onChange = onChange;
         float[] hsv = hsv(rgb);
         hue = hsv[0]; sat = hsv[1]; val = hsv[2];
-        hex = new TextFieldWidget(MinecraftClient.getInstance().textRenderer, x + PAD + 5, y + HEX_Y + 5, 88, 9, Text.literal("Hex-Farbe"));
-        hex.setDrawsBackground(false); hex.setMaxLength(7);
-        hex.setTextPredicate(text -> text.matches("#?[0-9a-fA-F]{0,6}"));
-        hex.setText(hexOf(rgb));
-        hex.setChangedListener(text -> {
-            if (typing) return;
-            String digits = text.startsWith("#") ? text.substring(1) : text;
-            if (digits.length() != 6) return;
-            int value = Integer.parseInt(digits, 16);
-            float[] next = hsv(value);
-            hue = next[0]; sat = next[1]; val = next[2];
-            onChange.accept(value);
-        });
     }
 
     public int rgb() { return rgb(hue, sat, val); }
     public boolean contains(double mx, double my) { return mx >= x && mx < x + W && my >= y && my < y + H; }
+    public boolean typing() { return typed != null; }
 
     public boolean mouseClicked(double mx, double my) {
-        if (inside(mx, my, SV_X, TOP, SV_W, SV_H)) { drag = 1; pick(mx, my); return true; }
-        if (inside(mx, my, PAD, HUE_Y - 1, HUE_W, HUE_H + 2)) { drag = 2; pick(mx, my); return true; }
-        return false;
+        if (inside(mx, my, SV_X, TOP, SV_W, SV_H)) { drag = 1; typed = null; pick(mx, my); return true; }
+        if (inside(mx, my, PAD, HUE_Y - 2, W - 2 * PAD, HUE_H + 4)) { drag = 2; typed = null; pick(mx, my); return true; }
+        if (inside(mx, my, PAD, HEX_Y, W - 2 * PAD, HEX_H)) { typed = hexOf(rgb()).substring(1); return true; }
+        typed = null;
+        return contains(mx, my);
     }
     public void mouseDragged(double mx, double my) { if (drag != 0) pick(mx, my); }
     public void mouseReleased() { drag = 0; }
+
+    /** Typing into the hex box: hex digits, backspace; six digits apply. */
+    public boolean charTyped(char ch) {
+        if (typed == null || Character.digit(ch, 16) < 0 || typed.length() >= 6) return typed != null;
+        typed += Character.toUpperCase(ch);
+        if (typed.length() == 6) {
+            float[] next = hsv(Integer.parseInt(typed, 16));
+            hue = next[0]; sat = next[1]; val = next[2];
+            onChange.accept(rgb());
+        }
+        return true;
+    }
+    public boolean backspace() {
+        if (typed == null) return false;
+        if (!typed.isEmpty()) typed = typed.substring(0, typed.length() - 1);
+        return true;
+    }
+    public void stopTyping() { typed = null; }
 
     private boolean inside(double mx, double my, int rx, int ry, int rw, int rh) { return mx >= x + rx && mx < x + rx + rw && my >= y + ry && my < y + ry + rh; }
     private void pick(double mx, double my) {
         if (drag == 1) {
             sat = (float) Math.clamp((mx - x - SV_X) / (SV_W - 1), 0, 1);
             val = 1 - (float) Math.clamp((my - y - TOP) / (SV_H - 1), 0, 1);
-        } else hue = (float) Math.clamp(1 - (mx - x - PAD) / (HUE_W - 1), 0, .999); // red, magenta, blue … like NoRisk
-        typing = true; hex.setText(hexOf(rgb())); typing = false;
+        } else hue = (float) Math.clamp((mx - x - PAD) / (W - 2 * PAD - 1), 0, .999);
         onChange.accept(rgb());
     }
 
-    public void render(DrawContext c, int mx, int my, float delta) {
-        MenuTheme t = MenuTheme.current();
+    public void render(DrawContext c, double mx, double my, float u) {
+        DesignTheme t = DesignTheme.current();
+        float px = Paint.pixels(u);
         c.getMatrices().push();
         c.getMatrices().translate(0, 0, 200);
-        c.fill(x, y, x + W, y + H, t.dark() ? 0xF2161618 : 0xE6403E39);
-        c.drawBorder(x, y, W, H, 0xC8FFFFFF);
-        MenuText.caps(c, "FARBWAHL", x + PAD, y + 11, MenuText.TITLE, 0xFFFFFFFF);
-        // Preview
-        c.fill(x + PAD, y + TOP, x + PAD + 34, y + TOP + 34, 0xFF000000 | rgb());
-        c.drawBorder(x + PAD, y + TOP, 34, 34, 0xFFF4F4F4);
-        // Saturation left to right, brightness top to bottom, in columns.
-        for (int i = 0; i < SV_W; i++) {
-            int top = 0xFF000000 | rgb(hue, i / (float) (SV_W - 1), 1);
-            c.fillGradient(x + SV_X + i, y + TOP, x + SV_X + i + 1, y + TOP + SV_H, top, 0xFF000000);
+        Paint.round(c, x, y, W, H, 0, t.dark() ? DesignTheme.alpha(t.bg(), .97f) : DesignTheme.alpha(t.bg(), .98f), px);
+        HudScreen.frame(c, x, y, W, H, t.line(), px);
+        MenuType.middle(c, MenuType.Face.SILK, "FARBE", x + PAD, y + 20, 11, t.mu(), .08f, u);
+        // Preview with the design's pressed-in bottom edge.
+        Paint.round(c, x + PAD, y + TOP, PREVIEW, PREVIEW, 0, 0xFF000000 | rgb(), px);
+        Paint.round(c, x + PAD, y + TOP + PREVIEW - 3, PREVIEW, 3, 0, 0x40000000, px);
+        HudScreen.frame(c, x + PAD, y + TOP, PREVIEW, PREVIEW, t.line(), px);
+        // Saturation left to right, brightness top to bottom, drawn in screen-pixel columns.
+        int cols = Math.max(1, Math.round(SV_W * px));
+        for (int i = 0; i < cols; i++) {
+            float x0 = x + SV_X + i / px;
+            int top = 0xFF000000 | rgb(hue, i / (float) Math.max(1, cols - 1), 1);
+            c.getMatrices().push();
+            c.getMatrices().translate(x0, y + TOP, 0);
+            c.getMatrices().scale(1 / px, 1 / px, 1);
+            c.fillGradient(0, 0, 1, Math.round(SV_H * px), top, 0xFF000000);
+            c.getMatrices().pop();
         }
-        int sx = x + SV_X + Math.round(sat * (SV_W - 1)), sy = y + TOP + Math.round((1 - val) * (SV_H - 1));
-        c.drawBorder(sx - 2, sy - 2, 5, 5, 0xFFFFFFFF);
-        c.fill(sx - 1, sy - 1, sx + 2, sy + 2, 0xFF000000 | rgb());
-        for (int i = 0; i < HUE_W; i++) c.fill(x + PAD + i, y + HUE_Y, x + PAD + i + 1, y + HUE_Y + HUE_H, 0xFF000000 | rgb(1 - i / (float) HUE_W, 1, 1));
-        int hx = x + PAD + Math.round((1 - hue) * (HUE_W - 1));
-        c.fill(hx - 3, y + HUE_Y - 1, hx + 4, y + HUE_Y + HUE_H + 1, 0xFFFFFFFF);
-        c.fill(hx - 2, y + HUE_Y, hx + 3, y + HUE_Y + HUE_H, 0xFF000000 | rgb(hue, 1, 1));
-        c.fill(x + PAD, y + HEX_Y, x + PAD + 98, y + HEX_Y + 17, 0x40000000);
-        c.drawBorder(x + PAD, y + HEX_Y, 98, 17, hex.isFocused() ? 0xFFFFFFFF : 0x8CFFFFFF);
-        hex.render(c, mx, my, delta);
+        HudScreen.frame(c, x + SV_X, y + TOP, SV_W, SV_H, t.line(), px);
+        float sx = x + SV_X + sat * (SV_W - 1), sy = y + TOP + (1 - val) * (SV_H - 1);
+        Paint.round(c, sx - 4, sy - 4, 8, 8, 0, 0xFFFFFFFF, px);
+        Paint.round(c, sx - 3, sy - 3, 6, 6, 0, 0xFF000000 | rgb(), px);
+        // Hue, red to red.
+        int hueCols = Math.max(1, Math.round((W - 2 * PAD) * px));
+        c.getMatrices().push();
+        c.getMatrices().translate(x + PAD, y + HUE_Y, 0);
+        c.getMatrices().scale(1 / px, 1 / px, 1);
+        for (int i = 0; i < hueCols; i++) c.fill(i, 0, i + 1, Math.round(HUE_H * px), 0xFF000000 | rgb(i / (float) hueCols, 1, 1));
+        c.getMatrices().pop();
+        float hx = x + PAD + hue * (W - 2 * PAD - 1);
+        Paint.round(c, hx - 4, y + HUE_Y - 3, 8, HUE_H + 6, 0, t.tx(), px);
+        Paint.round(c, hx - 4, y + HUE_Y + HUE_H, 8, 3, 0, 0x40000000, px);
+        // Hex box: click to type.
+        boolean over = inside(mx, my, PAD, HEX_Y, W - 2 * PAD, HEX_H);
+        Paint.round(c, x + PAD, y + HEX_Y, W - 2 * PAD, HEX_H, 0, t.fill(), px);
+        HudScreen.frame(c, x + PAD, y + HEX_Y, W - 2 * PAD, HEX_H, typed != null ? t.ac() : over ? t.mu() : t.line(), px);
+        String hex = typed != null ? "#" + typed : hexOf(rgb());
+        MenuType.middle(c, MenuType.Face.PIXEL, hex, x + PAD + 10, y + HEX_Y + HEX_H / 2f, 16, t.tx(), u);
+        if (typed != null && net.minecraft.util.Util.getMeasuringTimeMs() / 530 % 2 == 0) {
+            float cx = x + PAD + 10 + MenuType.width(MenuType.Face.PIXEL, hex, 16, u) + 1;
+            Paint.round(c, cx, y + HEX_Y + 8, 1, HEX_H - 16, 0, t.tx(), px);
+        }
+        MenuType.middle(c, MenuType.Face.SILK, typed != null ? "ENTER" : "HEX", x + W - PAD - 10 - MenuType.width(MenuType.Face.SILK, typed != null ? "ENTER" : "HEX", 9, .06f, u), y + HEX_Y + HEX_H / 2f, 9, t.mu(), .06f, u);
         c.getMatrices().pop();
     }
 

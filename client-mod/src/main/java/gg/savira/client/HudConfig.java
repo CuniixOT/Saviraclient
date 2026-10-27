@@ -48,6 +48,64 @@ public final class HudConfig {
     public boolean uiSounds = true;
     /** Right-Shift menu in the dark look instead of the light frosted one (sun/moon button). */
     public boolean menuDark = false;
+    /** Right-Shift menu: accent by name (see DesignTheme), "" for the launcher's; animations; blurred game behind it. */
+    public String menuAccent = "";
+    public boolean menuAnimations = true, menuBlur = true;
+    /** Main menu: the quick join list unfolded. */
+    public boolean quickJoinOpen = true;
+    /** Saved mod setups: which modules are on, their look and their place on the HUD. */
+    public java.util.List<Profile> profiles;
+    public int activeProfile;
+
+    public static final class Profile {
+        public String name;
+        public Map<String, Boolean> modules = new HashMap<>();
+        public Map<String, Style> styles = new HashMap<>();
+        public Map<String, Placement> layout = new HashMap<>();
+        public Profile(String name) { this.name = name; }
+    }
+
+    /** The profiles, with "Standard" holding the current setup when there are none yet. */
+    public java.util.List<Profile> profiles() {
+        if (profiles == null) profiles = new java.util.ArrayList<>();
+        profiles.removeIf(p -> p == null || p.name == null || p.name.isBlank());
+        if (profiles.isEmpty()) { profiles.add(capture("Standard")); activeProfile = 0; }
+        activeProfile = Math.clamp(activeProfile, 0, profiles.size() - 1);
+        return profiles;
+    }
+    /** The current setup as a profile. Styles and places are copied through JSON, so they stay apart. */
+    public Profile capture(String name) {
+        Profile p = new Profile(name);
+        for (HudModule m : HudModule.values()) p.modules.put(m.name(), m.enabled());
+        p.styles = copy(styles, new com.google.gson.reflect.TypeToken<Map<String, Style>>() {});
+        p.layout = copy(layout, new com.google.gson.reflect.TypeToken<Map<String, Placement>>() {});
+        return p;
+    }
+    /** Switches the modules, looks and places to those of the profile. */
+    public void apply(Profile p) {
+        for (HudModule m : HudModule.values()) {
+            Boolean on = p.modules == null ? null : p.modules.get(m.name());
+            if (on != null && on != m.enabled()) m.toggle();
+        }
+        styles = copy(p.styles, new com.google.gson.reflect.TypeToken<Map<String, Style>>() {});
+        layout = copy(p.layout, new com.google.gson.reflect.TypeToken<Map<String, Placement>>() {});
+    }
+    private static <T> T copy(T value, com.google.gson.reflect.TypeToken<T> type) {
+        T result = GSON.fromJson(GSON.toJson(value), type.getType());
+        return result != null ? result : GSON.fromJson("{}", type.getType());
+    }
+    /** A profile as text for the clipboard, and back; null when the text is no profile. */
+    public static String export(Profile p) { return GSON.toJson(p); }
+    public static Profile parseProfile(String text) {
+        try {
+            Profile p = GSON.fromJson(text, Profile.class);
+            if (p == null || p.name == null || p.name.isBlank() || p.modules == null) return null;
+            p.name = p.name.strip().substring(0, Math.min(24, p.name.strip().length()));
+            if (p.styles == null) p.styles = new HashMap<>();
+            if (p.layout == null) p.layout = new HashMap<>();
+            return p;
+        } catch (RuntimeException e) { return null; }
+    }
     /** Light Level module: marks where monsters can spawn around the player. */
     public boolean lightLevel = false, lightOnlySpawnable = false;
     public int lightRange = 16;

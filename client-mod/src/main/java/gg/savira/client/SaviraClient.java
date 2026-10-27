@@ -18,12 +18,14 @@ public final class SaviraClient implements ClientModInitializer {
     public static KeyBinding lightKey;
     /** Opens the emote wheel (B, like NoRisk); joins another player's interactive emote (G). */
     public static KeyBinding emoteKey, emoteJoinKey;
+    /** Opens and closes the Right-Shift menu; zooms while held. */
+    public static KeyBinding menuKey, zoomKey;
 
     @Override
     public void onInitializeClient() {
         config = HudConfig.load();
-        KeyBinding menu = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.savira.menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_SHIFT, "category.savira"));
-        KeyBinding zoom = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.savira.zoom", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_C, "category.savira"));
+        KeyBinding menu = menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.savira.menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_SHIFT, "category.savira"));
+        KeyBinding zoom = zoomKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.savira.zoom", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_C, "category.savira"));
         lightKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.savira.lightlevel", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, "category.savira"));
         emoteKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.savira.emotes", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_B, "category.savira"));
         emoteJoinKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.savira.emotejoin", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_G, "category.savira"));

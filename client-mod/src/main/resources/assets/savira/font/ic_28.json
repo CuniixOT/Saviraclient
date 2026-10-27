@@ -1,0 +1,14 @@
+{
+  "providers": [
+    {
+      "type": "ttf",
+      "file": "savira:phosphor.ttf",
+      "size": 28,
+      "oversample": 1,
+      "shift": [
+        0,
+        0
+      ]
+    }
+  ]
+}

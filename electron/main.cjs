@@ -300,6 +300,27 @@ function lightLevelFrom(inGame) {
     lightColorSpawnable: color(inGame.lightColorSpawnable, 0xFF2828), lightColorNight: color(inGame.lightColorNight, 0xE8B400), lightColorSafe: color(inGame.lightColorSafe, 0x2BE02B),
   };
 }
+// Right-Shift menu look, mod profiles and emotes are set up in game as well; keep them too.
+const MENU_ACCENTS = ['Mint', 'Smaragd', 'Türkis', 'Cyan', 'Blau', 'Indigo', 'Violett', 'Pink', 'Rose', 'Rot', 'Orange', 'Gold', 'Savira'];
+function menuAndEmotesFrom(inGame) {
+  const number = (value, min, max, fallback) => typeof value === 'number' && Number.isFinite(value) ? Math.round(Math.min(max, Math.max(min, value))) : fallback;
+  const plain = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const profiles = Array.isArray(inGame.profiles) ? inGame.profiles
+    .filter(p => p && typeof p.name === 'string' && p.name.trim() && plain(p.modules) === p.modules)
+    .slice(0, 20)
+    .map(p => ({ name: p.name.trim().slice(0, 24), modules: Object.fromEntries(Object.entries(p.modules).filter(([, on]) => typeof on === 'boolean')), styles: plain(p.styles), layout: plain(p.layout) })) : [];
+  const slots = Array.isArray(inGame.emoteSlots) ? inGame.emoteSlots.slice(0, 40).map(id => typeof id === 'string' && /^[a-z]{0,24}$/.test(id) ? id : '') : undefined;
+  return {
+    menuAccent: MENU_ACCENTS.includes(inGame.menuAccent) ? inGame.menuAccent : '',
+    menuAnimations: inGame.menuAnimations !== false, menuBlur: inGame.menuBlur !== false, quickJoinOpen: inGame.quickJoinOpen !== false,
+    ...(profiles.length ? { profiles, activeProfile: number(inGame.activeProfile, 0, profiles.length - 1, 0) } : {}),
+    emotes: inGame.emotes !== false, emoteAutoSwitch: inGame.emoteAutoSwitch !== false, emoteImmersive: inGame.emoteImmersive !== false,
+    emoteSounds: inGame.emoteSounds !== false, emoteFirstPerson: inGame.emoteFirstPerson !== false,
+    emoteSoundLimit: number(inGame.emoteSoundLimit, 1, 20, 6), emoteAudioRange: number(inGame.emoteAudioRange, 4, 64, 16),
+    emoteVisibility: ['ALL', 'FRIENDS', 'NONE'].includes(inGame.emoteVisibility) ? inGame.emoteVisibility : 'ALL',
+    ...(slots ? { emoteSlots: slots } : {}),
+  };
+}
 const SAVIRA_JAR = 'savira-client-0.1.0.jar';
 // A Fabric profile without Savira features must not keep the mod from an earlier start.
 async function removeSavira(gameRoot) { await fs.rm(path.join(gameRoot, 'mods', SAVIRA_JAR), { force: true }); }
@@ -341,7 +362,7 @@ async function prepareSavira(gameRoot, minecraftVersion) {
   let inGame = {};
   try { inGame = JSON.parse(await fs.readFile(hudPath, 'utf8')) || {}; } catch { /* First launch or invalid config. */ }
   // Layout and snapping belong to the in-game editor, while launcher toggles stay authoritative.
-  await atomicWrite(hudPath, JSON.stringify({ ...settings.hud, accent: accentRgb(settings.accent), discordUrl: discordUrl(), launcherVersion: app.getVersion(), customTitleScreen: inGame.customTitleScreen !== false, customCape, panoramaDir: panoramas ? panoramas.dir : '', menuBackground: typeof inGame.menuBackground === 'string' && /^[a-z]{1,16}$/.test(inGame.menuBackground) ? inGame.menuBackground : 'current', layout: inGame.layout || {}, styles: inGame.styles || {}, icon: inGame.icon !== false, iconType: ['default', 'beta', 'creator'].includes(inGame.iconType) ? inGame.iconType : 'default', iconNametag: inGame.iconNametag !== false, iconTablist: inGame.iconTablist !== false, iconSpace: inGame.iconSpace !== false, uiSounds: inGame.uiSounds !== false, menuDark: inGame.menuDark === true, ...lightLevelFrom(inGame), nametag: inGame.nametag !== false, nametagF5: inGame.nametagF5 !== false, nametagShadow: inGame.nametagShadow === true, nametagNoBackground: inGame.nametagNoBackground === true, snap: inGame.snap !== false }, null, 2));
+  await atomicWrite(hudPath, JSON.stringify({ ...settings.hud, accent: accentRgb(settings.accent), discordUrl: discordUrl(), launcherVersion: app.getVersion(), customTitleScreen: inGame.customTitleScreen !== false, customCape, panoramaDir: panoramas ? panoramas.dir : '', menuBackground: typeof inGame.menuBackground === 'string' && /^[a-z]{1,16}$/.test(inGame.menuBackground) ? inGame.menuBackground : 'current', layout: inGame.layout || {}, styles: inGame.styles || {}, icon: inGame.icon !== false, iconType: ['default', 'beta', 'creator'].includes(inGame.iconType) ? inGame.iconType : 'default', iconNametag: inGame.iconNametag !== false, iconTablist: inGame.iconTablist !== false, iconSpace: inGame.iconSpace !== false, uiSounds: inGame.uiSounds !== false, menuDark: inGame.menuDark === true, ...lightLevelFrom(inGame), ...menuAndEmotesFrom(inGame), nametag: inGame.nametag !== false, nametagF5: inGame.nametagF5 !== false, nametagShadow: inGame.nametagShadow === true, nametagNoBackground: inGame.nametagNoBackground === true, snap: inGame.snap !== false }, null, 2));
 }
 // The title-screen panorama ships with the game assets the player already downloaded.
 // Nothing from Mojang is bundled; without an installed instance the renderer uses its own art.
