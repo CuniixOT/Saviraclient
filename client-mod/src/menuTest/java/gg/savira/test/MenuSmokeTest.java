@@ -98,7 +98,7 @@ public final class MenuSmokeTest implements ClientModInitializer {
                     }
                     case 3 -> {
                         screenshot(mc, "savira-menu-modules");
-                        check(HudModule.values().length == 13, "Module count");
+                        check(HudModule.values().length == 14, "Module count");
                         button("FPS-Anzeige"); check(!HudModule.FPS.enabled(), "Module toggle failed");
                         check(gg.savira.client.SaviraToasts.any(), "No notification after toggling a module");
                         // Headphones button: UI sounds off and on again, saved.
@@ -106,7 +106,7 @@ public final class MenuSmokeTest implements ClientModInitializer {
                         button("UI-Sounds"); check(SaviraClient.config.uiSounds, "UI sounds not turned back on");
                         // New modules come first in the grid.
                         ButtonWidget first = screen.children().stream().filter(w -> w instanceof ButtonWidget b && b.getMessage().getString().contains(": ")).map(w -> (ButtonWidget) w).findFirst().orElseThrow();
-                        check(first.getMessage().getString().startsWith("Light Level"), "Newest module not on top: " + first.getMessage().getString());
+                        check(first.getMessage().getString().startsWith("Emotes"), "Newest module not on top: " + first.getMessage().getString());
                         LoggerFactory.getLogger("SaviraUITest").info("Savira-Sounds bereit: " + gg.savira.client.SaviraSounds.ready());
                         button("FPS-Anzeige"); check(HudModule.FPS.enabled(), "Module re-enable failed");
                         button("Effekte"); check(!HudModule.POTIONS.enabled(), "Potion toggle failed");
@@ -316,7 +316,64 @@ public final class MenuSmokeTest implements ClientModInitializer {
                     }
                     case 29 -> {
                         screenshot(mc, "savira-light-settings");
-                        LoggerFactory.getLogger("SaviraUITest").info("SAVIRA_UI_SMOKE_OK: title, news, background, cape, home, home-drag, hide, new-tag, new-first, toasts, ui-sounds, icon, nametag, modules(13), settings, background, slider-reset, color-picker, dark-theme, smooth-scroll, text, search, editor, drag, scale, persistence, feature, back-to-title, light-level(world, number, cross, outline, fill, only-spawnable, settings, key)");
+                        // Back to the module grid: the Emotes card opens the emote settings on right click.
+                        screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, 0, 0);
+                        check(widgetExists("Emotes: "), "Emotes module card missing");
+                        click(widget("Emotes: "), 12, 12, 1);
+                    }
+                    case 30 -> {
+                        check(widgetExists("Taste") && widgetExists("Interaktions-Taste") && widgetExists("Automatisch wechseln") && widgetExists("Emote-Sounds")
+                            && widgetExists("Sound-Spieler-Limit") && widgetExists("Audio-Reichweite") && widgetExists("Emote-Rad"), "Emote settings incomplete");
+                        check(!SaviraClient.emoteKey.isUnbound(), "Emote wheel key not bound by default");
+                        screenshot(mc, "savira-emote-settings");
+                        // Stand on the platform, the light off, and open the wheel.
+                        SaviraClient.config.lightLevel = false;
+                        var server = mc.getServer();
+                        server.execute(() -> {
+                            var player = server.getPlayerManager().getPlayerList().get(0);
+                            player.getAbilities().flying = false; player.sendAbilitiesUpdate();
+                            player.teleport(server.getOverworld(), -6.5, 200, -8.5, 0f, 10f);
+                        });
+                        mc.options.setPerspective(net.minecraft.client.option.Perspective.FIRST_PERSON);
+                        mc.options.hudHidden = true;
+                        mc.setScreen(new gg.savira.client.EmoteWheelScreen());
+                    }
+                    case 31 -> {
+                        check(mc.currentScreen instanceof gg.savira.client.EmoteWheelScreen, "Emote wheel not open");
+                        check(gg.savira.client.Emotes.slot(0) == gg.savira.client.Emote.byId("waving"), "First slot is not Winken");
+                        screenshot(mc, "savira-emote-wheel");
+                        mc.setScreen(new gg.savira.client.EmotePickerScreen(4));
+                    }
+                    case 32 -> {
+                        var picker = (gg.savira.client.EmotePickerScreen) mc.currentScreen;
+                        check(picker.cardCount() == gg.savira.client.Emote.ALL.size(), "Emote list incomplete: " + picker.cardCount());
+                        screenshot(mc, "savira-emote-picker");
+                        picker.chooseForTest("floss");
+                        check(gg.savira.client.Emotes.slot(4) == gg.savira.client.Emote.byId("floss"), "Chosen emote not in slot 5");
+                        check(mc.currentScreen instanceof gg.savira.client.EmoteWheelScreen, "Choosing did not go back to the wheel");
+                    }
+                    case 33 -> {
+                        ((gg.savira.client.EmoteWheelScreen) mc.currentScreen).playSlotForTest(4);
+                        check(mc.currentScreen == null, "Wheel still open after playing");
+                        check(gg.savira.client.Emotes.current(mc.player) == gg.savira.client.Emote.byId("floss"), "Floss not playing");
+                        check(mc.options.getPerspective() == net.minecraft.client.option.Perspective.THIRD_PERSON_FRONT, "Camera did not switch for the emote");
+                    }
+                    case 34 -> {
+                        check(gg.savira.client.Emotes.current(mc.player) != null, "Looping emote ended by itself");
+                        screenshot(mc, "savira-emote-floss");
+                        gg.savira.client.Emotes.play(gg.savira.client.Emote.byId("sit"));
+                    }
+                    case 35 -> {
+                        screenshot(mc, "savira-emote-sit");
+                        gg.savira.client.Emotes.play(gg.savira.client.Emote.byId("waving"));
+                    }
+                    case 36 -> { screenshot(mc, "savira-emote-waving"); }
+                    case 37 -> {}
+                    case 38 -> {
+                        // Winken is 2.4 s long: over by now, and the camera is back in first person.
+                        check(gg.savira.client.Emotes.current(mc.player) == null, "Winken did not end");
+                        check(mc.options.getPerspective().isFirstPerson(), "Camera not back in first person after the emote");
+                        LoggerFactory.getLogger("SaviraUITest").info("SAVIRA_UI_SMOKE_OK: title, news, background, cape, home, home-drag, hide, new-tag, new-first, toasts, ui-sounds, icon, nametag, modules(14), settings, background, slider-reset, color-picker, dark-theme, smooth-scroll, text, search, editor, drag, scale, persistence, feature, back-to-title, light-level(world, number, cross, outline, fill, only-spawnable, settings, key), emotes(settings, wheel, picker, slot, play, camera, loop, end)");
                         stage = -1;
                     }
                 }

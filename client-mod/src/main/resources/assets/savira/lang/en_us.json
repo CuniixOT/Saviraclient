@@ -2,5 +2,7 @@
   "category.savira": "Savira Client",
   "key.savira.menu": "Open HUD settings",
   "key.savira.zoom": "Zoom (hold)",
-  "key.savira.lightlevel": "Toggle Light Level"
+  "key.savira.lightlevel": "Toggle Light Level",
+  "key.savira.emotes": "Open emote wheel",
+  "key.savira.emotejoin": "Join interactive emote"
 }

@@ -55,6 +55,13 @@ public final class HudConfig {
     public float lightTextSize = 1f, lightAlpha = .4f;
     public int lightColorSpawnable = 0xFF2828, lightColorNight = 0xE8B400, lightColorSafe = 0x2BE02B;
     public boolean nametag = true, nametagF5 = true, nametagShadow = false, nametagNoBackground = false;
+    /** Emotes: camera to third person while emoting, items hidden, sounds, whose emotes show. */
+    public boolean emotes = true;
+    public boolean emoteAutoSwitch = true, emoteImmersive = true, emoteSounds = true, emoteFirstPerson = true;
+    public int emoteSoundLimit = 6, emoteAudioRange = 16;
+    public String emoteVisibility = "ALL";
+    /** Emote wheel: 8 slots on each of 5 pages, emote ids; "" is an empty slot. Null until first use. */
+    public java.util.List<String> emoteSlots;
     /** Discord invite written by the launcher; only discord.gg / discord.com links are used. */
     public String discordUrl = "";
     /** Launcher version for the main menu footer; the jar keeps its own fixed version. */

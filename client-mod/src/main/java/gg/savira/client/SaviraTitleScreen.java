@@ -99,41 +99,11 @@ public final class SaviraTitleScreen extends Screen {
     }
     private static float ease(float t) { t = Math.clamp(t, 0f, 1f); return 1 - (1 - t) * (1 - t) * (1 - t); }
 
-    // ---------- Text in reference units ----------
-    // Minecraft draws font glyphs without filtering, so a scaled font loses pixels. Inter therefore
-    // comes in one font per pixel size (font/ui_<size>.json); each text picks the size that matches
-    // the screen and is drawn one glyph pixel per screen pixel, on the pixel grid: sharp at every scale.
-    private static final int[] UI_SIZES = {6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 26, 28, 30, 32, 34, 36, 38, 40};
-    private static final Identifier[] UI = new Identifier[41];
-    private int fontSize(float scale) {
-        int want = Math.round(9 * .87f * scale * px), best = UI_SIZES[0];
-        for (int size : UI_SIZES) if (Math.abs(size - want) < Math.abs(best - want)) best = size;
-        return best;
-    }
-    private static Text ui(String s, int size) {
-        if (UI[size] == null) UI[size] = Identifier.of("savira", "ui_" + size);
-        return Text.literal(s).setStyle(Style.EMPTY.withFont(UI[size]));
-    }
-    private void text(DrawContext c, String s, float x, float y, float scale, int color, boolean shadow) { text(c, s, x, y, scale, color, shadow, false); }
-    private void text(DrawContext c, String s, float x, float y, float scale, int color, boolean shadow, boolean bold) {
-        int size = fontSize(scale);
-        Text t = ui(s, size);
-        // The baseline where the old 9 pixel font had it, moved onto the nearest screen pixel.
-        float baseline = y + 7.5f * .87f * scale;
-        Vector3f at = c.getMatrices().peek().getPositionMatrix().transformPosition(x, baseline, 0, new Vector3f());
-        double gui = client.getWindow().getScaleFactor();
-        float dx = (float) ((Math.round(at.x * gui) / gui - at.x) / u), dy = (float) ((Math.round(at.y * gui) / gui - at.y) / u);
-        c.getMatrices().push();
-        c.getMatrices().translate(x + dx, baseline + dy, 0);
-        c.getMatrices().scale(1 / px, 1 / px, 1);
-        // Glyphs sit with their baseline 7 font pixels below the drawing position.
-        if (shadow) c.drawText(textRenderer, t, 0, -7 + Math.max(1, Math.round(size / 9f)), (color >>> 24) / 3 << 24, false);
-        c.drawText(textRenderer, t, 0, -7, color, false);
-        if (bold) c.drawText(textRenderer, t, 1, -7, color, false);
-        c.getMatrices().pop();
-    }
-    private float width(String s, float scale) { return textRenderer.getWidth(ui(s, fontSize(scale))) / px; }
-    private String trim(String s, float maxWidth, float scale) { return textRenderer.trimToWidth(ui(s, fontSize(scale)), (int) (maxWidth * px)).getString(); }
+    // ---------- Text in reference units: sharp Inter (see UiText) ----------
+    private void text(DrawContext c, String s, float x, float y, float scale, int color, boolean shadow) { UiText.draw(c, s, x, y, scale, color, shadow, false, u); }
+    private void text(DrawContext c, String s, float x, float y, float scale, int color, boolean shadow, boolean bold) { UiText.draw(c, s, x, y, scale, color, shadow, bold, u); }
+    private float width(String s, float scale) { return UiText.width(s, scale, u); }
+    private String trim(String s, float maxWidth, float scale) { return UiText.trim(s, maxWidth, scale, u); }
     private void box(DrawContext c, float x, float y, float w, float h, float r, int color) { Paint.round(c, x, y, w, h, r, color, px); }
     private void centered(DrawContext c, String s, float cx, float cy, float scale, int color) { text(c, s, cx - width(s, scale) / 2f, cy - 3.5f * scale, scale, color, false); }
     private static void icon(DrawContext c, String[] glyph, float x, float y, float px, int color) {

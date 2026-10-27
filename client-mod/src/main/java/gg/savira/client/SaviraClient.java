@@ -16,6 +16,8 @@ public final class SaviraClient implements ClientModInitializer {
     private static Integer savedFov;
     /** Turns the Light Level module on and off; unbound until set in its settings. */
     public static KeyBinding lightKey;
+    /** Opens the emote wheel (B, like NoRisk); joins another player's interactive emote (G). */
+    public static KeyBinding emoteKey, emoteJoinKey;
 
     @Override
     public void onInitializeClient() {
@@ -23,8 +25,19 @@ public final class SaviraClient implements ClientModInitializer {
         KeyBinding menu = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.savira.menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_SHIFT, "category.savira"));
         KeyBinding zoom = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.savira.zoom", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_C, "category.savira"));
         lightKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.savira.lightlevel", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, "category.savira"));
+        emoteKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.savira.emotes", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_B, "category.savira"));
+        emoteJoinKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.savira.emotejoin", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_G, "category.savira"));
         WorldRenderEvents.AFTER_TRANSLUCENT.register(LightLevel::render);
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            while (emoteKey.wasPressed()) {
+                if (client.currentScreen != null || client.player == null) continue;
+                if (!config.emotes) { SaviraToasts.show("Emotes", "Im Mod-Menü deaktiviert"); continue; }
+                SaviraSounds.play(SaviraSounds.Sound.OPEN); client.setScreen(new EmoteWheelScreen());
+            }
+            while (emoteJoinKey.wasPressed()) {
+                if (client.currentScreen == null && client.player != null) Emotes.join();
+            }
+            Emotes.tick(client);
             while (lightKey.wasPressed()) {
                 if (client.currentScreen != null) continue;
                 HudModule.LIGHT_LEVEL.toggle(); config.save();

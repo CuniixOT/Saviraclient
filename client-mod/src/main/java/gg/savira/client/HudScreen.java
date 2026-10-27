@@ -28,7 +28,7 @@ import java.util.function.IntSupplier;
  * it keeps normal screen coordinates.
  */
 public final class HudScreen extends Screen {
-    private enum Page { HOME, MODS, SETTINGS, FEATURE, EDITOR }
+    private enum Page { HOME, MODS, SETTINGS, FEATURE, EDITOR, EMOTES }
     private record Row(String label, int y, boolean section) {}
     private record Feature(String name, String label, String[] icon, String blurb) {}
 
@@ -75,7 +75,7 @@ public final class HudScreen extends Screen {
     public float unit() { return u; }
     /** The open colour picker, for tests; null when closed. */
     public ColorPicker picker() { return picker; }
-    private static boolean isWindow(Page p) { return p == Page.MODS || p == Page.SETTINGS || p == Page.FEATURE; }
+    private static boolean isWindow(Page p) { return p == Page.MODS || p == Page.SETTINGS || p == Page.FEATURE || p == Page.EMOTES; }
     private static float ease(float t) { t = Math.clamp(t, 0f, 1f); return 1 - (1 - t) * (1 - t) * (1 - t); }
     private MenuTheme t() { return MenuTheme.current(); }
 
@@ -88,7 +88,7 @@ public final class HudScreen extends Screen {
 
     private void show(Page next) {
         if (isWindow(next) && !isWindow(page)) { windowAt = Util.getMeasuringTimeMs(); SaviraSounds.play(SaviraSounds.Sound.WINDOW); }
-        listeningKey = false;
+        listeningKey = null;
         persist(); page = next; scroll = 0; scrollPos = 0; draggingBar = false; dragging = null; selected = null; picker = null;
         rebuild();
     }
@@ -106,6 +106,7 @@ public final class HudScreen extends Screen {
             case MODS -> { buildFrame(); buildMods(); }
             case SETTINGS -> { buildFrame(); buildSettings(); }
             case FEATURE -> buildFrame();
+            case EMOTES -> { buildFrame(); buildEmoteSettings(); }
             case EDITOR -> buildEditor();
         }
     }
@@ -167,7 +168,7 @@ public final class HudScreen extends Screen {
         };
     }
 
-    private void openFeature(String name) { feature = name; show(Page.FEATURE); }
+    private void openFeature(String name) { feature = name; show(name.equals("Emotes") ? Page.EMOTES : Page.FEATURE); }
 
     // ---------- Frame: sidebar, header and footer of the window ----------
     private void buildFrame() {
@@ -176,7 +177,7 @@ public final class HudScreen extends Screen {
             addDrawableChild(new MenuWidgets.Control(wx, wy + 6 + i * 39, SIDE, 38, f.name(), b -> openFeature(f.name())) {
                 @Override
                 protected void renderWidget(DrawContext c, int mx, int my, float delta) {
-                    boolean current = page == Page.FEATURE && feature.equals(f.name());
+                    boolean current = (page == Page.FEATURE || page == Page.EMOTES) && feature.equals(f.name());
                     if (current) c.fill(getX() + 3, getY(), getX() + getWidth() - 3, getY() + getHeight(), t().cardOn());
                     else if (hover()) c.fill(getX() + 3, getY(), getX() + getWidth() - 3, getY() + getHeight(), t().cardHover());
                     int color = current || hover() ? 0xFFFFFFFF : t().title();
@@ -185,8 +186,8 @@ public final class HudScreen extends Screen {
                 }
             });
         }
-        if (page != Page.SETTINGS) addDrawableChild(themeButton(mainX + mainW - (page == Page.MODS ? 132 : 26), wy + 17));
-        if (page == Page.SETTINGS) return;
+        if (page != Page.SETTINGS && page != Page.EMOTES) addDrawableChild(themeButton(mainX + mainW - (page == Page.MODS ? 132 : 26), wy + 17));
+        if (page == Page.SETTINGS || page == Page.EMOTES) return;
         if (page == Page.FEATURE) { addDrawableChild(MenuWidgets.back(mainX + 11, wy + 13, feature, b -> show(Page.MODS))); return; }
         ButtonWidget mods = addDrawableChild(MenuWidgets.tab(mainX + 11, wy + 13, "Mods", true, b -> show(Page.MODS)));
         addDrawableChild(MenuWidgets.tab(mods.getX() + mods.getWidth() + 6, wy + 13, "HUD-Editor", false, b -> show(Page.EDITOR)));
@@ -354,7 +355,10 @@ public final class HudScreen extends Screen {
     }
 
     // ---------- Module settings ----------
-    private void openSettings(HudModule module) { editing = module; show(Page.SETTINGS); }
+    private void openSettings(HudModule module) {
+        if (module == HudModule.EMOTES) { feature = "Emotes"; show(Page.EMOTES); return; }
+        editing = module; show(Page.SETTINGS);
+    }
 
     private int right() { return mainX + 428; }
     private int rowY;
@@ -485,15 +489,18 @@ public final class HudScreen extends Screen {
         }
     }
 
-    /** Waiting for a key for the Light Level toggle. */
-    private boolean listeningKey;
+    /** The key binding waiting for a key press (Light Level, emote wheel, emote join). */
+    private net.minecraft.client.option.KeyBinding listeningKey;
+    private MenuWidgets.Control keyRow(int x, String label, net.minecraft.client.option.KeyBinding key) {
+        return MenuWidgets.keyButton(x, rowY, 140, label, () -> key.isUnbound() ? "Nicht belegt" : key.getBoundKeyLocalizedText().getString(), () -> listeningKey == key, () -> listeningKey = listeningKey == key ? null : key);
+    }
 
     /** Light Level module: toggle key, range, look, colours, like NoRisk's settings page. */
     private void buildLightSettings() {
         HudConfig cfg = SaviraClient.config;
         int r = right();
         section("Allgemein");
-        addDrawableChild(MenuWidgets.keyButton(r - 140, rowY, 140, "Taste", () -> SaviraClient.lightKey.isUnbound() ? "Nicht belegt" : SaviraClient.lightKey.getBoundKeyLocalizedText().getString(), () -> listeningKey, () -> listeningKey = !listeningKey));
+        addDrawableChild(keyRow(r - 140, "Taste", SaviraClient.lightKey));
         row("Taste", MenuWidgets.CYCLE_H);
         addDrawableChild(MenuWidgets.slider(r - MenuWidgets.SLIDER_W, rowY, "Reichweite", 1, 32, 1, 16, () -> cfg.lightRange, v -> Integer.toString((int) v), v -> { cfg.lightRange = (int) v; persist(); LightLevel.rescanNow(); }));
         row("Reichweite", MenuWidgets.SLIDER_H);
@@ -519,6 +526,63 @@ public final class HudScreen extends Screen {
         row("Nachts spawnbar", MenuWidgets.SWATCH);
         addDrawableChild(MenuWidgets.swatch(r - MenuWidgets.SWATCH, rowY, "Sicher", () -> cfg.lightColorSafe, w -> openPicker(w, cfg.lightColorSafe, color -> { cfg.lightColorSafe = color; persist(); })));
         row("Sicher", MenuWidgets.SWATCH);
+    }
+
+    private static String emoteAbout() {
+        var key = SaviraClient.emoteKey;
+        return "Emote-Rad mit " + (key.isUnbound() ? "deiner Taste" : key.getBoundKeyLocalizedText().getString()) + ": Linksklick spielt ein Emote, Rechtsklick ändert den Slot.";
+    }
+
+    /** Emotes: keys, camera, visibility and sounds, like NoRisk's emote settings. */
+    private void buildEmoteSettings() {
+        HudConfig cfg = SaviraClient.config;
+        int r = right();
+        addDrawableChild(MenuWidgets.back(mainX + 11, wy + 13, "Emotes", b -> show(Page.MODS)));
+        addDrawableChild(MenuWidgets.labelButton(mainX + 223, wy + 15, 86, 18, "Emote-Rad öffnen", () -> "EMOTE-RAD", () -> MenuStyle.accentAlpha(0xC0), b -> client.setScreen(new EmoteWheelScreen())));
+        addDrawableChild(MenuWidgets.labelButton(mainX + 316, wy + 15, 38, 18, "Modul an/aus", () -> cfg.emotes ? "AN" : "AUS", () -> cfg.emotes ? t().stateOn() : t().stateOff(), b -> {
+            HudModule.EMOTES.toggle(); persist();
+            SaviraSounds.play(cfg.emotes ? SaviraSounds.Sound.ON : SaviraSounds.Sound.OFF);
+            SaviraToasts.show("Emotes", cfg.emotes ? "Aktiviert" : "Deaktiviert");
+        }));
+        addDrawableChild(MenuWidgets.labelButton(mainX + 361, wy + 15, 57, 18, "Zurücksetzen", () -> "RESET", () -> t().reset(), b -> {
+            HudConfig fresh = new HudConfig();
+            cfg.emoteAutoSwitch = fresh.emoteAutoSwitch; cfg.emoteImmersive = fresh.emoteImmersive; cfg.emoteSounds = fresh.emoteSounds;
+            cfg.emoteFirstPerson = fresh.emoteFirstPerson; cfg.emoteSoundLimit = fresh.emoteSoundLimit; cfg.emoteAudioRange = fresh.emoteAudioRange;
+            cfg.emoteVisibility = fresh.emoteVisibility;
+            SaviraClient.emoteKey.setBoundKey(SaviraClient.emoteKey.getDefaultKey());
+            SaviraClient.emoteJoinKey.setBoundKey(SaviraClient.emoteJoinKey.getDefaultKey());
+            net.minecraft.client.option.KeyBinding.updateKeysByCode(); client.options.write();
+            persist(); rebuild();
+            SaviraToasts.show("Emotes", "Einstellungen zurückgesetzt");
+        }));
+        addDrawableChild(themeButton(mainX + 423, wy + 17));
+        rowY = wy + 98;
+        section("Allgemein");
+        addDrawableChild(keyRow(r - 140, "Taste", SaviraClient.emoteKey));
+        row("Taste", MenuWidgets.CYCLE_H);
+        addDrawableChild(keyRow(r - 140, "Interaktions-Taste", SaviraClient.emoteJoinKey));
+        row("Interaktions-Taste", MenuWidgets.CYCLE_H);
+        addDrawableChild(MenuWidgets.checkbox(r - MenuWidgets.CHECK, rowY, "Automatisch wechseln", () -> cfg.emoteAutoSwitch, () -> { cfg.emoteAutoSwitch = !cfg.emoteAutoSwitch; persist(); }));
+        row("Automatisch wechseln", MenuWidgets.CHECK);
+        String[][] seen = {{"ALL", "Alle"}, {"FRIENDS", "Freunde"}, {"NONE", "Niemand"}};
+        addDrawableChild(MenuWidgets.cycle(r - MenuWidgets.CYCLE_W, rowY, () -> java.util.Arrays.stream(seen).filter(v -> v[0].equals(cfg.emoteVisibility)).map(v -> v[1]).findFirst().orElse("Alle"), step -> {
+            int i = 0;
+            for (int k = 0; k < seen.length; k++) if (seen[k][0].equals(cfg.emoteVisibility)) i = k;
+            cfg.emoteVisibility = seen[Math.floorMod(i + step, seen.length)][0]; persist();
+        }));
+        row("Emotes sichtbar für", MenuWidgets.CYCLE_H);
+        section("Einstellungen");
+        addDrawableChild(MenuWidgets.checkbox(r - MenuWidgets.CHECK, rowY, "Immersive Emotes", () -> cfg.emoteImmersive, () -> { cfg.emoteImmersive = !cfg.emoteImmersive; persist(); }));
+        row("Immersive Emotes", MenuWidgets.CHECK);
+        addDrawableChild(MenuWidgets.checkbox(r - MenuWidgets.CHECK, rowY, "Emote-Sounds", () -> cfg.emoteSounds, () -> { cfg.emoteSounds = !cfg.emoteSounds; persist(); }));
+        row("Emote-Sounds", MenuWidgets.CHECK);
+        addDrawableChild(MenuWidgets.slider(r - MenuWidgets.SLIDER_W, rowY, "Sound-Spieler-Limit", 1, 20, 1, 6, () -> cfg.emoteSoundLimit, v -> Integer.toString((int) v), v -> { cfg.emoteSoundLimit = (int) v; persist(); }));
+        row("Sound-Spieler-Limit", MenuWidgets.SLIDER_H);
+        addDrawableChild(MenuWidgets.slider(r - MenuWidgets.SLIDER_W, rowY, "Audio-Reichweite", 4, 64, 1, 16, () -> cfg.emoteAudioRange, v -> Integer.toString((int) v), v -> { cfg.emoteAudioRange = (int) v; persist(); }));
+        row("Audio-Reichweite", MenuWidgets.SLIDER_H);
+        addDrawableChild(MenuWidgets.checkbox(r - MenuWidgets.CHECK, rowY, "Ego-Perspektive erlauben", () -> cfg.emoteFirstPerson, () -> { cfg.emoteFirstPerson = !cfg.emoteFirstPerson; persist(); }));
+        row("Ego-Perspektive erlauben", MenuWidgets.CHECK);
+        rowsEnd = rowY;
     }
 
     /** Nametag module: own name in F5, shadow and background of player names. */
@@ -586,7 +650,7 @@ public final class HudScreen extends Screen {
         c.getMatrices().translate(0, slide, 0);
         switch (page) {
             case HOME -> renderHome(c);
-            case MODS, SETTINGS, FEATURE -> renderFrame(c);
+            case MODS, SETTINGS, FEATURE, EMOTES -> renderFrame(c);
             case EDITOR -> renderEditorHint(c);
         }
         super.render(c, picker != null ? -1000 : mx, picker != null ? -1000 : my, delta);
@@ -657,9 +721,10 @@ public final class HudScreen extends Screen {
                 c.fill(grabbed ? x - 1 : x, (int) top, x + (grabbed ? 4 : 3), (int) top + thumb, grabbed ? 0xFFFFFFFF : t.scroll());
                 c.getMatrices().pop();
             }
-        } else if (page == Page.SETTINGS && editing != null) {
+        } else if (page == Page.SETTINGS && editing != null || page == Page.EMOTES) {
             // Description, separator, then section titles and row labels.
-            List<OrderedText> lines = textRenderer.wrapLines(Text.literal(editing.description), 395);
+            String about = page == Page.EMOTES ? emoteAbout() : editing.description;
+            List<OrderedText> lines = textRenderer.wrapLines(Text.literal(about), 395);
             for (int i = 0; i < Math.min(2, lines.size()); i++) MenuText.plain(c, lines.get(i), mainX + 17, wy + 63 + i * 10, 1f, t.muted());
             c.fill(mainX + 11, wy + 96, mainX + 415, wy + 97, t.line());
             for (Row row : rows) {
@@ -846,16 +911,18 @@ public final class HudScreen extends Screen {
 
     @Override
     public boolean keyPressed(int key, int scan, int modifiers) {
-        if (listeningKey) {
-            listeningKey = false;
-            SaviraClient.lightKey.setBoundKey(key == GLFW.GLFW_KEY_ESCAPE ? net.minecraft.client.util.InputUtil.UNKNOWN_KEY : net.minecraft.client.util.InputUtil.fromKeyCode(key, scan));
+        if (listeningKey != null) {
+            var binding = listeningKey;
+            listeningKey = null;
+            binding.setBoundKey(key == GLFW.GLFW_KEY_ESCAPE ? net.minecraft.client.util.InputUtil.UNKNOWN_KEY : net.minecraft.client.util.InputUtil.fromKeyCode(key, scan));
             net.minecraft.client.option.KeyBinding.updateKeysByCode();
             client.options.write();
-            SaviraToasts.show("Light Level", SaviraClient.lightKey.isUnbound() ? "Taste entfernt" : "Taste: " + SaviraClient.lightKey.getBoundKeyLocalizedText().getString());
+            String title = binding == SaviraClient.lightKey ? "Light Level" : "Emotes";
+            SaviraToasts.show(title, binding.isUnbound() ? "Taste entfernt" : "Taste: " + binding.getBoundKeyLocalizedText().getString());
             return true;
         }
         if (key == GLFW.GLFW_KEY_ESCAPE && picker != null) { closePicker(); return true; }
-        if (key == GLFW.GLFW_KEY_ESCAPE && page != Page.HOME) { show(page == Page.SETTINGS ? Page.MODS : Page.HOME); return true; }
+        if (key == GLFW.GLFW_KEY_ESCAPE && page != Page.HOME) { show(page == Page.SETTINGS || page == Page.EMOTES ? Page.MODS : Page.HOME); return true; }
         if (picker == null && selected != null && !(getFocused() instanceof TextFieldWidget) && key >= GLFW.GLFW_KEY_RIGHT && key <= GLFW.GLFW_KEY_UP) {
             SaviraHud.Bounds b = SaviraHud.bounds(selected, width, height);
             int step = hasShiftDown() ? 10 : 1;

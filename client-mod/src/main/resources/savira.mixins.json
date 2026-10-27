@@ -2,6 +2,6 @@
   "required": true,
   "package": "gg.savira.client.mixin",
   "compatibilityLevel": "JAVA_21",
-  "client": ["AbstractClientPlayerEntityMixin", "MinecraftClientMixin", "MouseMixin", "EntityRendererMixin", "LivingEntityRendererMixin", "PlayerEntityRendererMixin", "PlayerListHudMixin"],
+  "client": ["AbstractClientPlayerEntityMixin", "MinecraftClientMixin", "MouseMixin", "EntityRendererMixin", "LivingEntityRendererMixin", "PlayerEntityRendererMixin", "PlayerListHudMixin", "PlayerEntityModelMixin", "HeldItemFeatureRendererMixin"],
   "injectors": { "defaultRequire": 1 }
 }
