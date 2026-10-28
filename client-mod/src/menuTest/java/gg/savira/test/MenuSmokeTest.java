@@ -28,6 +28,30 @@ public final class MenuSmokeTest implements ClientModInitializer {
         return screen.children().stream().anyMatch(w -> w instanceof net.minecraft.client.gui.widget.ButtonWidget b && b.getMessage().getString().startsWith(text));
     }
     private HudScreen menu() { return (HudScreen) screen; }
+    /**
+     * A stone platform high up (open sky: unlit blocks spawn at night), a torch in the middle and a closed
+     * stone room on one side (no light at all: spawnable any time). Built again while it has not reached the client.
+     */
+    private void buildPlatform(net.minecraft.server.integrated.IntegratedServer server) {
+        server.execute(() -> {
+            var world = server.getOverworld();
+            var player = server.getPlayerManager().getPlayerList().get(0);
+            int y = 200;
+            for (int x = -12; x <= 12; x++) for (int z = -12; z <= 12; z++) {
+                world.setBlockState(new net.minecraft.util.math.BlockPos(x, y - 1, z), net.minecraft.block.Blocks.STONE.getDefaultState());
+                for (int h = 0; h < 6; h++) world.setBlockState(new net.minecraft.util.math.BlockPos(x, y + h, z), net.minecraft.block.Blocks.AIR.getDefaultState());
+            }
+            for (int x = 1; x <= 8; x++) for (int z = -4; z <= 4; z++) for (int h = 0; h <= 3; h++) {
+                boolean shell = h == 3 || x == 1 || x == 8 || z == -4 || z == 4;
+                if (shell) world.setBlockState(new net.minecraft.util.math.BlockPos(x, y + h, z), net.minecraft.block.Blocks.STONE.getDefaultState());
+            }
+            world.setBlockState(new net.minecraft.util.math.BlockPos(-5, y, 0), net.minecraft.block.Blocks.TORCH.getDefaultState());
+            world.setTimeOfDay(6000);
+            // Hovering over the corner, looking at the torch and the room.
+            player.getAbilities().allowFlying = true; player.getAbilities().flying = true; player.sendAbilitiesUpdate();
+            player.teleport(world, -12.5, y + 7, -10.5, -48f, 38f);
+        });
+    }
     private void screenshot(MinecraftClient mc, String name) {
         ScreenshotRecorder.saveScreenshot(mc.runDirectory, name + ".png", mc.getFramebuffer(), message -> {});
     }
@@ -284,25 +308,7 @@ public final class MenuSmokeTest implements ClientModInitializer {
                         mc.options.hudHidden = true;
                         // A stone platform high up (open sky: unlit blocks spawn at night), a torch in the middle
                         // and a closed stone room on one side (no light at all: spawnable any time).
-                        var server = mc.getServer();
-                        server.execute(() -> {
-                            var world = server.getOverworld();
-                            var player = server.getPlayerManager().getPlayerList().get(0);
-                            int y = 200;
-                            for (int x = -12; x <= 12; x++) for (int z = -12; z <= 12; z++) {
-                                world.setBlockState(new net.minecraft.util.math.BlockPos(x, y - 1, z), net.minecraft.block.Blocks.STONE.getDefaultState());
-                                for (int h = 0; h < 6; h++) world.setBlockState(new net.minecraft.util.math.BlockPos(x, y + h, z), net.minecraft.block.Blocks.AIR.getDefaultState());
-                            }
-                            for (int x = 1; x <= 8; x++) for (int z = -4; z <= 4; z++) for (int h = 0; h <= 3; h++) {
-                                boolean shell = h == 3 || x == 1 || x == 8 || z == -4 || z == 4;
-                                if (shell) world.setBlockState(new net.minecraft.util.math.BlockPos(x, y + h, z), net.minecraft.block.Blocks.STONE.getDefaultState());
-                            }
-                            world.setBlockState(new net.minecraft.util.math.BlockPos(-5, y, 0), net.minecraft.block.Blocks.TORCH.getDefaultState());
-                            world.setTimeOfDay(6000);
-                            // Hovering over the corner, looking at the torch and the room.
-                            player.getAbilities().allowFlying = true; player.getAbilities().flying = true; player.sendAbilitiesUpdate();
-                            player.teleport(world, -12.5, y + 7, -10.5, -48f, 38f);
-                        });
+                        buildPlatform(mc.getServer());
                     }
                     case 25 -> { mc.setScreen(null); }
                     case 26 -> {
@@ -315,7 +321,11 @@ public final class MenuSmokeTest implements ClientModInitializer {
                         // Light is computed after the blocks change; give it up to ~12 s before judging.
                         boolean ready = gg.savira.client.LightLevel.count("SAFE") > 0 && gg.savira.client.LightLevel.count("NIGHT") > 0 && gg.savira.client.LightLevel.count("SPAWNABLE") > 0;
                         mc.setScreen(null);
-                        if (!ready && ++lightWaits < 10) { gg.savira.client.LightLevel.rescanNow(); stage--; return; }
+                        if (!ready && ++lightWaits < 20) {
+                            // The platform sometimes lands before the chunks are there: build it again.
+                            if (!mc.world.getBlockState(new net.minecraft.util.math.BlockPos(0, 199, 0)).isOf(net.minecraft.block.Blocks.STONE)) buildPlatform(mc.getServer());
+                            gg.savira.client.LightLevel.rescanNow(); stage--; return;
+                        }
                         var below = mc.player.getBlockPos().down();
                         LoggerFactory.getLogger("SaviraUITest").info("Light-Debug: pos=" + mc.player.getBlockPos() + " unten=" + mc.world.getBlockState(below) + " an=" + SaviraClient.config.lightLevel + " block=" + mc.world.getLightLevel(net.minecraft.world.LightType.BLOCK, mc.player.getBlockPos()) + " himmel=" + mc.world.getLightLevel(net.minecraft.world.LightType.SKY, mc.player.getBlockPos()) + " versuche=" + lightWaits);
                         LoggerFactory.getLogger("SaviraUITest").info("Light Level: " + gg.savira.client.LightLevel.count("SAFE") + " sicher, " + gg.savira.client.LightLevel.count("NIGHT") + " nachts, " + gg.savira.client.LightLevel.count("SPAWNABLE") + " spawnbar");

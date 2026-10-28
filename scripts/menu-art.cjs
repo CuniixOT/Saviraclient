@@ -1,39 +1,31 @@
-// Renders the news pictures for the in-game main menu from the launcher's own art (src/NewsArt.tsx).
-// Needs a fresh `npm run build`; run with `npm run menu-art`.
-const { app, BrowserWindow } = require('electron');
+// Writes the news pictures for the in-game main menu from the launcher's (src/assets/news/<art>.*):
+// cropped to 16:9 and scaled to 640x360 PNG, which Minecraft can load. Run with `npm run menu-art`.
+const { app, nativeImage } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
-const gui = path.join(root, 'client-mod', 'src', 'main', 'resources', 'assets', 'savira', 'textures', 'gui');
-const smooth = file => fs.writeFileSync(file + '.mcmeta', JSON.stringify({ texture: { blur: true } }, null, 2) + '\n');
+const pictures = path.join(root, 'src', 'assets', 'news');
+const target = path.join(root, 'client-mod', 'src', 'main', 'resources', 'assets', 'savira', 'textures', 'gui', 'news');
+const W = 640, H = 360;
 
-async function settle(win) {
-  return win.webContents.executeJavaScript(`(async () => {
-    await document.fonts.ready;
-    await Promise.all([...document.images].map(img => img.decode().catch(() => {})));
-    await new Promise(resolve => setTimeout(resolve, 600));
-  })()`);
-}
-
-app.whenReady().then(async () => {
+app.whenReady().then(() => {
   try {
-    const dist = path.join(root, 'dist', 'index.html');
-    const news = new BrowserWindow({ width: 600, height: 184 * 6, show: false, useContentSize: true, webPreferences: { offscreen: true } });
-    await news.loadFile(dist, { query: { mode: 'newsart' } });
-    await settle(news);
-    const items = await news.webContents.executeJavaScript(`[...document.querySelectorAll('[data-art]')].map(el => { const r = el.getBoundingClientRect(); return { art: el.dataset.art, x: r.x, y: r.y, width: r.width, height: r.height }; })`);
-    if (!items.length) throw new Error('Keine News-Bilder gefunden. Erst `npm run build` ausführen.');
-    fs.mkdirSync(path.join(gui, 'news'), { recursive: true });
-    for (const item of items) {
-      const image = await news.webContents.capturePage({ x: Math.round(item.x), y: Math.round(item.y), width: Math.round(item.width), height: Math.round(item.height) });
-      const file = path.join(gui, 'news', `${item.art}.png`);
-      fs.writeFileSync(file, image.resize({ width: 600, height: 184, quality: 'best' }).toPNG());
-      smooth(file);
+    const files = fs.readdirSync(pictures).filter(name => /\.(png|jpe?g)$/i.test(name));
+    if (!files.length) throw new Error(`Keine News-Bilder in ${pictures}.`);
+    fs.mkdirSync(target, { recursive: true });
+    for (const name of files) {
+      const image = nativeImage.createFromPath(path.join(pictures, name));
+      const { width, height } = image.getSize();
+      // Cover: the largest 16:9 area in the middle of the picture.
+      const cw = Math.min(width, Math.round(height * W / H)), ch = Math.min(height, Math.round(width * H / W));
+      const cropped = image.crop({ x: Math.round((width - cw) / 2), y: Math.round((height - ch) / 2), width: cw, height: ch });
+      const file = path.join(target, `${path.parse(name).name}.png`);
+      fs.writeFileSync(file, cropped.resize({ width: W, height: H, quality: 'best' }).toPNG());
+      // Smooth filtering: these are pictures, not pixel art.
+      fs.writeFileSync(file + '.mcmeta', JSON.stringify({ texture: { blur: true } }, null, 2) + '\n');
     }
-
-    news.destroy();
-    console.log(`News-Bilder erstellt: ${items.map(item => item.art).join(', ')}`);
+    console.log(`News-Bilder erstellt: ${files.join(', ')}`);
     app.exit(0);
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);

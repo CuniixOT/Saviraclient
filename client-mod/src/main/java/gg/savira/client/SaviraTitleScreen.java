@@ -60,7 +60,8 @@ public final class SaviraTitleScreen extends Screen {
     private static final long NEWS_INTERVAL = 6500, NEWS_FADE = 550;
     private static final float COLUMN = 414, NEWS_W = 352, NEWS_H = 180, JOIN_W = 320;
 
-    /** Same entries as the launcher's start page (src/news.ts); pictures from `npm run menu-art`. */
+    /** Same entries and pictures as the launcher's start page (src/news.ts); textures, 640x360, from `npm run menu-art`. */
+    private static final int ART_W = 640, ART_H = 360;
     private record News(String kicker, String date, String title, String art) {
         Identifier texture() { return Identifier.of("savira", "textures/gui/news/" + art + ".png"); }
     }
@@ -623,11 +624,11 @@ public final class SaviraTitleScreen extends Screen {
         c.draw();
         RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
         // The picture fills the card and slowly zooms in while shown.
-        float scale = Math.max(NEWS_W / 600f, NEWS_H / 184f) * zoom, dw = 600 * scale, dh = 184 * scale;
+        float scale = Math.max(NEWS_W / (float) ART_W, NEWS_H / (float) ART_H) * zoom, dw = ART_W * scale, dh = ART_H * scale;
         c.getMatrices().push();
         c.getMatrices().translate(x + (NEWS_W - dw) / 2, y + (NEWS_H - dh) / 2, 0);
-        c.getMatrices().scale(dw / 600f, dh / 184f, 1);
-        c.drawTexture(news.texture(), 0, 0, 0, 0, 600, 184, 600, 184);
+        c.getMatrices().scale(dw / ART_W, dh / ART_H, 1);
+        c.drawTexture(news.texture(), 0, 0, 0, 0, ART_W, ART_H, ART_W, ART_H);
         c.getMatrices().pop();
         // Shade from 35 % down, then the kicker, date and title, sliding in sideways.
         Paint.gradient(c, x, y + NEWS_H * .35f, NEWS_W, NEWS_H * .65f, 0, 0x00080A0C, 0xE608090C, px());

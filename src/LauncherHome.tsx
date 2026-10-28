@@ -88,7 +88,7 @@ export function LauncherHome({ state, pending, locked, active, onLaunch, onProfi
     <aside className="news glass" aria-label="Neuigkeiten">
       <header><span className="pixel"><Newspaper size={16} /> news</span></header>
       <div className="news-list">{news.map((item, index) => <article className="news-card" key={item.title} style={{ '--i': index } as CSSProperties}>
-        <div className="news-art"><NewsArt kind={item.art} /></div>
+        <div className="news-art">{item.image ? <img src={item.image} alt="" loading="lazy" draggable={false} /> : <NewsArt kind={item.art} />}</div>
         <div><p><span>{item.kicker}</span>{item.date}</p><h2>{item.title}</h2><small>{item.body}</small></div>
       </article>)}</div>
     </aside>

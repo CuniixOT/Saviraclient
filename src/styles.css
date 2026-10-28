@@ -270,9 +270,9 @@ select.input { padding-right: 30px; }
 .news-list { display: grid; gap: 10px; overflow-y: auto; }
 .news-card { border-radius: calc(12px * var(--rk)); overflow: hidden; background: rgb(255 255 255 / .035); border: 1px solid var(--line); transition: transform .25s var(--ease), border-color .2s; animation: rise .5s var(--ease) both; animation-delay: calc(var(--i) * 70ms + 120ms); }
 .news-card:hover { transform: translateY(-2px); border-color: var(--line-strong); }
-.news-art { height: 92px; overflow: hidden; }
-.news-art svg { display: block; width: 100%; height: 100%; transition: transform .6s var(--ease); }
-.news-card:hover .news-art svg { transform: scale(1.05); }
+.news-art { height: 112px; overflow: hidden; }
+.news-art svg, .news-art img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .6s var(--ease); }
+.news-card:hover .news-art svg, .news-card:hover .news-art img { transform: scale(1.05); }
 .news-card > div:last-child { padding: 11px 13px 13px; }
 .news-card p { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-3); }
 .news-card p span { color: var(--accent); font-weight: 600; }
@@ -784,7 +784,7 @@ select.input { padding-right: 30px; }
   .launch-bar { height: 60px; }
   .play-label { font-size: 26px; }
   .launch-area { gap: 8px; }
-  .news-art { height: 72px; }
+  .news-art { height: 88px; }
 }
 @media (max-height: 720px) {
   .launch-meta { display: none; }
@@ -834,6 +834,3 @@ button.custom-accent { text-align: left; background: none; }
 .instance-none small { font-size: 12px; line-height: 1.5; }
 
 /* Render-only page for exporting the news pictures to the mod (2x size, no gaps). */
-.newsart-export { position: fixed; inset: 0; overflow: hidden; background: #0a0d10; }
-.newsart-export > div { width: 600px; height: 184px; }
-.newsart-export svg { display: block; width: 100%; height: 100%; }
