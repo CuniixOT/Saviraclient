@@ -6,6 +6,7 @@ const { promisify } = require('node:util');
 const { createHash } = require('node:crypto');
 const { Client } = require('./minecraft.cjs');
 const { Auth } = require('msmc');
+const serverPing = require('./serverping.cjs');
 const { accentRgb, defaults, maxMemory, validateSettings, validateProfile, mergeHudFromGame, loaders, saviraVersions } = require('./settings.cjs');
 const { minecraftVersions, loaderVersions, installLoader } = require('./loaders.cjs');
 const { readPack } = require('./modpacks.cjs');
@@ -134,7 +135,7 @@ async function authenticate(interactive, legacyToken) {
   log.info(`Angemeldet als ${account.name}${interactive ? ' (Microsoft-Fenster)' : ' (gespeicherte Sitzung)'}`);
   return mc;
 }
-const pageLabels = { home: 'Startseite', profiles: 'Profile', mods: 'Mods', skins: 'Skins', capes: 'Capes', settings: 'Einstellungen', about: 'Über Savira' };
+const pageLabels = { home: 'Startseite', profiles: 'Profile', mods: 'Mods', servers: 'Server', skins: 'Skins', capes: 'Capes', settings: 'Einstellungen', about: 'Über Savira' };
 // Skin sources for the wardrobe: a Minecraft name or UUID (via Mojang) or a direct https image link.
 async function download(url, limit = 1_000_000) {
   const response = await fetch(url, { signal: AbortSignal.timeout(20000), headers: { 'User-Agent': 'Savira/0.1.0' } });
@@ -742,6 +743,7 @@ else {
       if (parsed.protocol !== 'https:') throw new Error('Nur https-Links werden geöffnet.');
       await shell.openExternal(parsed.href);
     });
+    handle('server-ping', address => serverPing.ping(address));
     handle('content-folder', withProfile(async (profile, dir, kind) => {
       const sub = content.KINDS[kind]?.dir || SUBFOLDERS[kind];
       if (!sub) throw new Error('Unbekannter Ordner.');

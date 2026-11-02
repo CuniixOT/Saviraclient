@@ -29,6 +29,7 @@ export interface ProfilesBridge {
   /** A Modrinth modpack as a new profile; returns the settings with it. */
   installPack(projectId: string, versionId?: string): Promise<Result<Settings>>;
   openLink(url: string): Promise<Result<void>>;
+  serverPing(address: string): Promise<Result<ServerStatus>>;
   folder(id: string, kind: ContentKind | 'worlds' | 'screenshots' | 'logs'): Promise<Result<void>>;
   addFiles(id: string, kind: ContentKind): Promise<Result<number>>;
   search(options: SearchOptions): Promise<Result<SearchResult>>;
@@ -58,6 +59,7 @@ export type SearchResult = { total: number; hits: SearchHit[] };
 export type BrowseTags = { categories: string[]; versions: { id: string; type: 'release' | 'snapshot' }[]; loaders: string[] };
 export type World = { folder: string; name: string; mode: string | null; version: string | null; lastPlayed: number; icon: string | null };
 export type Server = { name: string; address: string; icon: string | null };
+export type ServerStatus = { online: number; max: number; ms: number; version: string | null; icon: string | null };
 export type Screenshot = { file: string; time: number; thumbnail: string | null };
 export type ExportEntry = { name: string; folder: boolean; modified: number; selected: boolean };
 export type PackVersion = { id: string; number: string; name: string; date: string; downloads: number; gameVersions: string[]; loaders: string[]; changelog: string };
@@ -262,7 +264,7 @@ export const profilesApi: ProfilesBridge = window.savira?.profiles ?? {
   blockIcons: async () => ({ ok: true, data: [] }),
   iconFromFile: unavailable, iconFromUrl: unavailable,
   content: async () => ({ ok: true, data: [] }), toggle: unavailable, remove: unavailable, update: unavailable, install: unavailable, folder: unavailable, addFiles: unavailable,
-  search: async () => ({ ok: true, data: { total: 0, hits: [] } }), project: unavailable, versions: async () => ({ ok: true, data: [] }), where: async () => ({ ok: true, data: [] }), installPack: unavailable, openLink: unavailable, tags: async () => ({ ok: true, data: { categories: [], versions: [], loaders: [] } }), openProject: unavailable,
+  search: async () => ({ ok: true, data: { total: 0, hits: [] } }), project: unavailable, versions: async () => ({ ok: true, data: [] }), where: async () => ({ ok: true, data: [] }), installPack: unavailable, openLink: unavailable, serverPing: unavailable, tags: async () => ({ ok: true, data: { categories: [], versions: [], loaders: [] } }), openProject: unavailable,
   worlds: async () => ({ ok: true, data: { worlds: [], servers: [] } }), play: unavailable, screenshots: async () => ({ ok: true, data: [] }), openScreenshot: unavailable, deleteScreenshot: unavailable,
   stats: async () => ({ ok: true, data: { size: 0 } }), duplicate: unavailable, exportEntries: async () => ({ ok: true, data: [] }), exportPack: unavailable, packVersions: async () => ({ ok: true, data: [] }), switchPack: unavailable
 };

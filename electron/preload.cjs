@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('savira', {
     where: (projectId, kind) => ipcRenderer.invoke('browse-where', projectId, kind),
     installPack: (projectId, versionId) => ipcRenderer.invoke('browse-install-pack', projectId, versionId),
     openLink: (url) => ipcRenderer.invoke('open-link', url),
+    serverPing: (address) => ipcRenderer.invoke('server-ping', address),
     folder: (id, kind) => ipcRenderer.invoke('content-folder', id, kind),
     addFiles: (id, kind) => ipcRenderer.invoke('content-add-files', id, kind),
     search: (options) => ipcRenderer.invoke('browse-search', options),

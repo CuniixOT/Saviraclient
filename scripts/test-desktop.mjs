@@ -55,6 +55,34 @@ try {
   await shot('profile-picker');
   await page.keyboard.press('Escape');
 
+  // Server tab: search, categories, sorting, details with IP, facts, links and profile choice.
+  await page.getByRole('button', { name: 'Server', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'GommeHD: Details' }).first()).toBeVisible();
+  await page.waitForTimeout(3000);
+  await shot('servers');
+  await page.getByRole('group', { name: 'Kategorien' }).getByRole('button', { name: 'Crystal PvP' }).click();
+  await expect(page.getByRole('button', { name: 'PvP Land spielen' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'GommeHD spielen' })).toHaveCount(0);
+  await page.getByRole('group', { name: 'Kategorien' }).getByRole('button', { name: 'Alle' }).click();
+  await page.getByLabel('Server suchen').fill('griefer');
+  await expect(page.getByRole('button', { name: 'GrieferGames spielen' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'GommeHD spielen' })).toHaveCount(0);
+  await page.getByLabel('Server suchen').fill('');
+  await page.getByRole('button', { name: 'GommeHD: Details' }).first().click();
+  const serverDialog = page.getByRole('dialog', { name: 'GommeHD' });
+  await expect(serverDialog).toContainText('gommehd.net');
+  await expect(serverDialog).toContainText('Europa');
+  await expect(serverDialog.getByRole('button', { name: 'Discord' })).toBeVisible();
+  await serverDialog.getByRole('button', { name: 'Server-IP kopieren' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Server-IP kopiert.' })).toBeVisible();
+  await serverDialog.getByRole('button', { name: 'Profil wählen' }).click();
+  await expect(serverDialog.getByRole('menu')).toBeVisible();
+  await page.waitForTimeout(400);
+  await shot('server-details');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await expect(serverDialog).toHaveCount(0);
+
   await page.getByRole('button', { name: 'Profile', exact: true }).click();
   await expect(page.getByLabel('Profile suchen')).toBeVisible();
   await shot('profiles');
@@ -316,7 +344,7 @@ try {
   expect(JSON.stringify(persisted.data)).not.toContain('fake-2');
   expect(persisted.data.settings.profiles.some(profile => profile.name === 'Test 1.8.9' && profile.version === '1.8.9')).toBe(true);
   expect(errors).toEqual([]);
-  console.log('Desktop-Smoke-Test erfolgreich: sichere Bridge, Profile, Darstellung, Validierung, Startschutz, Eckenradius, Discord-Schalter, Kontenwechsel und Persistenz.');
+  console.log('Desktop-Smoke-Test erfolgreich: sichere Bridge, Server-Tab, Profile, Darstellung, Validierung, Startschutz, Eckenradius, Discord-Schalter, Kontenwechsel und Persistenz.');
   console.log(`Screenshots: ${path.join(tools, 'savira-*.png')}`);
 } finally {
   if (app) await app.close();
