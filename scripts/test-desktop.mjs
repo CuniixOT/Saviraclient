@@ -117,12 +117,14 @@ try {
   await expect(page.getByLabel('Name', { exact: true })).toHaveValue('default-skin');
   await page.getByLabel('Name', { exact: true }).fill('PvP Skin');
   await page.getByRole('radio', { name: 'Schlank (Alex)' }).click();
-  await page.waitForTimeout(700);
+  await expect(page.locator('.skin-stage-box .skin-stage canvas')).toBeVisible();
+  await page.waitForTimeout(1500);
   await shot('skin-preview');
   await page.getByRole('button', { name: 'skin speichern' }).click();
   const skinCard = page.locator('.skin-card', { hasText: 'PvP Skin' });
   await expect(skinCard).toBeVisible();
   await expect(skinCard).toContainText('Schlank (Alex)');
+  await expect(skinCard.locator('img.skin-pose')).toBeVisible();
   await expect(skinCard.getByRole('button', { name: 'auswählen' })).toBeDisabled();
   await skinCard.hover();
   await skinCard.getByRole('button', { name: 'PvP Skin bearbeiten' }).click();

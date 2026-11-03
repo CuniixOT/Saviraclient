@@ -467,9 +467,10 @@ select.input { padding-right: 30px; }
 .skin-card { position: relative; display: grid; justify-items: center; align-content: start; gap: 4px; padding: 14px; border-radius: calc(14px * var(--rk)); text-align: center; animation: rise .45s var(--ease) both; animation-delay: calc(var(--i, 0) * 35ms); transition: border-color .2s, transform .25s var(--ease); }
 .skin-card:hover { border-color: var(--line-strong); }
 .skin-card.active { border-color: var(--accent-line); box-shadow: inset 0 0 0 1px var(--accent-line); }
-.skin-card-art { position: relative; display: grid; place-items: center; width: 100%; height: 190px; margin-bottom: 8px; border-radius: calc(10px * var(--rk)); background: radial-gradient(70% 60% at 50% 60%, var(--accent-soft), transparent 70%), rgb(0 0 0 / .22); }
+.skin-card-art { position: relative; display: grid; place-items: center; width: 100%; height: 230px; margin-bottom: 8px; border-radius: calc(10px * var(--rk)); background: radial-gradient(70% 60% at 50% 60%, var(--accent-soft), transparent 70%), rgb(0 0 0 / .22); }
 .skin-front { height: 168px; width: auto; image-rendering: pixelated; filter: drop-shadow(0 10px 12px rgb(0 0 0 / .5)); transition: transform .3s var(--ease); }
-.skin-card:hover .skin-front { transform: translateY(-3px) scale(1.03); }
+.skin-pose { position: absolute; inset: 6px 0; width: 100%; height: calc(100% - 12px); object-fit: contain; filter: drop-shadow(0 10px 12px rgb(0 0 0 / .5)); transition: transform .3s var(--ease); }
+.skin-card:hover .skin-front, .skin-card:hover .skin-pose { transform: translateY(-3px) scale(1.03); }
 .skin-active { position: absolute; left: 8px; top: 8px; }
 .skin-card-actions { position: absolute; right: 20px; top: 20px; display: grid; gap: 6px; opacity: 0; transition: opacity .15s; }
 .skin-card:hover .skin-card-actions, .skin-card:focus-within .skin-card-actions { opacity: 1; }
@@ -479,7 +480,7 @@ select.input { padding-right: 30px; }
 .skin-variant { color: var(--text-3); font-size: 12px; margin-bottom: 8px; }
 .skin-add { border-style: dashed; color: var(--text-2); cursor: pointer; min-height: 100%; }
 .skin-add:hover:not(:disabled) { border-color: var(--accent-line); color: var(--text); }
-.skin-add-art { position: relative; display: grid; place-items: center; width: 100%; height: 190px; margin-bottom: 8px; color: var(--text-3); }
+.skin-add-art { position: relative; display: grid; place-items: center; width: 100%; height: 230px; margin-bottom: 8px; color: var(--text-3); }
 .skin-add-art i { position: absolute; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--accent); color: var(--on-accent); box-shadow: 0 8px 20px -8px var(--accent); }
 .skin-add strong { font-size: 15px; }
 .skin-add small { display: flex; gap: 6px; align-items: flex-start; justify-content: center; color: var(--text-3); font-size: 12px; line-height: 1.45; }
@@ -492,7 +493,7 @@ select.input { padding-right: 30px; }
 .skin-drop small { color: var(--text-3); font-size: 11.5px; }
 .skin-drop:hover, .skin-drop.over { border-color: var(--accent); background: var(--accent-soft); }
 .skin-edit { display: grid; gap: 10px; }
-.skin-stage-box { display: grid; place-items: center; height: 250px; border-radius: calc(12px * var(--rk)); background: radial-gradient(60% 55% at 50% 60%, var(--accent-soft), transparent 70%), rgb(0 0 0 / .25); }
+.skin-stage-box { display: flex; height: 320px; border-radius: calc(12px * var(--rk)); background: radial-gradient(60% 55% at 50% 60%, var(--accent-soft), transparent 70%), rgb(0 0 0 / .25); }
 .skin-preview-3d { width: 210px; height: 250px; cursor: grab; }
 .skin-variant-pick { justify-self: center; }
 /* Capes: tabs, template menu, grid of cape cards (outer side), favourites heart. */

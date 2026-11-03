@@ -1,8 +1,9 @@
 import { ArrowsClockwise, Check, FolderOpen, MagnifyingGlass, PencilSimple, Plus, Spinner, TShirt, Trash, UploadSimple, X } from '@phosphor-icons/react';
 import { useEffect, useRef, useState, type CSSProperties, type DragEvent } from 'react';
 import { createPortal } from 'react-dom';
-import type { SkinViewer } from 'skinview3d';
 import { skinsApi, unwrap, type Accounts, type LibrarySkin, type SkinVariant, type Wardrobe } from './api';
+import { SkinStage } from './SkinStage';
+import { skinPose } from './skinPose';
 import { PageHeader } from './ui';
 
 type Props = {
@@ -46,7 +47,7 @@ const nameFromFile = (file: File) => file.name.replace(/\.png$/i, '').slice(0, 3
 
 /**
  * Flat front view of a skin (head, body, arms, legs plus their overlay layer),
- * cheap enough for a whole grid of cards.
+ * for a card whose 3D picture cannot be rendered.
  */
 function SkinFront({ png, variant, className = '' }: { png: string; variant: SkinVariant; className?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -78,29 +79,18 @@ function SkinFront({ png, variant, className = '' }: { png: string; variant: Ski
   return <canvas ref={ref} className={`skin-front ${className}`} aria-hidden="true" />;
 }
 
-/** Turning 3D preview for the add/edit dialog. */
-function SkinPreview3D({ png, variant }: { png: string; variant: SkinVariant }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const viewerRef = useRef<SkinViewer | null>(null);
+/** The skin of a card, posed in 3D. */
+function SkinCardArt({ png, variant }: { png: string; variant: SkinVariant }) {
+  const [picture, setPicture] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
-    let disposed = false;
-    void import('skinview3d').then(({ SkinViewer, IdleAnimation }) => {
-      if (disposed || !canvasRef.current) return;
-      const viewer = new SkinViewer({ canvas: canvasRef.current, width: 210, height: 250, zoom: .85, fov: 40 });
-      viewer.background = null;
-      viewer.autoRotate = true;
-      viewer.autoRotateSpeed = .7;
-      viewer.controls.enableZoom = false;
-      viewer.animation = new IdleAnimation();
-      viewer.globalLight.intensity = 2.6;
-      viewerRef.current = viewer;
-      void viewer.loadSkin(png, { model: variant === 'slim' ? 'slim' : 'default' });
-    });
-    return () => { disposed = true; viewerRef.current?.dispose(); viewerRef.current = null; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  useEffect(() => { void viewerRef.current?.loadSkin(png, { model: variant === 'slim' ? 'slim' : 'default' }); }, [png, variant]);
-  return <canvas ref={canvasRef} className="skin-preview-3d" aria-label="3D-Vorschau des Skins. Ziehen zum Drehen." />;
+    let cancelled = false;
+    setFailed(false);
+    skinPose(png, variant).then(next => { if (!cancelled) setPicture(next); }, () => { if (!cancelled) setFailed(true); });
+    return () => { cancelled = true; };
+  }, [png, variant]);
+  if (failed) return <SkinFront png={png} variant={variant} />;
+  return picture ? <img className="skin-pose" src={picture} alt="" draggable={false} /> : null;
 }
 
 export function SkinsPage({ hasAccount, locked, onNotice, onError, onApplied }: Props) {
@@ -186,7 +176,7 @@ export function SkinsPage({ hasAccount, locked, onNotice, onError, onApplied }: 
       {visible.map((skin, index) => {
         const active = wardrobe?.applied === skin.id;
         return <article key={skin.id} className={`skin-card glass ${active ? 'active' : ''}`} style={{ '--i': index } as CSSProperties}>
-          <div className="skin-card-art"><SkinFront png={skin.png} variant={skin.variant} />{active && <span className="tag skin-active"><Check size={10} weight="bold" />aktiv</span>}</div>
+          <div className="skin-card-art"><SkinCardArt png={skin.png} variant={skin.variant} />{active && <span className="tag skin-active"><Check size={10} weight="bold" />aktiv</span>}</div>
           <div className="skin-card-actions">
             <button className="btn btn-icon" aria-label={`${skin.name} bearbeiten`} title="Umbenennen, Modell ändern oder Datei austauschen" disabled={locked} onClick={() => openEdit(skin)}><PencilSimple size={15} /></button>
             <button className={`btn btn-icon ${confirmDelete === skin.id ? 'danger' : ''}`} aria-label={confirmDelete === skin.id ? `${skin.name} wirklich löschen` : `${skin.name} löschen`} title={confirmDelete === skin.id ? 'Nochmal klicken zum Löschen' : 'Löschen'} disabled={locked} onClick={() => remove(skin)}><Trash size={15} /></button>
@@ -226,7 +216,7 @@ export function SkinsPage({ hasAccount, locked, onNotice, onError, onApplied }: 
         {dialog === 'preview' && draft && <div className="skin-edit">
           <label className="field" htmlFor="skin-name"><span>Name</span></label>
           <input id="skin-name" className={`input ${nameInvalid ? 'invalid' : ''}`} value={draft.name} maxLength={32} onChange={e => setDraft({ ...draft, name: e.target.value })} />
-          <div className="skin-stage-box"><SkinPreview3D png={draft.png} variant={draft.variant} /></div>
+          <div className="skin-stage-box"><SkinStage skin={draft.png} variant={draft.variant} name={draft.name.trim() || 'Skin'} animated /></div>
           <div className="segmented skin-variant-pick" role="radiogroup" aria-label="Skin-Modell">
             {(['classic', 'slim'] as const).map(variant => <button key={variant} type="button" role="radio" aria-checked={draft.variant === variant} className={draft.variant === variant ? 'active' : ''} onClick={() => setDraft({ ...draft, variant })}>{variant === 'classic' ? 'Klassisch (Steve)' : 'Schlank (Alex)'}</button>)}
           </div>

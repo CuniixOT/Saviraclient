@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { PlayerObject, SkinViewer } from 'skinview3d';
 import type { Group, Mesh, MeshBasicMaterial, PlaneGeometry } from 'three';
+import type { SkinVariant } from './api';
 import { makeReveal } from './skinReveal';
 import { applyClip, nextCalmIdle, resetParts, rollIdle, SPECIAL_IDLE, STILL_POSE, type Clip } from './skinEmotes';
 
@@ -19,6 +20,8 @@ const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)'
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 const nameTagFont = '48px "MinecraftTen", "SmallCaps", sans-serif';
 type Three = typeof import('three');
+// Without a known variant, as for the account's skin, skinview3d works it out from the picture.
+const modelOf = (variant?: SkinVariant) => variant ? variant === 'slim' ? 'slim' as const : 'default' as const : 'auto-detect' as const;
 // Like the vanilla name tag: white text on a quarter-black box with one font pixel of padding (48px / 8 = 6).
 // skinview3d paints it; its texture goes on two planes back to back, so the name reads the right way from behind too.
 function makeTag(NameTag: typeof import('skinview3d').NameTagObject, three: Three, viewer: SkinViewer, name: string, old: Group | null): Group {
@@ -71,7 +74,7 @@ const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
  * With the skin animation on, the skin loads in behind a shimmering placeholder like in NoRisk and then keeps
  * playing the NoRisk idle animations; off keeps it calm.
  */
-export function SkinStage({ skin, name, paused = false, animated = false, cape = null }: { skin: string | null; name: string; paused?: boolean; animated?: boolean; cape?: string | null }) {
+export function SkinStage({ skin, name, paused = false, animated = false, cape = null, variant }: { skin: string | null; name: string; paused?: boolean; animated?: boolean; cape?: string | null; variant?: SkinVariant }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewerRef = useRef<SkinViewer | null>(null);
@@ -79,8 +82,8 @@ export function SkinStage({ skin, name, paused = false, animated = false, cape =
   const animatedRef = useRef(animated);
   animatedRef.current = animated;
   // Latest props for the async scene setup, which may finish after they changed.
-  const latest = useRef({ skin, name, cape });
-  latest.current = { skin, name, cape };
+  const latest = useRef({ skin, name, cape, variant });
+  latest.current = { skin, name, cape, variant };
   const nameTagClass = useRef<typeof import('skinview3d').NameTagObject | null>(null);
   const tagRef = useRef<Group | null>(null);
   const threeRef = useRef<Three | null>(null);
@@ -96,7 +99,7 @@ export function SkinStage({ skin, name, paused = false, animated = false, cape =
       if (disposed) return;
       nameTagClass.current = NameTagObject;
       threeRef.current = three;
-      const viewer = new SkinViewer({ canvas, width: wrap.clientWidth || 300, height: wrap.clientHeight || 400, skin: latest.current.skin || './default-skin.png', zoom: BASE_ZOOM, fov: 38 });
+      const viewer = new SkinViewer({ canvas, width: wrap.clientWidth || 300, height: wrap.clientHeight || 400, skin: latest.current.skin || './default-skin.png', model: modelOf(latest.current.variant), zoom: BASE_ZOOM, fov: 38 });
       viewerRef.current = viewer;
       viewer.background = null;
       viewer.controls.enableRotate = false;
@@ -126,7 +129,7 @@ export function SkinStage({ skin, name, paused = false, animated = false, cape =
         const token = ++loadToken;
         ready = false; playing = null;
         reveal.start();
-        void Promise.all([viewer.loadSkin(latest.current.skin || './default-skin.png'), wait(MIN_LOADING_MS)])
+        void Promise.all([viewer.loadSkin(latest.current.skin || './default-skin.png', { model: modelOf(latest.current.variant) }), wait(MIN_LOADING_MS)])
           .catch(() => { /* A broken skin URL keeps the previous texture. */ })
           .then(() => {
             if (disposed || token !== loadToken) return;
@@ -241,8 +244,8 @@ export function SkinStage({ skin, name, paused = false, animated = false, cape =
   // With the animation on, a new skin loads in behind the silhouette again.
   useEffect(() => {
     if (animatedRef.current && loadInRef.current) loadInRef.current();
-    else void viewerRef.current?.loadSkin(skin || './default-skin.png');
-  }, [skin]);
+    else void viewerRef.current?.loadSkin(skin || './default-skin.png', { model: modelOf(variant) });
+  }, [skin, variant]);
   // Switching the skin animation on loads the skin in, like the toggle in NoRisk.
   const wasAnimated = useRef(animated);
   useEffect(() => {
