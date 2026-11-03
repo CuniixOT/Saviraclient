@@ -98,16 +98,25 @@ interface Bridge {
   debug?: DebugBridge;
 }
 export type SkinVariant = 'classic' | 'slim';
-export type LibrarySkin = { id: string; name: string; variant: SkinVariant; added: number; png: string };
-export type Wardrobe = { skins: LibrarySkin[]; applied: string | null };
+/** source "skinmc:<id>": taken from the SkinMC gallery. */
+export type LibrarySkin = { id: string; name: string; variant: SkinVariant; added: number; png: string; source?: string };
+/** favorites holds "own:<id>" and "skinmc:<id>"; authors the uploader of each gallery favourite. */
+export type Wardrobe = { skins: LibrarySkin[]; applied: string | null; favorites: string[]; authors: Record<string, string | null> };
+export type GallerySkin = { id: string; author: string | null };
+export type GalleryTag = { id: string; name: string; count: number };
+/** One page of the SkinMC gallery; tags only come with the first page without a tag. */
+export type GalleryPage = { skins: GallerySkin[]; next: string | null; tags: GalleryTag[] | null };
 /** A skin found by name, UUID or link; variant null means "detect from the texture". */
 export type FetchedSkin = { name: string; variant: SkinVariant | null; png: string };
 interface SkinsBridge {
   list(): Promise<Result<Wardrobe>>;
   fetch(query: string): Promise<Result<FetchedSkin>>;
-  save(skin: { id?: string; name: string; variant: SkinVariant; png?: string }): Promise<Result<Wardrobe>>;
+  save(skin: { id?: string; name: string; variant: SkinVariant; png?: string; source?: string }): Promise<Result<Wardrobe>>;
   remove(id: string): Promise<Result<Wardrobe>>;
   apply(id: string): Promise<Result<Accounts & { applied: string }>>;
+  favorite(key: string, author?: string | null): Promise<Result<Wardrobe>>;
+  browse(query: { tag?: string | null; next?: string | null }): Promise<Result<GalleryPage>>;
+  texture(id: string): Promise<Result<string>>;
 }
 export type CapeVisibility = 'private' | 'public';
 export type OwnCape = { id: string; name: string; added: number; png: string; visibility: CapeVisibility };
@@ -227,16 +236,20 @@ export const debugApi: DebugBridge = window.savira?.debug ?? {
 };
 
 // Browser preview keeps skins in memory so the page can be designed without Electron.
-let previewSkins: LibrarySkin[] = [];
+let previewSkins: LibrarySkin[] = [], previewFavorites: string[] = [];
+const wardrobeResult = async () => ({ ok: true as const, data: { skins: previewSkins, applied: null, favorites: previewFavorites, authors: {} } });
 export const skinsApi: SkinsBridge = window.savira?.skins ?? {
-  list: async () => ({ ok: true, data: { skins: previewSkins, applied: null } }),
+  list: wardrobeResult,
   fetch: unavailable,
   save: async skin => {
-    previewSkins = skin.id ? previewSkins.map(s => s.id === skin.id ? { ...s, ...skin, png: skin.png ?? s.png } : s) : [{ id: crypto.randomUUID(), added: Date.now(), name: skin.name, variant: skin.variant, png: skin.png || '' }, ...previewSkins];
-    return { ok: true, data: { skins: previewSkins, applied: null } };
+    previewSkins = skin.id ? previewSkins.map(s => s.id === skin.id ? { ...s, ...skin, png: skin.png ?? s.png } : s) : [{ id: crypto.randomUUID(), added: Date.now(), name: skin.name, variant: skin.variant, png: skin.png || '', source: skin.source }, ...previewSkins];
+    return wardrobeResult();
   },
-  remove: async id => { previewSkins = previewSkins.filter(s => s.id !== id); return { ok: true, data: { skins: previewSkins, applied: null } }; },
-  apply: unavailable
+  remove: async id => { previewSkins = previewSkins.filter(s => s.id !== id); return wardrobeResult(); },
+  apply: unavailable,
+  favorite: async key => { previewFavorites = previewFavorites.includes(key) ? previewFavorites.filter(k => k !== key) : [...previewFavorites, key]; return wardrobeResult(); },
+  browse: unavailable,
+  texture: unavailable
 };
 
 let previewCapes: CapeLibrary = { capes: [], favorites: [], active: null };

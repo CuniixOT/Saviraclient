@@ -52,7 +52,10 @@ contextBridge.exposeInMainWorld('savira', {
     fetch: (query) => ipcRenderer.invoke('skins-fetch', query),
     save: (skin) => ipcRenderer.invoke('skins-save', skin),
     remove: (id) => ipcRenderer.invoke('skins-delete', id),
-    apply: (id) => ipcRenderer.invoke('skins-apply', id)
+    apply: (id) => ipcRenderer.invoke('skins-apply', id),
+    favorite: (key, author) => ipcRenderer.invoke('skins-favorite', key, author),
+    browse: (query) => ipcRenderer.invoke('skinmc-browse', query),
+    texture: (id) => ipcRenderer.invoke('skinmc-texture', id)
   },
   capes: {
     list: () => ipcRenderer.invoke('capes-list'),

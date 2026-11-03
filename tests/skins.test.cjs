@@ -52,3 +52,30 @@ test('validates names, models and ids', async () => {
   await assert.rejects(library.update('../index', { name: 'Hack' }));
   await assert.rejects(library.remove('../../settings'));
 });
+
+test('favourites own and gallery skins, stores a gallery skin once', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'savira-skins-'));
+  const png = dataUrl(await fs.readFile(skinPath));
+  const library = createSkinLibrary({ dir });
+  await library.load();
+  const source = 'skinmc:08b9fc16-4768-48e1-be60-8d23da5222fd';
+  const first = await library.add({ name: 'Aus der Galerie', variant: 'slim', png, source });
+  const again = await library.add({ name: 'Nochmal', variant: 'slim', png, source });
+  assert.equal(again.id, first.id);
+  await assert.rejects(library.add({ name: 'X', variant: 'slim', png, source: 'https://evil.test' }), /Herkunft/);
+
+  assert.equal(await library.toggleFavorite(`own:${first.id}`), true);
+  assert.equal(await library.toggleFavorite('skinmc:095b9d41-21be-4e1e-9ea9-fe1dc9a0ae32', ' Marlowww '), true);
+  await assert.rejects(library.toggleFavorite('own:../index'));
+  await assert.rejects(library.toggleFavorite(`own:${'0'.repeat(8)}-0000-0000-0000-${'0'.repeat(12)}`), /existiert nicht/);
+
+  const reloaded = createSkinLibrary({ dir });
+  await reloaded.load();
+  const [listed] = await reloaded.list();
+  assert.equal(listed.source, source);
+  assert.deepEqual(reloaded.favorites(), { favorites: [`own:${first.id}`, 'skinmc:095b9d41-21be-4e1e-9ea9-fe1dc9a0ae32'], authors: { 'skinmc:095b9d41-21be-4e1e-9ea9-fe1dc9a0ae32': 'Marlowww' } });
+  await reloaded.remove(first.id);
+  assert.deepEqual(reloaded.favorites().favorites, ['skinmc:095b9d41-21be-4e1e-9ea9-fe1dc9a0ae32']);
+  assert.equal(await reloaded.toggleFavorite('skinmc:095b9d41-21be-4e1e-9ea9-fe1dc9a0ae32'), false);
+  assert.deepEqual(reloaded.favorites(), { favorites: [], authors: {} });
+});

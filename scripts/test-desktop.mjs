@@ -153,6 +153,25 @@ try {
   await expect(page.locator('.skin-card:not(.skin-add)')).toHaveCount(1);
   const badSkin = await page.evaluate(() => window.savira.skins.save({ name: 'Kaputt', variant: 'slim', png: 'data:image/png;base64,AAAA' }));
   expect(badSkin.ok).toBe(false);
+  // Favourites, and the SkinMC gallery (live: either skins or the offline notice).
+  await page.getByRole('button', { name: 'Turnier zu Favoriten' }).click();
+  await page.getByRole('tab', { name: 'favoriten' }).click();
+  await expect(page.locator('.skin-card', { hasText: 'Turnier' })).toBeVisible();
+  await page.getByRole('button', { name: 'Turnier aus Favoriten entfernen' }).click();
+  await expect(page.getByText('Keine Favoriten')).toBeVisible();
+  await page.getByRole('tab', { name: 'alle skins' }).click();
+  await expect(page.locator('.skin-grid .skin-card, .skin-grid .empty:not(:has(.spin))').first()).toBeVisible({ timeout: 30000 });
+  if (await page.locator('.skin-grid .skin-card').count()) {
+    await expect(page.locator('.skin-grid .skin-card img.skin-pose').first()).toBeVisible({ timeout: 30000 });
+    await page.waitForTimeout(1500);
+    await shot('skins-gallery');
+    await page.getByRole('button', { name: 'Mädchen', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Mädchen', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.skin-grid .skin-card img.skin-pose').first()).toBeVisible({ timeout: 30000 });
+    await page.waitForTimeout(1500);
+    await shot('skins-gallery-girl');
+  }
+  await page.getByRole('tab', { name: 'meine skins' }).click();
 
   // Capes: tabs, upload with 3D preview, wear, favourite, rename, template, vanilla needs an account.
   await page.getByRole('button', { name: 'Capes', exact: true }).click();

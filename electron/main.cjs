@@ -18,6 +18,7 @@ const logfiles = require('./logfiles.cjs');
 const { createSession } = require('./gamesession.cjs');
 const { normalizeSkinUrl, validSkinPng } = require('./skin.cjs');
 const { createSkinLibrary, assertSkin } = require('./skins.cjs');
+const skinMc = require('./skinmc.cjs').createSkinMc();
 const { createCapeLibrary } = require('./capes.cjs');
 const { createPanoramaStore } = require('./panoramas.cjs');
 const setup = require('./setup.cjs');
@@ -174,7 +175,7 @@ async function resolveSkin(query) {
   return { name: profile.name, variant: skin.metadata?.model === 'slim' ? 'slim' : 'classic', png: `data:image/png;base64,${bytes.toString('base64')}` };
 }
 async function wardrobeState() {
-  return { skins: await wardrobe.list(), applied: account ? wardrobe.appliedFor(account.uuid) : null };
+  return { skins: await wardrobe.list(), applied: account ? wardrobe.appliedFor(account.uuid) : null, ...wardrobe.favorites() };
 }
 // Uploads the skin to the active Minecraft account, like changing it on minecraft.net.
 async function applySkin(id) {
@@ -673,11 +674,15 @@ else {
     handle('skins-fetch', resolveSkin);
     handle('skins-save', async input => {
       const { id, name, variant, png } = input || {};
-      if (id) await wardrobe.update(id, { name, variant, png }); else await wardrobe.add({ name, variant, png });
+      if (id) await wardrobe.update(id, { name, variant, png }); else await wardrobe.add({ name, variant, png, source: input?.source });
       return wardrobeState();
     });
     handle('skins-delete', async id => { await wardrobe.remove(id); return wardrobeState(); });
     handle('skins-apply', applySkin);
+    handle('skins-favorite', async (key, author) => { await wardrobe.toggleFavorite(key, author); return wardrobeState(); });
+    // The SkinMC gallery of the "Alle Skins" tab.
+    handle('skinmc-browse', query => skinMc.browse(query ?? {}));
+    handle('skinmc-texture', id => skinMc.texture(id));
     // Capes: own capes (worn in Savira), favourites, the account's vanilla capes and a template.
     handle('capes-list', () => capes.list());
     handle('capes-vanilla', async () => { const result = await vanillaCapes(await minecraftProfile(await capeAccount())); await rememberVanillaCape(account.uuid, result.capes); return result; });

@@ -4,10 +4,16 @@ const { randomUUID } = require('node:crypto');
 const { validSkinPng } = require('./skin.cjs');
 
 // The player's skin wardrobe, like the skins page in the NoRisk launcher.
-// skins/index.json holds names and models, skins/<id>.png the textures.
+// skins/index.json holds names, models, favourites and where a skin came from, skins/<id>.png the textures.
 const MAX_SKINS = 60;
 const ID = /^[0-9a-f-]{36}$/;
 const VARIANTS = ['classic', 'slim'];
+const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+// A skin taken from the SkinMC gallery remembers its id there; favourites are own skins or gallery skins.
+const SOURCE = new RegExp(`^skinmc:${UUID}$`);
+const FAVORITE = new RegExp(`^(own|skinmc):${UUID}$`);
+const MAX_FAVORITES = 500;
+const cleanAuthor = author => typeof author === 'string' && author.trim() && author.length <= 40 && !/[\x00-\x1f]/.test(author) ? author.trim() : null;
 
 /** Minecraft skins are 64x64 (or legacy 64x32) PNGs; read the size from the IHDR chunk. */
 function skinSize(bytes) {
@@ -39,7 +45,7 @@ function fromDataUrl(value) {
 function createSkinLibrary({ dir }) {
   const indexFile = path.join(dir, 'index.json');
   const file = id => path.join(dir, `${id}.png`);
-  let data = { skins: [], applied: {} };
+  let data = { skins: [], applied: {}, favorites: [], authors: {} };
   async function persist() {
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(indexFile + '.tmp', JSON.stringify(data, null, 2));
@@ -54,10 +60,13 @@ function createSkinLibrary({ dir }) {
     async load() {
       try {
         const raw = JSON.parse(await fs.readFile(indexFile, 'utf8'));
-        const skins = (Array.isArray(raw?.skins) ? raw.skins : []).filter(s => ID.test(s?.id) && typeof s.name === 'string' && VARIANTS.includes(s.variant)).slice(0, MAX_SKINS);
+        const skins = (Array.isArray(raw?.skins) ? raw.skins : []).filter(s => ID.test(s?.id) && typeof s.name === 'string' && VARIANTS.includes(s.variant)).slice(0, MAX_SKINS)
+          .map(s => SOURCE.test(s.source) ? s : { id: s.id, name: s.name, variant: s.variant, added: s.added });
         const applied = Object.fromEntries(Object.entries(raw?.applied || {}).filter(([uuid, id]) => /^[0-9a-f]{32}$/.test(uuid) && skins.some(s => s.id === id)));
-        data = { skins, applied };
-      } catch { data = { skins: [], applied: {} }; }
+        const favorites = [...new Set((Array.isArray(raw?.favorites) ? raw.favorites : []).filter(key => typeof key === 'string' && FAVORITE.test(key)))].slice(0, MAX_FAVORITES);
+        const authors = Object.fromEntries(favorites.filter(key => key.startsWith('skinmc:')).map(key => [key, cleanAuthor(raw?.authors?.[key])]));
+        data = { skins, applied, favorites, authors };
+      } catch { data = { skins: [], applied: {}, favorites: [], authors: {} }; }
       return data;
     },
     /** All skins with their texture as a data URL, newest first. */
@@ -69,11 +78,29 @@ function createSkinLibrary({ dir }) {
       return result.sort((a, b) => b.added - a.added);
     },
     appliedFor: uuid => data.applied[uuid] || null,
+    /** Favourite keys, newest last, and the uploader of each favourite gallery skin. */
+    favorites: () => ({ favorites: [...data.favorites], authors: { ...data.authors } }),
+    async toggleFavorite(key, author) {
+      if (typeof key !== 'string' || !FAVORITE.test(key)) throw new Error('Unbekannter Skin.');
+      if (key.startsWith('own:')) find(key.slice(4));
+      if (data.favorites.includes(key)) { data.favorites = data.favorites.filter(item => item !== key); delete data.authors[key]; }
+      else {
+        if (data.favorites.length >= MAX_FAVORITES) throw new Error(`Es können höchstens ${MAX_FAVORITES} Favoriten gespeichert werden.`);
+        data.favorites.push(key);
+        if (key.startsWith('skinmc:')) data.authors[key] = cleanAuthor(author);
+      }
+      await persist();
+      return data.favorites.includes(key);
+    },
     texture: async id => fs.readFile(file(find(id).id)),
     get: id => ({ ...find(id) }),
-    async add({ name, variant, png }) {
+    async add({ name, variant, png, source }) {
+      if (source !== undefined && (typeof source !== 'string' || !SOURCE.test(source))) throw new Error('Unbekannte Herkunft.');
+      // A gallery skin is only stored once.
+      const known = source && data.skins.find(item => item.source === source);
+      if (known) return { ...known };
       if (data.skins.length >= MAX_SKINS) throw new Error(`Es können höchstens ${MAX_SKINS} Skins gespeichert werden.`);
-      const skin = { id: randomUUID(), name: cleanName(name), variant: cleanVariant(variant), added: Date.now() };
+      const skin = { id: randomUUID(), name: cleanName(name), variant: cleanVariant(variant), added: Date.now(), ...(source ? { source } : {}) };
       const bytes = fromDataUrl(png);
       await fs.mkdir(dir, { recursive: true });
       await fs.writeFile(file(skin.id), bytes);
@@ -93,6 +120,7 @@ function createSkinLibrary({ dir }) {
     async remove(id) {
       const skin = find(id);
       data.skins = data.skins.filter(item => item.id !== skin.id);
+      data.favorites = data.favorites.filter(key => key !== `own:${skin.id}`);
       for (const [uuid, applied] of Object.entries(data.applied)) if (applied === skin.id) delete data.applied[uuid];
       await Promise.all([persist(), fs.rm(file(skin.id), { force: true })]);
     },

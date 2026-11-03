@@ -1,7 +1,7 @@
-import { ArrowsClockwise, Check, FolderOpen, MagnifyingGlass, PencilSimple, Plus, Spinner, TShirt, Trash, UploadSimple, X } from '@phosphor-icons/react';
-import { useEffect, useRef, useState, type CSSProperties, type DragEvent } from 'react';
+import { ArrowsClockwise, Check, FolderOpen, GlobeHemisphereWest, Heart, MagnifyingGlass, PencilSimple, Plus, Spinner, TShirt, Trash, UploadSimple, X } from '@phosphor-icons/react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { skinsApi, unwrap, type Accounts, type LibrarySkin, type SkinVariant, type Wardrobe } from './api';
+import { skinsApi, unwrap, type Accounts, type GallerySkin, type GalleryTag, type LibrarySkin, type SkinVariant, type Wardrobe } from './api';
 import { SkinStage } from './SkinStage';
 import { skinPose } from './skinPose';
 import { PageHeader } from './ui';
@@ -14,6 +14,18 @@ type Props = {
   onApplied: (accounts: Accounts) => void;
 };
 type Draft = { id?: string; name: string; variant: SkinVariant; png: string; swapped?: boolean };
+type Tab = 'mine' | 'favorites' | 'all';
+const tabs: { id: Tab; label: string }[] = [{ id: 'mine', label: 'meine skins' }, { id: 'favorites', label: 'favoriten' }, { id: 'all', label: 'alle skins' }];
+type Gallery = { skins: GallerySkin[]; next: string | null; state: 'idle' | 'loading' | 'error' };
+// German names for SkinMC's tags; unknown ones keep SkinMC's name.
+const TAG_NAMES: Record<string, string> = {
+  girl: 'Mädchen', boy: 'Junge', cute: 'Niedlich', cool: 'Cool', animal: 'Tier', cat: 'Katze', 'cat-ears': 'Katzenohren', dog: 'Hund', fox: 'Fuchs',
+  duck: 'Ente', penguin: 'Pinguin', christmas: 'Weihnachten', snowman: 'Schneemann', suit: 'Anzug', mask: 'Maske', king: 'König', maid: 'Zimmermädchen',
+  'long-hair': 'Lange Haare', 'black-hair': 'Schwarze Haare', scarf: 'Schal', sunglasses: 'Sonnenbrille', food: 'Essen', onesie: 'Einteiler',
+  red: 'Rot', blue: 'Blau', green: 'Grün', pink: 'Rosa', purple: 'Lila', black: 'Schwarz', white: 'Weiß', anime: 'Anime', halloween: 'Halloween'
+};
+const TAGS_SHOWN = 14;   // the most used; the rest folds out
+const tagName = (tag: GalleryTag) => TAG_NAMES[tag.id] ?? tag.name;
 
 const loadImage = (src: string) => new Promise<HTMLImageElement>((resolve, reject) => {
   const image = new Image();
@@ -79,6 +91,31 @@ function SkinFront({ png, variant, className = '' }: { png: string; variant: Ski
   return <canvas ref={ref} className={`skin-front ${className}`} aria-hidden="true" />;
 }
 
+/** A SkinMC skin, posed like the own ones; its texture is only fetched once the card scrolls into view. */
+function GalleryArt({ id }: { id: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  const [picture, setPicture] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    const element = ref.current;
+    if (!element || visible) return;
+    const observer = new IntersectionObserver(entries => { if (entries.some(entry => entry.isIntersecting)) setVisible(true); }, { rootMargin: '200px' });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [visible]);
+  useEffect(() => {
+    if (!visible) return;
+    let cancelled = false;
+    unwrap(skinsApi.texture(id)).then(async png => skinPose(png, await detectVariant(png)))
+      .then(next => { if (!cancelled) setPicture(next); }, () => { if (!cancelled) setFailed(true); });
+    return () => { cancelled = true; };
+  }, [visible, id]);
+  return <div ref={ref} className="skin-gallery-art">
+    {picture ? <img className="skin-pose" src={picture} alt="" draggable={false} /> : failed ? <TShirt size={40} weight="thin" /> : <Spinner size={22} className="spin" />}
+  </div>;
+}
+
 /** The skin of a card, posed in 3D. */
 function SkinCardArt({ png, variant }: { png: string; variant: SkinVariant }) {
   const [picture, setPicture] = useState<string | null>(null);
@@ -94,7 +131,13 @@ function SkinCardArt({ png, variant }: { png: string; variant: SkinVariant }) {
 }
 
 export function SkinsPage({ hasAccount, locked, onNotice, onError, onApplied }: Props) {
+  const [tab, setTab] = useState<Tab>('mine');
   const [wardrobe, setWardrobe] = useState<Wardrobe | null>(null);
+  const [gallery, setGallery] = useState<Gallery>({ skins: [], next: null, state: 'idle' });
+  const [tags, setTags] = useState<GalleryTag[]>([]);
+  const [tag, setTag] = useState<string | null>(null);
+  const [allTags, setAllTags] = useState(false);
+  const galleryToken = useRef(0);
   const [query, setQuery] = useState('');
   const [dialog, setDialog] = useState<'source' | 'preview' | null>(null);
   const [source, setSource] = useState('');
@@ -106,6 +149,21 @@ export function SkinsPage({ hasAccount, locked, onNotice, onError, onApplied }: 
   const editing = Boolean(draft?.id);
 
   useEffect(() => { unwrap(skinsApi.list()).then(setWardrobe).catch(e => onError(e.message)); }, [onError]);
+  // The gallery loads page by page; a newer request (other tag) wins over one still running.
+  const loadGallery = useCallback((nextTag: string | null, next: string | null) => {
+    const token = ++galleryToken.current;
+    setGallery(current => ({ skins: next ? current.skins : [], next: next ? current.next : null, state: 'loading' }));
+    unwrap(skinsApi.browse({ tag: nextTag, next })).then(page => {
+      if (token !== galleryToken.current) return;
+      if (page.tags) setTags(page.tags);
+      setGallery(current => {
+        const known = new Set(next ? current.skins.map(skin => skin.id) : []);
+        return { skins: [...(next ? current.skins : []), ...page.skins.filter(skin => !known.has(skin.id))], next: page.next, state: 'idle' };
+      });
+    }).catch(() => { if (token === galleryToken.current) setGallery(current => ({ ...current, state: 'error' })); });
+  }, []);
+  useEffect(() => { if (tab === 'all' && !gallery.skins.length && gallery.state === 'idle') loadGallery(tag, null); }, [tab, tag, gallery, loadGallery]);
+  const pickTag = (next: string | null) => { if (next === tag) return; setTag(next); loadGallery(next, null); };
   useEffect(() => {
     if (!confirmDelete) return;
     const timer = setTimeout(() => setConfirmDelete(null), 3500);
@@ -148,16 +206,71 @@ export function SkinsPage({ hasAccount, locked, onNotice, onError, onApplied }: 
     if (confirmDelete !== skin.id) { setConfirmDelete(skin.id); return; }
     void run(`delete-${skin.id}`, async () => { setWardrobe(await unwrap(skinsApi.remove(skin.id))); setConfirmDelete(null); onNotice(`Skin „${skin.name}“ gelöscht.`); });
   };
-  const apply = (skin: LibrarySkin) => run(`apply-${skin.id}`, async () => {
+  const wear = async (skin: LibrarySkin) => {
     const result = await unwrap(skinsApi.apply(skin.id));
     onApplied(result);
     setWardrobe(current => current ? { ...current, applied: result.applied } : current);
     onNotice(`Du trägst jetzt „${skin.name}“.`);
+  };
+  const apply = (skin: LibrarySkin) => run(`apply-${skin.id}`, () => wear(skin));
+  const favorite = (key: string, author?: string | null) => run(`fav-${key}`, async () => setWardrobe(await unwrap(skinsApi.favorite(key, author))));
+  // A gallery skin goes into "Meine Skins" first, then it is worn like an own skin.
+  const adopt = (skin: GallerySkin) => run(`adopt-${skin.id}`, async () => {
+    const source = `skinmc:${skin.id}`;
+    let saved = wardrobe?.skins.find(item => item.source === source);
+    if (!saved) {
+      const png = await unwrap(skinsApi.texture(skin.id));
+      const next = await unwrap(skinsApi.save({ name: (skin.author || 'SkinMC-Skin').slice(0, 32), variant: await detectVariant(png), png, source }));
+      setWardrobe(next);
+      saved = next.skins.find(item => item.source === source);
+    }
+    if (!saved) return;
+    if (hasAccount) await wear(saved);
+    else onNotice(`„${saved.name}“ unter Meine Skins gespeichert.`);
   });
   const onDrop = (event: DragEvent) => { event.preventDefault(); setDragging(false); void fromFile(event.dataTransfer.files[0]); };
 
-  const visible = (wardrobe?.skins || []).filter(skin => skin.name.toLowerCase().includes(query.trim().toLowerCase()));
+  const match = (name: string) => name.toLowerCase().includes(query.trim().toLowerCase());
+  const visible = (wardrobe?.skins || []).filter(skin => match(skin.name));
+  const favorites = new Set(wardrobe?.favorites || []);
+  const favOwn = visible.filter(skin => favorites.has(`own:${skin.id}`));
+  const favGallery: GallerySkin[] = (wardrobe?.favorites || []).filter(key => key.startsWith('skinmc:'))
+    .map(key => ({ id: key.slice(7), author: wardrobe?.authors[key] ?? null })).filter(skin => match(skin.author || 'SkinMC-Skin'));
   const nameInvalid = !draft?.name.trim() || draft.name.trim().length > 32;
+
+  const heart = (key: string, name: string, author?: string | null) => <button className={`cape-heart ${favorites.has(key) ? 'on' : ''}`} aria-pressed={favorites.has(key)} aria-label={favorites.has(key) ? `${name} aus Favoriten entfernen` : `${name} zu Favoriten`} onClick={() => favorite(key, author)}><Heart size={15} weight={favorites.has(key) ? 'fill' : 'bold'} /></button>;
+  const ownCard = (skin: LibrarySkin, index: number) => {
+    const active = wardrobe?.applied === skin.id;
+    return <article key={skin.id} className={`skin-card glass ${active ? 'active' : ''}`} style={{ '--i': index } as CSSProperties}>
+      {heart(`own:${skin.id}`, skin.name)}
+      <div className="skin-card-art"><SkinCardArt png={skin.png} variant={skin.variant} />{active && <span className="tag skin-active"><Check size={10} weight="bold" />aktiv</span>}</div>
+      <div className="skin-card-actions">
+        <button className="btn btn-icon" aria-label={`${skin.name} bearbeiten`} title="Umbenennen, Modell ändern oder Datei austauschen" disabled={locked} onClick={() => openEdit(skin)}><PencilSimple size={15} /></button>
+        <button className={`btn btn-icon ${confirmDelete === skin.id ? 'danger' : ''}`} aria-label={confirmDelete === skin.id ? `${skin.name} wirklich löschen` : `${skin.name} löschen`} title={confirmDelete === skin.id ? 'Nochmal klicken zum Löschen' : 'Löschen'} disabled={locked} onClick={() => remove(skin)}><Trash size={15} /></button>
+      </div>
+      <h2>{skin.name}</h2>
+      <small className="skin-variant">{skin.variant === 'slim' ? 'Schlank (Alex)' : 'Klassisch (Steve)'}</small>
+      <button className={`btn w-full pixel ${active ? '' : 'btn-accent'}`} disabled={locked || active || !hasAccount || Boolean(busy)} title={hasAccount ? undefined : 'Melde dich zuerst mit Microsoft an.'} onClick={() => apply(skin)}>
+        {busy === `apply-${skin.id}` ? <><Spinner size={15} className="spin" />wird gesetzt …</> : active ? <><Check size={15} weight="bold" />ausgewählt</> : 'auswählen'}
+      </button>
+    </article>;
+  };
+  const galleryCard = (skin: GallerySkin, index: number) => {
+    const name = skin.author || 'SkinMC-Skin';
+    const saved = wardrobe?.skins.find(item => item.source === `skinmc:${skin.id}`);
+    const active = Boolean(saved && wardrobe?.applied === saved.id);
+    const done = active || (!hasAccount && Boolean(saved));
+    return <article key={`skinmc-${skin.id}`} className={`skin-card glass ${active ? 'active' : ''}`} style={{ '--i': index % 24 } as CSSProperties}>
+      {heart(`skinmc:${skin.id}`, name, skin.author)}
+      <div className="skin-card-art"><GalleryArt id={skin.id} />{active && <span className="tag skin-active"><Check size={10} weight="bold" />aktiv</span>}</div>
+      <h2>{name}</h2>
+      <small className="skin-variant">{saved ? 'In Meine Skins' : 'SkinMC'}</small>
+      <button className={`btn w-full pixel ${done ? '' : 'btn-accent'}`} disabled={locked || done || Boolean(busy)} title={hasAccount ? 'Unter Meine Skins speichern und tragen' : 'Unter Meine Skins speichern. Zum Tragen mit Microsoft anmelden.'} onClick={() => adopt(skin)}>
+        {busy === `adopt-${skin.id}` ? <><Spinner size={15} className="spin" />{hasAccount ? 'wird gesetzt …' : 'speichert …'}</> : active ? <><Check size={15} weight="bold" />ausgewählt</> : done ? <><Check size={15} weight="bold" />gespeichert</> : hasAccount ? 'auswählen' : 'speichern'}
+      </button>
+    </article>;
+  };
+  const empty = (icon: ReactNode, title: string, text: string, action?: ReactNode) => <div className="empty glass">{icon}<h2 className="pixel">{title}</h2><p>{text}</p>{action}</div>;
 
   return <div className={`page page-enter skins-page ${dragging ? 'is-dropping' : ''}`}
     onDragOver={event => { if (event.dataTransfer.types.includes('Files')) { event.preventDefault(); setDragging(true); } }}
@@ -165,32 +278,41 @@ export function SkinsPage({ hasAccount, locked, onNotice, onError, onApplied }: 
     <PageHeader kicker={`${wardrobe?.skins.length ?? 0} gespeichert`} title="Skins">
       <button className="btn btn-accent pixel" disabled={locked} onClick={openAdd}><Plus size={16} weight="bold" />skin hinzufügen</button>
     </PageHeader>
-    <label className="search glass skins-search"><MagnifyingGlass size={18} /><input aria-label="Skins durchsuchen" placeholder="Skins durchsuchen …" value={query} onChange={e => setQuery(e.target.value)} /></label>
+    <div className="settings-tabs cape-tabs" role="tablist" aria-label="Skin-Kategorien">
+      {tabs.map(t => <button key={t.id} role="tab" aria-selected={tab === t.id} className={`pixel ${tab === t.id ? 'active' : ''}`} onClick={() => setTab(t.id)}>{t.label}</button>)}
+    </div>
+    {tab === 'all'
+      ? <div className="server-cats skin-tags" role="group" aria-label="Tags">
+        <button className={tag === null ? 'active' : ''} aria-pressed={tag === null} onClick={() => pickTag(null)}>Neueste</button>
+        {(allTags ? tags : tags.filter((item, i) => i < TAGS_SHOWN || item.id === tag)).map(item => <button key={item.id} className={tag === item.id ? 'active' : ''} aria-pressed={tag === item.id} onClick={() => pickTag(item.id)}>{tagName(item)}</button>)}
+        {tags.length > TAGS_SHOWN && <button className="skin-tags-more" aria-expanded={allTags} onClick={() => setAllTags(open => !open)}>{allTags ? "weniger" : `+${tags.length - TAGS_SHOWN} weitere`}</button>}
+      </div>
+      : <label className="search glass skins-search"><MagnifyingGlass size={18} /><input aria-label="Skins durchsuchen" placeholder="Skins durchsuchen …" value={query} onChange={e => setQuery(e.target.value)} /></label>}
     <input ref={fileRef} type="file" accept="image/png" hidden onChange={e => { void fromFile(e.target.files?.[0]); e.target.value = ''; }} />
 
-    <div className="skin-grid">
-      {!query && <button className="skin-card skin-add glass" disabled={locked} onClick={openAdd}>
-        <span className="skin-add-art"><TShirt size={46} weight="thin" /><i><Plus size={18} weight="bold" /></i></span>
-        <strong>Neuen Skin hinzufügen</strong><small><UploadSimple size={13} />Datei, Benutzername, UUID oder Link. PNG auch hierher ziehen.</small>
-      </button>}
-      {visible.map((skin, index) => {
-        const active = wardrobe?.applied === skin.id;
-        return <article key={skin.id} className={`skin-card glass ${active ? 'active' : ''}`} style={{ '--i': index } as CSSProperties}>
-          <div className="skin-card-art"><SkinCardArt png={skin.png} variant={skin.variant} />{active && <span className="tag skin-active"><Check size={10} weight="bold" />aktiv</span>}</div>
-          <div className="skin-card-actions">
-            <button className="btn btn-icon" aria-label={`${skin.name} bearbeiten`} title="Umbenennen, Modell ändern oder Datei austauschen" disabled={locked} onClick={() => openEdit(skin)}><PencilSimple size={15} /></button>
-            <button className={`btn btn-icon ${confirmDelete === skin.id ? 'danger' : ''}`} aria-label={confirmDelete === skin.id ? `${skin.name} wirklich löschen` : `${skin.name} löschen`} title={confirmDelete === skin.id ? 'Nochmal klicken zum Löschen' : 'Löschen'} disabled={locked} onClick={() => remove(skin)}><Trash size={15} /></button>
-          </div>
-          <h2>{skin.name}</h2>
-          <small className="skin-variant">{skin.variant === 'slim' ? 'Schlank (Alex)' : 'Klassisch (Steve)'}</small>
-          <button className={`btn w-full pixel ${active ? '' : 'btn-accent'}`} disabled={locked || active || !hasAccount || Boolean(busy)} title={hasAccount ? undefined : 'Melde dich zuerst mit Microsoft an.'} onClick={() => apply(skin)}>
-            {busy === `apply-${skin.id}` ? <><Spinner size={15} className="spin" />wird gesetzt …</> : active ? <><Check size={15} weight="bold" />ausgewählt</> : 'auswählen'}
-          </button>
-        </article>;
-      })}
-      {wardrobe && query && !visible.length && <div className="empty glass"><TShirt size={34} weight="thin" /><h2 className="pixel">Kein Skin gefunden</h2><p>Kein Skin heißt wie „{query}“.</p></div>}
+    <div className="skin-grid" role="tabpanel">
+      {tab === 'mine' && <>
+        {!query && <button className="skin-card skin-add glass" disabled={locked} onClick={openAdd}>
+          <span className="skin-add-art"><TShirt size={46} weight="thin" /><i><Plus size={18} weight="bold" /></i></span>
+          <strong>Neuen Skin hinzufügen</strong><small><UploadSimple size={13} />Datei, Benutzername, UUID oder Link. PNG auch hierher ziehen.</small>
+        </button>}
+        {visible.map(ownCard)}
+        {wardrobe && query && !visible.length && empty(<TShirt size={34} weight="thin" />, 'Kein Skin gefunden', `Kein Skin heißt wie „${query}“.`)}
+      </>}
+      {tab === 'favorites' && (favOwn.length || favGallery.length
+        ? [...favOwn.map(ownCard), ...favGallery.map((skin, i) => galleryCard(skin, favOwn.length + i))]
+        : empty(<Heart size={34} weight="thin" />, query ? 'Kein Favorit gefunden' : 'Keine Favoriten', query ? 'Nichts passt zur Suche.' : 'Tippe bei einem Skin auf das Herz, dann findest du ihn hier wieder.'))}
+      {tab === 'all' && (gallery.skins.length ? gallery.skins.map(galleryCard)
+        : gallery.state === 'error' ? empty(<GlobeHemisphereWest size={34} weight="thin" />, 'Nicht erreichbar', 'Die Skins von SkinMC konnten nicht geladen werden.', <button className="btn" onClick={() => loadGallery(tag, null)}>Erneut versuchen</button>)
+        : gallery.state === 'loading' ? <div className="empty glass"><Spinner size={30} className="spin" /><p>Skins werden geladen …</p></div>
+        : empty(<TShirt size={34} weight="thin" />, 'Keine Skins', 'Unter diesem Tag gibt es gerade keine Skins.'))}
     </div>
-    {!hasAccount && <p className="fine skins-fine">Zum Auswählen eines Skins musst du mit Microsoft angemeldet sein. Speichern und Vorschau gehen auch ohne.</p>}
+    {tab === 'all' && Boolean(gallery.skins.length) && (gallery.next || gallery.state !== 'idle') && <div className="skin-more">
+      {gallery.state === 'error' ? <button className="btn" onClick={() => loadGallery(tag, gallery.next)}>Erneut versuchen</button>
+        : <button className="btn pixel" disabled={gallery.state === 'loading'} onClick={() => loadGallery(tag, gallery.next)}>{gallery.state === 'loading' ? <><Spinner size={15} className="spin" />lädt …</> : 'mehr laden'}</button>}
+    </div>}
+    {tab === 'all' && <p className="fine skins-fine">Die Skins kommen von skinmc.net und wurden dort von der Community hochgeladen. Beim Auswählen wird der Skin unter „Meine Skins“ gespeichert.</p>}
+    {tab !== 'all' && !hasAccount && <p className="fine skins-fine">Zum Auswählen eines Skins musst du mit Microsoft angemeldet sein. Speichern und Vorschau gehen auch ohne.</p>}
 
     {/* Portal: the page animates with a transform, which would pin a fixed backdrop to the page. */}
     {dialog && createPortal(<div className="modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget && !busy) close(); }}>

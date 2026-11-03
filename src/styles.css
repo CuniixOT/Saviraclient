@@ -486,6 +486,12 @@ select.input { padding-right: 30px; }
 .skin-add small { display: flex; gap: 6px; align-items: flex-start; justify-content: center; color: var(--text-3); font-size: 12px; line-height: 1.45; }
 .skin-add small svg { margin-top: 2px; }
 .skins-fine { margin-top: 16px; }
+.skin-tags { margin-bottom: 18px; }
+.skin-tags .skin-tags-more { border-style: dashed; color: var(--text-3); }
+.skin-gallery-art { position: absolute; inset: 0; display: grid; place-items: center; color: var(--text-3); }
+.skin-more { display: flex; justify-content: center; margin-top: 18px; }
+.skin-card .cape-heart { left: 20px; right: auto; }
+.skin-card .cape-heart + .skin-card-art .skin-active { left: auto; right: 8px; top: auto; bottom: 8px; }
 .skins-page.is-dropping .skin-add { border-color: var(--accent); background: var(--accent-soft); }
 .skin-modal { width: min(520px, 100%); }
 .skin-source { display: grid; gap: 10px; }
