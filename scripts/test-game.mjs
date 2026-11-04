@@ -1,6 +1,5 @@
 import { Client } from '../electron/minecraft.cjs';
 import { mkdir, writeFile, copyFile, rm } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import path from 'node:path';
@@ -12,10 +11,10 @@ import { readFile } from 'node:fs/promises';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const game = path.join(root, '.tools', 'demo-runtime');
 const menuTest = process.argv.includes('--menu');
-const id = 'fabric-loader-0.16.14-1.21.1';
+const id = 'fabric-loader-0.20.1-1.21.1';
 await mkdir(path.join(game, 'versions', id), { recursive: true });
 await mkdir(path.join(game, 'mods'), { recursive: true });
-const profile = await fetch('https://meta.fabricmc.net/v2/versions/loader/1.21.1/0.16.14/profile/json');
+const profile = await fetch('https://meta.fabricmc.net/v2/versions/loader/1.21.1/0.20.1/profile/json');
 if (!profile.ok) throw new Error('Fabric profile unavailable');
 await writeFile(path.join(game, 'versions', id, `${id}.json`), await profile.text());
 await copyFile(path.join(root, 'client-mod/build/libs/savira-client-0.1.0.jar'), path.join(game, 'mods/savira-client-0.1.0.jar'));
@@ -41,15 +40,11 @@ if (menuTest) {
   try { config = JSON.parse(await readFile(configFile, 'utf8')); } catch { /* First run. */ }
   await writeFile(configFile, JSON.stringify({ ...config, panoramaDir: store.dir, menuBackground: 'current' }, null, 2));
 }
-const versionsResponse = await fetch('https://api.modrinth.com/v2/project/fabric-api/version?loaders=%5B%22fabric%22%5D&game_versions=%5B%221.21.1%22%5D');
-if (!versionsResponse.ok) throw new Error('Fabric API metadata unavailable');
-const versions = await versionsResponse.json();
-const file = versions.find(v => v.version_type === 'release').files.find(f => f.primary);
-const apiResponse = await fetch(file.url);
-if (!apiResponse.ok) throw new Error('Fabric API unavailable');
-const bytes = Buffer.from(await apiResponse.arrayBuffer());
-if (createHash('sha512').update(bytes).digest('hex') !== file.hashes.sha512) throw new Error('Fabric API hash mismatch');
-await writeFile(path.join(game, 'mods', file.filename), bytes);
+// Fabric API and the other default mods, exactly as the launcher puts them into a Savira profile.
+const { syncDefaultMods } = createRequire(import.meta.url)('../electron/defaultmods.cjs');
+const defaults = await syncDefaultMods(path.join(game, 'mods'), '1.21.1', { onProgress: message => console.log(message) });
+if (!defaults.some(file => file.startsWith('fabric-api-'))) throw new Error('Fabric API unavailable');
+console.log(`Standard-Mods: ${defaults.length}`);
 const launcher = new Client();
 let lastType = '', lastBucket = -1, output = '', processHandle;
 launcher.on('progress', ({ type, task, total }) => {

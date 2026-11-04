@@ -222,12 +222,12 @@ function ContentSection({ profile, kind, items, locked, onReload, onBrowse, onNo
       const itemMenu: MenuItem[] = [
         ...(item.update ? [{ label: `Auf ${item.update.versionNumber} aktualisieren`, icon: <DownloadSimple size={15} />, onClick: () => void run(item.file, () => unwrap(profilesApi.update(profile.id, kind, item.file))), disabled: locked }] : []),
         ...(item.modrinth ? [{ label: 'Auf Modrinth ansehen', icon: <ArrowSquareOut size={15} />, onClick: () => void profilesApi.openProject(item.modrinth!.type, item.modrinth!.slug) }] : []),
-        { label: 'Löschen', icon: <Trash size={15} />, danger: true, disabled: locked || item.managed, hint: item.managed ? 'Savira legt diese Datei bei jedem Start selbst an.' : undefined, onClick: () => void run(item.file, () => unwrap(profilesApi.remove(profile.id, kind, item.file))) },
+        { label: 'Löschen', icon: <Trash size={15} />, danger: true, disabled: locked || item.managed || item.standard, hint: item.managed ? 'Savira legt diese Datei bei jedem Start selbst an.' : item.standard ? 'Standard-Mod von Savira: Ausschalten geht, gelöscht kommt er beim nächsten Start wieder.' : undefined, onClick: () => void run(item.file, () => unwrap(profilesApi.remove(profile.id, kind, item.file))) },
       ];
       return <article key={item.file} className={`content-item ${item.enabled ? '' : 'is-off'} ${busy ? 'is-busy' : ''}`}>
         {item.icon ? <img src={item.icon} alt="" loading="lazy" /> : <span className="content-icon-empty">{info.icon}</span>}
         <div className="content-copy">
-          <h3>{item.name}{item.managed && <span className="tag" title="Kommt mit den Savira-Funktionen">savira</span>}</h3>
+          <h3>{item.name}{item.managed && <span className="tag" title="Kommt mit den Savira-Funktionen">savira</span>}{item.standard && <span className="tag" title="Standard-Mod der Savira-Funktionen, bleibt automatisch aktuell">standard</span>}</h3>
           <p>{item.version || item.description || item.file}{item.update && <button className="update-badge" disabled={locked || busy} title={`Update auf ${item.update.versionNumber}`} onClick={() => void run(item.file, () => unwrap(profilesApi.update(profile.id, kind, item.file)))}><DownloadSimple size={11} />{item.update.versionNumber}</button>}</p>
         </div>
         {!item.folder && <button type="button" className={`toggle ${item.enabled ? 'on' : ''}`} role="switch" aria-checked={item.enabled} aria-label={`${item.name} ${item.enabled ? 'ausschalten' : 'einschalten'}`} disabled={locked || busy || item.managed} onClick={() => void run(item.file, () => unwrap(profilesApi.toggle(profile.id, kind, item.file, !item.enabled)))}><span /></button>}
@@ -242,11 +242,11 @@ function SaviraSection({ profile, items, locked, onSave }: { profile: GameProfil
   return <div className="savira-section">
     <div className="savira-card glass">
       <Star size={28} weight="fill" />
-      <div><h2 className="pixel">Savira-Client-Funktionen</h2><p>HUD, Rechts-Shift-Mod-Menü, eigene Capes, Icons und Nametags im Spiel. Savira legt dafür bei jedem Start den Savira-Mod und die Fabric API in den mods-Ordner.</p></div>
+      <div><h2 className="pixel">Savira-Client-Funktionen</h2><p>HUD, Rechts-Shift-Mod-Menü, eigene Capes, Icons und Nametags im Spiel. Savira legt dafür bei jedem Start den Savira-Mod, die Fabric API und die Standard-Mods wie Sodium, Lithium, 3D Skin Layers, AppleSkin und Simple Voice Chat in den mods-Ordner und hält sie aktuell. Standard-Mods schaltest du unter Mods einzeln aus.</p></div>
       {available ? <button type="button" className={`toggle ${profile.savira ? 'on' : ''}`} role="switch" aria-checked={profile.savira} aria-label="Savira-Funktionen" disabled={locked} onClick={() => void onSave({ ...profile, savira: !profile.savira }, profile.savira ? 'Savira-Funktionen aus.' : 'Savira-Funktionen an.')}><span /></button>
         : <p className="content-hint">Gibt es zurzeit nur für Fabric 1.21.1. Dieses Profil nutzt {loaderNames[profile.loader]} {profile.version}.</p>}
     </div>
-    {profile.savira && <div className="content-grid">{(items || []).filter(item => item.managed).map(item => <article key={item.file} className="content-item">
+    {profile.savira && <div className="content-grid">{(items || []).filter(item => item.managed || item.standard).map(item => <article key={item.file} className="content-item">
       {item.icon ? <img src={item.icon} alt="" /> : <span className="content-icon-empty"><Star size={16} weight="fill" /></span>}
       <div className="content-copy"><h3>{item.name}</h3><p>{item.version || item.file}</p></div>
     </article>)}</div>}

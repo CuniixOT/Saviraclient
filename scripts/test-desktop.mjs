@@ -219,9 +219,17 @@ try {
   await shot('capes');
   await page.getByRole('tab', { name: 'favoriten' }).click();
   await expect(page.locator('.cape-card', { hasText: 'Turnier-Cape' })).toBeVisible();
-  const wrongCape = page.locator('input[type="file"]').setInputFiles({ name: 'falsch.png', mimeType: 'image/png', buffer: testPng(64, 64, [0, 0, 0]) });
-  await wrongCape;
-  await expect(page.getByRole('alert')).toContainText('64×32');
+  // Capes from other clients are converted: LabyMod (22:17), any other picture onto both sides.
+  await page.locator('input[type="file"]').setInputFiles({ name: 'LabyMod Cape.png', mimeType: 'image/png', buffer: testPng(352, 272, [143, 114, 242]) });
+  await expect(page.locator('.cape-note')).toContainText('LabyMod-Cape erkannt');
+  await page.waitForTimeout(700);
+  await shot('cape-labymod');
+  await page.getByRole('button', { name: 'Abbrechen' }).click();
+  await page.locator('input[type="file"]').setInputFiles({ name: 'Bild.png', mimeType: 'image/png', buffer: testPng(300, 200, [46, 196, 182]) });
+  await expect(page.locator('.cape-note')).toContainText('Vorder- und Rückseite');
+  await page.getByRole('button', { name: 'Abbrechen' }).click();
+  await page.locator('input[type="file"]').setInputFiles({ name: 'falsch.txt', mimeType: 'text/plain', buffer: Buffer.from('kein Bild') });
+  await expect(page.getByRole('alert')).toContainText('Bitte ein Bild');
   await page.getByRole('button', { name: 'Meldung schließen' }).click();
   const templateFile = path.join(userData, 'vorlage.png');
   await app.evaluate(({ dialog }, file) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: file }); }, templateFile);

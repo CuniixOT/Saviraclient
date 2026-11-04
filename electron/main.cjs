@@ -3,12 +3,11 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
-const { createHash } = require('node:crypto');
 const { Client } = require('./minecraft.cjs');
 const { Auth } = require('msmc');
 const serverPing = require('./serverping.cjs');
-const { accentRgb, defaults, maxMemory, validateSettings, validateProfile, mergeHudFromGame, loaders, saviraVersions } = require('./settings.cjs');
-const { minecraftVersions, loaderVersions, installLoader } = require('./loaders.cjs');
+const { accentRgb, defaults, maxMemory, validateSettings, validateProfile, mergeHudFromGame, loaders, saviraVersions, FABRIC_LOADER, SAVIRA_MIN_LOADER } = require('./settings.cjs');
+const { minecraftVersions, loaderVersions, installLoader, compareVersions } = require('./loaders.cjs');
 const { readPack } = require('./modpacks.cjs');
 const { blockIcons } = require('./blockicons.cjs');
 const content = require('./content.cjs');
@@ -19,6 +18,7 @@ const { createSession } = require('./gamesession.cjs');
 const { normalizeSkinUrl, validSkinPng } = require('./skin.cjs');
 const { createSkinLibrary, assertSkin } = require('./skins.cjs');
 const skinMc = require('./skinmc.cjs').createSkinMc();
+const defaultMods = require('./defaultmods.cjs');
 const { createCapeLibrary } = require('./capes.cjs');
 const { createPanoramaStore } = require('./panoramas.cjs');
 const setup = require('./setup.cjs');
@@ -325,7 +325,7 @@ function menuAndEmotesFrom(inGame) {
 }
 const SAVIRA_JAR = 'savira-client-0.1.0.jar';
 // A Fabric profile without Savira features must not keep the mod from an earlier start.
-async function removeSavira(gameRoot) { await fs.rm(path.join(gameRoot, 'mods', SAVIRA_JAR), { force: true }); }
+async function removeSavira(gameRoot) { await fs.rm(path.join(gameRoot, 'mods', SAVIRA_JAR), { force: true }); await defaultMods.removeDefaultMods(path.join(gameRoot, 'mods')); }
 // The Savira mod, Fabric API and the mod's config; the Fabric profile itself comes from installLoader.
 async function prepareSavira(gameRoot, minecraftVersion) {
   if (!saviraVersions.includes(minecraftVersion)) throw new Error(`Der Savira-Mod unterstützt aktuell nur Minecraft ${saviraVersions.join(', ')}.`);
@@ -334,24 +334,10 @@ async function prepareSavira(gameRoot, minecraftVersion) {
   const source = app.isPackaged ? path.join(process.resourcesPath, 'mods', SAVIRA_JAR) : path.join(__dirname, '..', 'client-mod', 'build', 'libs', SAVIRA_JAR);
   try { await fs.access(source); } catch { throw new Error('Savira-Mod fehlt. Bitte zuerst „npm run build:mod“ ausführen oder im Profil die Savira-Funktionen ausschalten.'); }
   await fs.copyFile(source, path.join(mods, SAVIRA_JAR));
-  const versions = await json(`https://api.modrinth.com/v2/project/fabric-api/version?loaders=%5B%22fabric%22%5D&game_versions=%5B%22${minecraftVersion}%22%5D`);
-  const version = versions.find(v => v.version_type === 'release');
-  const file = version?.files.find(f => f.primary) || version?.files[0];
-  if (!file || new URL(file.url).hostname !== 'cdn.modrinth.com' || !/^[a-zA-Z0-9._+\-]+\.jar$/.test(file.filename)) throw new Error('Fabric API konnte nicht aufgelöst werden.');
-  const destination = path.join(mods, file.filename);
-  let valid = false;
-  try { valid = createHash('sha512').update(await fs.readFile(destination)).digest('hex') === file.hashes.sha512; } catch { /* First install. */ }
-  if (!valid) {
-    publish({ message: 'Fabric API wird heruntergeladen …', progress: 8 });
-    const response = await fetch(file.url, { signal: AbortSignal.timeout(120000) });
-    if (!response.ok) throw new Error('Fabric-API-Download fehlgeschlagen.');
-    const bytes = Buffer.from(await response.arrayBuffer());
-    if (createHash('sha512').update(bytes).digest('hex') !== file.hashes.sha512) throw new Error('Prüfsumme der Fabric API stimmt nicht.');
-    await atomicWrite(destination, bytes);
-  }
-  for (const name of await fs.readdir(mods)) {
-    if (name.startsWith('fabric-api-') && name.endsWith('.jar') && name !== file.filename) await fs.unlink(path.join(mods, name));
-  }
+  // Fabric API and the other default mods, like the bundle of the NoRisk client.
+  publish({ message: 'Standard-Mods werden geprüft …', progress: 6 });
+  const installedDefaults = await defaultMods.syncDefaultMods(mods, minecraftVersion, { log, onProgress: (message, share) => publish({ message, progress: 6 + Math.round(share * 6) }) });
+  if (!installedDefaults.some(file => file.startsWith('fabric-api-'))) throw new Error('Fabric API konnte nicht geladen werden. Bitte die Internetverbindung prüfen.');
   // First start: give the panorama download a moment, so the menu offers them right away.
   if (panoramas) await Promise.race([panoramas.ensure().catch(() => []), new Promise(resolve => setTimeout(resolve, 20000))]);
   const capeFile = capes?.activeFile(), capeTarget = path.join(gameRoot, 'config', 'savira-cape.png');
@@ -482,7 +468,13 @@ async function launch(quickPlay = null) {
   if (!account) throw new Error('Bitte zuerst mit Microsoft anmelden.');
   busy = true;
   try {
-    const profile = selectedProfile();
+    let profile = selectedProfile();
+    // Some default mods need a newer Fabric Loader than older Savira profiles were made with.
+    if (profile.savira && profile.loader === 'fabric' && compareVersions(profile.loaderVersion, SAVIRA_MIN_LOADER) < 0) {
+      log.info(`${profile.name}: Fabric Loader ${profile.loaderVersion} → ${FABRIC_LOADER} für die Standard-Mods`);
+      profile = { ...profile, loaderVersion: FABRIC_LOADER };
+      await storeSettings({ ...settings, profiles: settings.profiles.map(item => item.id === profile.id ? profile : item) });
+    }
     publish({ phase: 'preparing', message: `${profile.name}: Java wird geprüft …`, progress: 0 });
     let java;
     try { java = await run(settings.javaPath, ['-version'], { timeout: 10000, windowsHide: true }); }

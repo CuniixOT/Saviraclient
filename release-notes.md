@@ -3,12 +3,9 @@
 Jede Zeile, die mit "- " beginnt, erscheint im Update-Hinweis des Launchers.
 Vor jedem Release anpassen, dann Version erhöhen und pushen.
 
-- Skins: neue Tabs „Meine Skins“, „Favoriten“ und „Alle Skins“ wie bei den Capes
-- Alle Skins: tausende Community-Skins von skinmc.net, filterbar nach Tags wie Mädchen, Junge, Niedlich oder Tier
-- Skins mit dem Herz favorisieren; ein Skin aus der Galerie wird beim Auswählen unter „Meine Skins“ gespeichert und getragen
-- Skin-Karten zeigen jeden Skin in einer Pose, die Vorschau beim Bearbeiten ist animiert wie im Spielen-Menü
-- Neuer Server-Tab: Partner-Server mit Live-Ping, Spielerzahl, Version, Region, Kategorien, Bannern und Server-Icons
-- Server direkt mit einem Profil deiner Wahl beitreten, IP kopieren, nach Spielern sortieren und nach Kategorie wie Crystal PvP filtern
-- Bilder in den News, im Launcher und im Hauptmenü des Spiels
-- Neues Rechts-Shift-Menü und neues Hauptmenü im Spiel, mit den Schriften des Launchers
-- Emotes: Emote-Rad, Emote-Auswahl nach Seltenheit und eigene Tasten im Mod-Menü
+- Standard-Mods in jedem Savira-Profil: Sodium, Lithium, FerriteCore, ImmediatelyFast, Entity Culling, More Culling, 3D Skin Layers, AppleSkin, Tiers, Simple Voice Chat, Health Indicators, Shulker Box Tooltip, Cubes Without Borders und Mod Menu
+- Die Standard-Mods kommen direkt von Modrinth, bleiben automatisch aktuell und lassen sich im Profil unter Mods einzeln ausschalten
+- Savira-Profile nutzen jetzt Fabric Loader 0.20.1; ältere Profile werden beim nächsten Start automatisch umgestellt
+- Capes von LabyMod, OptiFine oder in beliebiger Größe werden beim Hochladen automatisch ins Minecraft-Format umgerechnet
+- Auch Bilder (PNG, JPG, WebP, GIF) lassen sich als Cape hochladen; sie landen auf Vorder- und Rückseite
+- Behoben: Die 3D-Vorschau beim Cape-Hochladen stand nicht mehr in der Mitte

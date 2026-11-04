@@ -108,11 +108,12 @@ public final class MenuSmokeTest implements ClientModInitializer {
                         HudScreen h = menu();
                         check(h.page().equals("MODS"), "Menu did not open on the mods: " + h.page());
                         check(HudModule.values().length == 14, "Module count");
-                        check(HudModule.NAMETAG.isNew() && HudModule.ICON.isNew() && !HudModule.FPS.isNew(), "NEU tag does not follow the release date");
+                        // Holds on any day: a module is new for NEW_FOR_DAYS after its release, the oldest ones never.
+                        check(java.util.Arrays.stream(HudModule.values()).allMatch(m -> m.isNew() == !java.time.LocalDate.now().isAfter(m.released().plusDays(HudModule.NEW_FOR_DAYS))) && !HudModule.FPS.isNew(), "NEU tag does not follow the release date");
                         // New modules come first in the grid.
                         java.util.List<String> titles = java.util.Arrays.stream(HudModule.values()).map(m -> m.title).toList();
                         String first = h.labels().stream().filter(titles::contains).findFirst().orElse("");
-                        check(first.equals("Emotes"), "Newest module not on top: " + first);
+                        check(!HudModule.EMOTES.isNew() || first.equals("Emotes"), "Newest module not on top: " + first);
                         // The switch on a card turns the module off and on, with a notification.
                         h.click("FPS-Anzeige: An/Aus"); check(!HudModule.FPS.enabled(), "Module toggle failed");
                         check(gg.savira.client.SaviraToasts.any(), "No notification after toggling a module");

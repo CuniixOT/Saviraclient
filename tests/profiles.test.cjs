@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { zipSync, strToU8 } = require('fflate');
-const { defaults, validateSettings, validateProfile, maxMemory } = require('../electron/settings.cjs');
+const { defaults, validateSettings, validateProfile, maxMemory, FABRIC_LOADER } = require('../electron/settings.cjs');
 const { readPack, safeRelative } = require('../electron/modpacks.cjs');
 const { compareVersions, neoforgePrefix, modernForge } = require('../electron/loaders.cjs');
 const { libraryKey, mavenPath } = require('../electron/minecraft.cjs');
@@ -13,7 +13,7 @@ const index = (changes = {}) => ({ formatVersion: 1, game: 'minecraft', name: 'P
 
 test('profiles from before 0.2.4 become Fabric with Savira or Vanilla', () => {
   const old = validateSettings({ ...defaults, profiles: [{ id: 'old-savira', name: 'Alt', version: '1.21.1', loader: 'savira' }, { id: 'old-vanilla', name: 'Alt 2', version: '1.8.9', loader: 'vanilla' }], selectedProfileId: 'old-savira' });
-  assert.deepEqual(old.profiles.map(p => [p.loader, p.loaderVersion, p.savira, p.memory]), [['fabric', '0.16.14', true, defaults.memory * 1024], ['vanilla', null, false, defaults.memory * 1024]]);
+  assert.deepEqual(old.profiles.map(p => [p.loader, p.loaderVersion, p.savira, p.memory]), [['fabric', FABRIC_LOADER, true, defaults.memory * 1024], ['vanilla', null, false, defaults.memory * 1024]]);
 });
 
 test('accepts every loader, snapshots and profile extras', () => {

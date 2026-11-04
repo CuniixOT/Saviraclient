@@ -3,7 +3,9 @@ const maxMemory = Math.max(2, Math.min(32, Math.floor(os.totalmem() / 1073741824
 // Loaders a profile can start with. The Savira mod is a Fabric mod and exists for these Minecraft versions.
 const loaders = ['vanilla', 'fabric', 'forge', 'neoforge', 'quilt'];
 const saviraVersions = ['1.21.1'];
-const FABRIC_LOADER = '0.16.14';
+// Fabric Loader for new profiles; Savira profiles need at least SAVIRA_MIN_LOADER for the default mods.
+const FABRIC_LOADER = '0.20.1';
+const SAVIRA_MIN_LOADER = '0.19.5';
 const saviraAvailable = (version, loader) => loader === 'fabric' && saviraVersions.includes(version);
 const defaultProfiles = [
   { id: 'savira-1-21-1', name: 'Savira 1.21.1', version: '1.21.1', loader: 'fabric', loaderVersion: FABRIC_LOADER, savira: true, memory: null, group: '', icon: null, lastPlayed: null, playTime: 0, pack: null },
@@ -109,4 +111,4 @@ function mergeHudFromGame(current, inGame) {
   for (const key of HUD_KEYS) if (typeof inGame[key] === 'boolean' && inGame[key] !== hud[key]) { hud[key] = inGame[key]; changed = true; }
   return changed ? validateSettings({ ...current, hud }) : null;
 }
-module.exports = { mergeHudFromGame, loaders, saviraVersions, saviraAvailable, FABRIC_LOADER, backgrounds, accents, accentRgb, defaults, maxMemory, validateSettings, validateProfile };
+module.exports = { mergeHudFromGame, loaders, saviraVersions, saviraAvailable, FABRIC_LOADER, SAVIRA_MIN_LOADER, backgrounds, accents, accentRgb, defaults, maxMemory, validateSettings, validateProfile };

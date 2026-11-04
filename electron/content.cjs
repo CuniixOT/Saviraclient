@@ -118,6 +118,11 @@ async function list(root, kind, profile) {
   let entries = [];
   try { entries = await fs.readdir(folder, { withFileTypes: true }); } catch { return []; }
   const items = [];
+  // The default mods the launcher keeps in every Savira profile (see defaultmods.cjs).
+  let standard = new Set();
+  if (kind === 'mods' && profile.savira) {
+    try { standard = new Set(Object.values(JSON.parse(await fs.readFile(path.join(folder, '.savira-defaults.json'), 'utf8')).files || {})); } catch { /* None yet. */ }
+  }
   for (const entry of entries) {
     const enabled = !entry.name.endsWith(DISABLED);
     const base = enabled ? entry.name : entry.name.slice(0, -DISABLED.length);
@@ -135,7 +140,7 @@ async function list(root, kind, profile) {
       } else meta = { sha1: null };
       metaCache.set(key, meta);
     }
-    items.push({ file: entry.name, name: meta.name || base.replace(/\.(jar|zip)$/i, ''), version: meta.version || null, description: meta.description || null, icon: meta.icon || null, size: info.size, enabled, folder: !isFile, managed: kind === 'mods' && profile.savira && MANAGED.test(base), sha1: meta.sha1, modrinth: null, update: null });
+    items.push({ file: entry.name, name: meta.name || base.replace(/\.(jar|zip)$/i, ''), version: meta.version || null, description: meta.description || null, icon: meta.icon || null, size: info.size, enabled, folder: !isFile, managed: kind === 'mods' && profile.savira && MANAGED.test(base), standard: kind === 'mods' && profile.savira && standard.has(base) && !MANAGED.test(base), sha1: meta.sha1, modrinth: null, update: null });
   }
   const hashes = items.map(item => item.sha1).filter(Boolean);
   if (hashes.length) {
