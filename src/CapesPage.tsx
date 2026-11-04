@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Drag
 import { createPortal } from 'react-dom';
 import type { SkinViewer } from 'skinview3d';
 import { capesApi, unwrap, type CapeLibrary, type CapeVisibility, type OwnCape, type VanillaCape, type VanillaCapes } from './api';
+import { normalizeCape } from './capeImage';
 import { PageHeader } from './ui';
 
 type Tab = 'all' | 'mine' | 'favorites' | 'vanilla';
@@ -15,19 +16,14 @@ const loadImage = (src: string) => new Promise<HTMLImageElement>((resolve, rejec
   image.onerror = () => reject(new Error('Das Bild konnte nicht gelesen werden.'));
   image.src = src;
 });
+const PICTURE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+/** Reads a cape picture of any common format and size and brings it into the Minecraft cape format. */
 function readCape(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    if (file.type && file.type !== 'image/png') { reject(new Error('Bitte eine PNG-Datei wählen.')); return; }
-    if (file.size > 2_000_000) { reject(new Error('Die Datei ist zu groß.')); return; }
+  return new Promise<{ png: string; note: string | null }>((resolve, reject) => {
+    if (file.type && !PICTURE_TYPES.includes(file.type)) { reject(new Error('Bitte ein Bild wählen (PNG, JPG, WebP oder GIF).')); return; }
+    if (file.size > 15_000_000) { reject(new Error('Die Datei ist zu groß.')); return; }
     const reader = new FileReader();
-    reader.onload = async () => {
-      const png = String(reader.result);
-      try {
-        const image = await loadImage(png);
-        if (image.width !== image.height * 2 || ![64, 128, 256, 512, 1024].includes(image.width)) throw new Error(`Ein Cape muss 64×32 Pixel groß sein (oder 128×64, 256×128 …). Diese Datei: ${image.width}×${image.height}.`);
-        resolve(png);
-      } catch (error) { reject(error); }
-    };
+    reader.onload = () => { normalizeCape(String(reader.result)).then(resolve, reject); };
     reader.onerror = () => reject(new Error('Die Datei konnte nicht gelesen werden.'));
     reader.readAsDataURL(file);
   });
@@ -154,7 +150,7 @@ export function CapesPage({ hasAccount, skin, locked, onNotice, onError, onCapeC
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState('');
   const [templateOpen, setTemplateOpen] = useState(false);
-  const [upload, setUpload] = useState<{ name: string; png: string; visibility: CapeVisibility } | null>(null);
+  const [upload, setUpload] = useState<{ name: string; png: string; note: string | null; visibility: CapeVisibility } | null>(null);
   const [managing, setManaging] = useState<{ id: string; name: string; visibility: CapeVisibility } | null>(null);
   const [mineFilter, setMineFilter] = useState<'all' | CapeVisibility>('all');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -185,12 +181,12 @@ export function CapesPage({ hasAccount, skin, locked, onNotice, onError, onCapeC
   }
   const pickFile = async (file: File | undefined) => {
     if (!file) return;
-    await run('file', async () => setUpload({ name: file.name.replace(/\.png$/i, '').slice(0, 32).trim() || 'Mein Cape', png: await readCape(file), visibility: 'private' }));
+    await run('file', async () => setUpload({ name: file.name.replace(/\.(png|jpe?g|webp|gif)$/i, '').slice(0, 32).trim() || 'Mein Cape', ...await readCape(file), visibility: 'private' }));
   };
   const onDrop = (event: DragEvent) => { event.preventDefault(); setDragging(false); void pickFile(event.dataTransfer.files[0]); };
   const saveUpload = () => run('upload', async () => {
     if (!upload) return;
-    setLibrary(await unwrap(capesApi.add(upload)));
+    setLibrary(await unwrap(capesApi.add({ name: upload.name, png: upload.png, visibility: upload.visibility })));
     onNotice(upload.visibility === 'public' ? `Cape „${upload.name.trim()}“ hochgeladen und zum Veröffentlichen markiert.` : `Cape „${upload.name.trim()}“ nur für dich hochgeladen.`);
     setUpload(null); setTab('mine'); setMineFilter('all');
   });
@@ -273,7 +269,7 @@ export function CapesPage({ hasAccount, skin, locked, onNotice, onError, onCapeC
       </div>
       <button className="btn btn-accent pixel" disabled={locked} onClick={() => fileRef.current?.click()}><CloudArrowUp size={16} />hochladen</button>
     </PageHeader>
-    <input ref={fileRef} type="file" accept="image/png" hidden onChange={e => { void pickFile(e.target.files?.[0]); e.target.value = ''; }} />
+    <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={e => { void pickFile(e.target.files?.[0]); e.target.value = ''; }} />
 
     <div className="settings-tabs cape-tabs" role="tablist" aria-label="Cape-Kategorien">
       {tabs.map(t => <button key={t.id} role="tab" aria-selected={tab === t.id} className={`pixel ${tab === t.id ? 'active' : ''}`} onClick={() => setTab(t.id)}>{t.label}</button>)}
@@ -285,7 +281,7 @@ export function CapesPage({ hasAccount, skin, locked, onNotice, onError, onCapeC
 
     <div className="cape-grid" role="tabpanel">
       {tab === 'all' && (published.length ? published.map(ownCard) : empty(<Globe size={34} weight="thin" />, 'Kommt mit dem nächsten Update', 'Hier erscheinen bald die Capes aller Savira-Spieler, und du kannst eigene Capes veröffentlichen. Bis dahin lädst du Capes nur für dich hoch und trägst sie im Spiel.', uploadButton))}
-      {tab === 'mine' && (mine.length ? mine.map(ownCard) : empty(<FlagBanner size={34} weight="thin" />, query || mineFilter !== 'all' ? 'Kein Cape gefunden' : 'Noch keine eigenen Capes', query || mineFilter !== 'all' ? 'Nichts passt zu Suche oder Filter.' : 'Lade ein 64×32-PNG hoch oder ziehe es hierher. Mit der Vorlage gestaltest du dein eigenes Design.', query || mineFilter !== 'all' ? undefined : uploadButton))}
+      {tab === 'mine' && (mine.length ? mine.map(ownCard) : empty(<FlagBanner size={34} weight="thin" />, query || mineFilter !== 'all' ? 'Kein Cape gefunden' : 'Noch keine eigenen Capes', query || mineFilter !== 'all' ? 'Nichts passt zu Suche oder Filter.' : 'Lade ein Cape-Bild hoch oder ziehe es hierher, auch von LabyMod oder OptiFine; die Größe wird automatisch angepasst. Mit der Vorlage gestaltest du dein eigenes Design.', query || mineFilter !== 'all' ? undefined : uploadButton))}
       {tab === 'favorites' && (favOwn.length || favVanilla.length
         ? [...favOwn.map(ownCard), ...favVanilla.map((cape, i) => vanillaCard(cape, favOwn.length + i))]
         : empty(<Heart size={34} weight="thin" />, 'Keine Favoriten', 'Tippe bei einem Cape auf das Herz, dann findest du es hier wieder.'))}
@@ -300,6 +296,7 @@ export function CapesPage({ hasAccount, skin, locked, onNotice, onError, onCapeC
     {upload && <Modal title="Vorschau" kicker="cape hochladen" busy={Boolean(busy)} onClose={() => setUpload(null)}>
       <div className="skin-edit">
         <p className="cape-question">Sieht das richtig aus?</p>
+        {upload.note && <p className="cape-note">{upload.note}</p>}
         <div className="skin-stage-box"><CapePreview3D png={upload.png} skin={skin} /></div>
         <label className="field" htmlFor="cape-name"><span>Name</span></label>
         <input id="cape-name" className={`input ${nameInvalid(upload.name) ? 'invalid' : ''}`} value={upload.name} maxLength={32} onChange={e => setUpload({ ...upload, name: e.target.value })} />

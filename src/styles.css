@@ -499,7 +499,8 @@ select.input { padding-right: 30px; }
 .skin-drop small { color: var(--text-3); font-size: 11.5px; }
 .skin-drop:hover, .skin-drop.over { border-color: var(--accent); background: var(--accent-soft); }
 .skin-edit { display: grid; gap: 10px; }
-.skin-stage-box { display: flex; height: 320px; border-radius: calc(12px * var(--rk)); background: radial-gradient(60% 55% at 50% 60%, var(--accent-soft), transparent 70%), rgb(0 0 0 / .25); }
+.skin-stage-box { display: flex; align-items: center; justify-content: center; height: 320px; border-radius: calc(12px * var(--rk)); background: radial-gradient(60% 55% at 50% 60%, var(--accent-soft), transparent 70%), rgb(0 0 0 / .25); }
+.skin-stage-box > .skin-stage { align-self: stretch; }
 .skin-preview-3d { width: 210px; height: 250px; cursor: grab; }
 .skin-variant-pick { justify-self: center; }
 /* Capes: tabs, template menu, grid of cape cards (outer side), favourites heart. */
@@ -549,6 +550,7 @@ select.input { padding-right: 30px; }
 .modal-foot-actions { display: flex; gap: 10px; }
 .btn-danger { background: #c94343; border-color: #e06060; color: #fff; }
 .cape-question { text-align: center; color: var(--text-2); font-size: 14px; }
+.cape-note { margin-top: -4px; text-align: center; color: var(--accent); font-size: 12.5px; }
 .capes-page.is-dropping .cape-grid { outline: 2px dashed var(--accent); outline-offset: 6px; border-radius: calc(14px * var(--rk)); }
 .modal-backdrop { position: fixed; inset: 0; z-index: var(--z-modal); display: grid; place-items: center; padding: 24px; background: rgb(5 7 10 / .6); backdrop-filter: blur(4px); animation: fade .2s; }
 .modal { width: min(560px, 100%); max-height: calc(100dvh - 48px); overflow-y: auto; border-radius: calc(20px * var(--rk)); padding: 22px; background: var(--glass-strong); animation: pop .3s var(--ease); }
