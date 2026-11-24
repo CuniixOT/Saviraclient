@@ -3,9 +3,9 @@ package gg.savira.client;
 import java.util.List;
 
 /**
- * Colours of the Right-Shift menu from the design (Rshift Menu v5): a dark and a light palette in
- * OKLCH, and the accent with its variants. The accent is one of the design's thirteen or, by
- * default, the launcher's accent colour.
+ * Colours of the in-game menus from the design (2026-11, "Im Spiel · Mod-Menü"): near-black glass with
+ * white text and lime as the default accent, plus the earlier light palette. The accent is one of
+ * the presets or, by default, the launcher's accent colour.
  */
 public record DesignTheme(boolean dark,
                           int bg, int glass, int card, int line, int hi, int tx, int mu, int fill, int track, int scrim,
@@ -13,13 +13,13 @@ public record DesignTheme(boolean dark,
 
     public record Accent(String name, float l, float c, float h) {}
     public static final List<Accent> ACCENTS = List.of(
-        new Accent("Mint", .78f, .13f, 160), new Accent("Smaragd", .66f, .13f, 163), new Accent("Türkis", .72f, .11f, 185),
+        new Accent("Limette", .91f, .19f, 122), new Accent("Mint", .78f, .13f, 160), new Accent("Smaragd", .66f, .13f, 163), new Accent("Türkis", .72f, .11f, 185),
         new Accent("Cyan", .74f, .12f, 222), new Accent("Blau", .66f, .16f, 258), new Accent("Indigo", .6f, .16f, 275),
         new Accent("Violett", .66f, .17f, 295), new Accent("Pink", .7f, .16f, 345), new Accent("Rose", .65f, .17f, 12),
         new Accent("Rot", .62f, .2f, 27), new Accent("Orange", .7f, .16f, 50), new Accent("Gold", .77f, .13f, 78),
         new Accent("Savira", .72f, .075f, 270));
     /** The knob of switches and the light grey of the design's controls. */
-    public static final int KNOB = oklch(.97f, .005f, 268, 1), KNOB_EDGE = oklch(.8f, .01f, 268, 1), ONLINE = oklch(.72f, .19f, 145, 1);
+    public static final int KNOB = 0xFFE9EAEC, KNOB_EDGE = 0xFFC9CBD0, ONLINE = 0xFFD4F45C, INK = 0xFF0B0C0F, WHITE = 0xFFFFFFFF;
 
     private static DesignTheme cached;
     private static String cachedKey = "";
@@ -44,10 +44,11 @@ public record DesignTheme(boolean dark,
         int ac = oklch(l, c, h, 1);
         int act = dark ? oklch(Math.max(l, .72f), c, h, 1) : oklch(.48f, c, h, 1);
         int acx = oklch(.18f, .03f, h, 1), acd = oklch(l - .15f, c, h, 1), acs = oklch(l, c, h, dark ? .16f : .2f);
+        // #0b0c0f ground, rgba(16,17,21,.94) sheet, white at 3 / 7 % for cards and lines, #e9eaec / #9a9da4 text.
         if (dark) return new DesignTheme(true,
-            oklch(.15f, .012f, 268, 1), oklch(.16f, .012f, 268, .62f), oklch(.2f, .013f, 268, .5f), oklch(.29f, .015f, 268, 1),
-            oklch(.235f, .016f, 268, 1), oklch(.95f, .005f, 268, 1), oklch(.7f, .012f, 268, 1), oklch(.14f, .01f, 268, .85f),
-            oklch(.28f, .012f, 268, 1), 0x5906080E, ac, act, acx, acd, acs);
+            0xFF0B0C0F, 0xF0101115, 0x08FFFFFF, 0x12FFFFFF,
+            0x12FFFFFF, 0xFFE9EAEC, 0xFF9A9DA4, 0x0FFFFFFF,
+            0x24FFFFFF, 0x8C060709, ac, act, acx, acd, acs);
         return new DesignTheme(false,
             oklch(.95f, .006f, 268, 1), oklch(.975f, .004f, 268, .62f), oklch(.99f, .003f, 268, .55f), oklch(.86f, .01f, 268, 1),
             oklch(.92f, .012f, 268, 1), oklch(.22f, .02f, 268, 1), oklch(.47f, .015f, 268, 1), oklch(.945f, .006f, 268, 1),

@@ -133,9 +133,23 @@ public final class HudScreen extends Screen {
         anims.put(key, v);
         return v;
     }
-    private void box(DrawContext c, float x, float y, float w, float h, int color) { if (w > 0 && h > 0) Paint.round(c, x, y, w, h, 0, color, px()); }
-    /** A 1 px border, as thin as the screen allows. */
+    private void box(DrawContext c, float x, float y, float w, float h, int color) { fill(c, x, y, w, h, color, px()); }
+    /**
+     * Corner radius of the design (2026-11) for a shape of this size: lines and bars stay square,
+     * controls up to 48 px high are pills, square tiles get rounded corners (13 of 44), panels 20.
+     */
+    public static float radius(float w, float h) {
+        float m = Math.min(w, h);
+        if (m <= 4) return 0;
+        if (Math.abs(w - h) < .5f && m >= 28) return Math.round(m * .3f);
+        return m <= 48 ? m / 2f : Math.min(20, m / 2f);
+    }
+    /** A filled shape with the design's corners. */
+    public static void fill(DrawContext c, float x, float y, float w, float h, int color, float px) { if (w > 0 && h > 0) Paint.round(c, x, y, w, h, radius(w, h), color, px); }
+    /** A 1 px border, as thin as the screen allows, following the same corners. */
     public static void frame(DrawContext c, float x, float y, float w, float h, int color, float px) {
+        float r = radius(w, h);
+        if (r > 0) { Paint.outline(c, x, y, w, h, r, color, px); return; }
         float b = Math.max(1, Math.round(px)) / px;
         Paint.round(c, x, y, w, b, 0, color, px);
         Paint.round(c, x, y + h - b, w, b, 0, color, px);
@@ -185,10 +199,8 @@ public final class HudScreen extends Screen {
         DesignTheme t = t();
         float k = approach("sw:" + key, on ? 1 : 0);
         box(c, x, y, 44, 24, Paint.lerp(t.track(), t.ac(), k));
-        box(c, x, y + 21, 44, 3, 0x33000000);
         float kx = x + 3 + 20 * k;
-        box(c, kx, y + 3, 18, 18, DesignTheme.KNOB);
-        box(c, kx, y + 18, 18, 3, DesignTheme.KNOB_EDGE);
+        box(c, kx, y + 3, 18, 18, Paint.lerp(DesignTheme.KNOB, DesignTheme.INK, k));
         hit(x, y, 44, 24, label, flip);
     }
     private float buttonWidth(char glyph, String label) { return 28 + width(SILK, label, 11) + (glyph != 0 ? 21 : 0); }
@@ -197,15 +209,10 @@ public final class HudScreen extends Screen {
         DesignTheme t = t();
         float w = buttonWidth(glyph, label);
         boolean hover = over(x, y, w, h);
-        if (primary) {
-            box(c, x, y, w, h, hover ? Paint.lerp(t.ac(), 0xFFFFFFFF, .08f) : t.ac());
-            box(c, x, y + h - 3, w, 3, t.acd());
-        } else {
-            box(c, x, y, w, h, t.card());
-            frame(c, x, y, w, h, hover ? t.mu() : t.line());
-        }
-        int fg = primary ? t.acx() : t.tx();
-        float tx = x + 14, mid = y + h / 2f - (primary ? 1 : 0);
+        if (primary) box(c, x, y, w, h, hover ? 0xFFF1F2F3 : DesignTheme.WHITE);
+        else box(c, x, y, w, h, hover ? 0x1FFFFFFF : 0x0FFFFFFF);
+        int fg = primary ? DesignTheme.INK : t.tx();
+        float tx = x + 14, mid = y + h / 2f;
         if (glyph != 0) { icon(c, glyph, tx + 7, mid, 14, fg); tx += 21; }
         caps(c, label, tx, mid, 11, fg, .06f);
         hit(x, y, w, h, hitLabel, () -> { SaviraSounds.play(SaviraSounds.Sound.CLICK); run.run(); });
@@ -255,8 +262,9 @@ public final class HudScreen extends Screen {
         c.getMatrices().translate(-sw / 2f, -sh / 2f, 0);
 
         renderRail(c);
-        box(c, mainX, wy, mainW, wh, t.glass());
-        frame(c, mainX, wy, mainW, wh, t.line());
+        // The sheet of the design: 30 px corners, a hairline of white at 9 %.
+        Paint.round(c, mainX, wy, mainW, wh, 30, t.glass(), px());
+        Paint.outline(c, mainX, wy, mainW, wh, 30, 0x17FFFFFF, px());
         renderTopBar(c);
         bodyTop = wy + TOP_BAR + 1; bodyBottom = wy + wh - 1;
         switch (page) {
@@ -282,8 +290,8 @@ public final class HudScreen extends Screen {
     private float railHoverY;
     private void renderRail(DrawContext c) {
         DesignTheme t = t();
-        box(c, wx, wy, RAIL, wh, t.glass());
-        frame(c, wx, wy, RAIL, wh, t.line());
+        Paint.round(c, wx, wy, RAIL, wh, RAIL / 2f, t.glass(), px());
+        Paint.outline(c, wx, wy, RAIL, wh, RAIL / 2f, 0x17FFFFFF, px());
         List<RailItem> top = List.of(
             new RailItem("Mods", MenuType.LIGHTNING, () -> show(Page.MODS), page == Page.MODS || page == Page.DETAIL),
             new RailItem("Cosmetics", MenuType.SHIRT, () -> show(Page.COSMETICS), page == Page.COSMETICS),
@@ -304,12 +312,10 @@ public final class HudScreen extends Screen {
         float x = wx + 9;
         boolean hover = over(x, y, 42, 42);
         float k = approach("rail:" + item.label(), item.active() ? 1 : 0);
-        if (k > 0) {
-            box(c, x, y, 42, 42, DesignTheme.alpha(t.ac(), k));
-            box(c, x, y + 39, 42, 3, DesignTheme.alpha(t.acd(), k));
-        }
-        int fg = item.active() ? t.acx() : hover ? t.tx() : t.mu();
-        icon(c, item.glyph(), x + 21, y + 21 - (item.active() ? 1 : 0), 21, fg);
+        if (k > 0) box(c, x, y, 42, 42, DesignTheme.alpha(DesignTheme.WHITE, k));
+        else if (hover) box(c, x, y, 42, 42, 0x0FFFFFFF);
+        int fg = item.active() ? DesignTheme.INK : hover ? t.tx() : t.mu();
+        icon(c, item.glyph(), x + 21, y + 21, 19, fg);
         if (hover) { railHover = item.label(); railHoverY = y + 21; }
         hit(x, y, 42, 42, item.label(), () -> { SaviraSounds.play(SaviraSounds.Sound.CLICK); item.action().run(); });
     }
@@ -389,17 +395,18 @@ public final class HudScreen extends Screen {
     /** Tabs like "MODS | PROFILE" with the accent line under the chosen one. */
     private void tabs(DrawContext c, float y, String[] labels, int chosen, IntConsumer pick) {
         DesignTheme t = t();
-        float x = mainX + PAD_X;
+        float x = mainX + PAD_X, total = 8 - 2;
+        for (String label : labels) total += 32 + MenuType.width(SILK, label, 11, .08f, u) + 2;
+        box(c, x, y - 4, total, 44, 0x0FFFFFFF);
+        x += 4;
         for (int i = 0; i < labels.length; i++) {
             float w = 32 + MenuType.width(SILK, labels[i], 11, .08f, u);
             boolean on = i == chosen, hover = over(x, y, w, 36);
-            if (on) box(c, x, y, w, 36, t.hi());
-            frame(c, x, y, w, 36, t.line());
-            box(c, x, y + 34, w, 2, on ? t.ac() : t.line());
-            caps(c, labels[i], x + 16, y + 17, 11, on || hover ? t.tx() : t.mu(), .08f);
+            if (on) box(c, x, y, w, 36, DesignTheme.WHITE);
+            caps(c, labels[i], x + 16, y + 18, 11, on ? DesignTheme.INK : hover ? t.tx() : t.mu(), .08f);
             int index = i;
             hit(x, y, w, 36, labels[i], () -> { SaviraSounds.play(SaviraSounds.Sound.CLICK); pick.accept(index); });
-            x += w + 6;
+            x += w + 2;
         }
     }
     private void focus(Field f) { typing = f; buffer = f.get().get(); }
@@ -863,8 +870,7 @@ public final class HudScreen extends Screen {
         box(c, tx, mid - 3, 220, 6, t.track());
         box(c, tx, mid - 3, (float) (220 * pct), 6, t.ac());
         float knob = (float) (tx + (220 - 12) * pct);
-        box(c, knob, mid - 9, 12, 18, t.tx());
-        box(c, knob, mid + 6, 12, 3, 0x40000000);
+        box(c, knob - 3, mid - 9, 18, 18, DesignTheme.WHITE);
         hit(tx - 4, mid - 11, 228, 22, label, () -> { sliding = s; slideX = tx; slideW = 220; slideTo(mouseX); });
         // Value box with the reset arrow.
         box(c, bx, mid - 14, 96, 28, t.card());
@@ -898,7 +904,6 @@ public final class HudScreen extends Screen {
     private void swatch(DrawContext c, String label, Swatch s, float x, float y) {
         DesignTheme t = t();
         box(c, x, y, 28, 28, 0xFF000000 | s.get().getAsInt());
-        box(c, x, y + 25, 28, 3, 0x40000000);
         frame(c, x, y, 28, 28, over(x, y, 28, 28) ? t.tx() : t.line());
         hit(x, y, 28, 28, label, () -> {
             SaviraSounds.play(SaviraSounds.Sound.CLICK);
@@ -1054,7 +1059,6 @@ public final class HudScreen extends Screen {
             String name = a == null ? "Launcher" : a.name();
             float lift = approach("acc:" + name, over(sx, sy, 34, 34) ? 1 : 0) * 2;
             box(c, sx, sy - lift, 34, 34, color);
-            box(c, sx, sy - lift + 31, 34, 3, 0x38000000);
             int ink = DesignTheme.oklch(.18f, .02f, 268, 1);
             if (chosen) { frame(c, sx, sy - lift, 34, 34, t.tx()); frame(c, sx + 1, sy - lift + 1, 32, 32, t.tx()); icon(c, MenuType.CHECK, sx + 17, sy - lift + 16, 14, ink); }
             else if (a == null) MenuType.centered(c, SILK, "L", sx + 17, sy - lift + 16, 11, ink, 0, u);

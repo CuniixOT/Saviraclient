@@ -1,17 +1,16 @@
 // Writes the font definitions of the in-game menus: one Minecraft font per family and pixel size,
 // so every text is drawn one glyph pixel per screen pixel (see MenuType.java).
-// Families, as in the launcher: Minecraft Ten (titles, labels), SmallCaps (small labels) and
-// Geist (text); then the Phosphor icons (regular, fill).
+// Families, as in the launcher (design 2026-11): Inter SemiBold (titles), JetBrains Mono (labels in
+// capitals) and Inter Medium (text); then the Phosphor icons (regular, fill).
 import fs from 'node:fs';
 import path from 'node:path';
 
 const dir = path.resolve('client-mod/src/main/resources/assets/savira/font');
 const range = (from, to, step = 1) => Array.from({ length: Math.floor((to - from) / step) + 1 }, (_, i) => from + i * step);
 const families = {
-  // Minecraft Ten has 8 pixels per em: multiples of 8 keep its pixels even; below 32 also multiples of 4.
-  px: { file: 'savira:minecraft_ten.ttf', sizes: [...range(8, 28, 4), ...range(32, 80, 8)] },
-  sk: { file: 'savira:caps.ttf', sizes: range(6, 30) },
-  ui: { file: 'savira:geist.ttf', sizes: [...range(6, 24), ...range(26, 40, 2)] },
+  px: { file: 'savira:inter_semibold.ttf', sizes: [...range(6, 24), ...range(26, 80, 2)] },
+  sk: { file: 'savira:jetbrains_mono.ttf', sizes: range(6, 30) },
+  ui: { file: 'savira:inter.ttf', sizes: [...range(6, 24), ...range(26, 40, 2)] },
   ic: { file: 'savira:phosphor.ttf', sizes: [...range(8, 30), ...range(32, 44, 2)] },
   icf: { file: 'savira:phosphor_fill.ttf', sizes: range(12, 44, 2) }
 };

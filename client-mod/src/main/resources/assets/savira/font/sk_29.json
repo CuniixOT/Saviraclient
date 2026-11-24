@@ -2,7 +2,7 @@
   "providers": [
     {
       "type": "ttf",
-      "file": "savira:caps.ttf",
+      "file": "savira:jetbrains_mono.ttf",
       "size": 29,
       "oversample": 1,
       "shift": [

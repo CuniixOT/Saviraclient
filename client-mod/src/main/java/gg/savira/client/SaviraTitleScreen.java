@@ -31,6 +31,7 @@ import net.minecraft.util.math.RotationAxis;
 import org.joml.Vector3f;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -135,10 +136,11 @@ public final class SaviraTitleScreen extends Screen {
 
     @Override
     protected void init() {
-        u = Math.max(.2f, Math.min(height / 1080f, width / 1720f));
+        // Laid out like the design, 1600 × 900.
+        u = Math.max(.2f, Math.min(height / 900f, width / 1600f));
         sw = width / u; sh = height / u;
         // News and quick join only where they do not run into the buttons (the design's rule).
-        showNews = sw - 18 - NEWS_W > sw / 2 + COLUMN / 2 + 24 && sh - 46 - 206 > sh / 2 + 290 - 110;
+        showNews = sw - 18 - NEWS_W > columnLeft() + COL_W + 24 && sh - 46 - 206 > sh / 2 + 290 - 110;
 
         String discord = discordUrl();
         boolean ready = DISCORD.matcher(discord).matches();
@@ -215,7 +217,7 @@ public final class SaviraTitleScreen extends Screen {
         anims.put(key, v);
         return v;
     }
-    private void box(DrawContext c, float x, float y, float w, float h, int color) { if (w > 0 && h > 0) Paint.round(c, x, y, w, h, 0, color, px()); }
+    private void box(DrawContext c, float x, float y, float w, float h, int color) { HudScreen.fill(c, x, y, w, h, color, px()); }
     private void frame(DrawContext c, float x, float y, float w, float h, int color) { HudScreen.frame(c, x, y, w, h, color, px()); }
     private boolean over(float x, float y, float w, float h) { return mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h; }
     private void hit(float x, float y, float w, float h, String label, Runnable action) { hits.add(new Hit(x, y, w, h, label, action)); }
@@ -276,20 +278,11 @@ public final class SaviraTitleScreen extends Screen {
         c.getMatrices().push();
         c.getMatrices().scale(u, u, 1);
 
-        renderTopLeft(c);
-        renderTopRight(c);
+        renderStage(c);
         renderCentre(c);
-        if (showNews) { renderQuickJoin(c); renderNews(c); }
-        else newsHover = false;
-        renderTools(c);
-        Look l = look();
-        inter(c, "Savira Client " + SharedConstants.getGameVersion().getName() + " (v" + launcherVersion() + ")", 18, sh - 16 - 8, 13, 0xB3FFFFFF);
-        if (sw >= 900) {
-            String notice = "Not affiliated with Mojang or Microsoft. Do not distribute!";
-            inter(c, notice, sw - 18 - width(INTER, notice, 13, 0), sh - 16 - 8, 13, 0x99FFFFFF);
-        }
-        // Popovers above everything, their clicks first.
-        if (popover != Popover.NONE) renderPopover(c, l);
+        renderAccountBar(c);
+        renderNewsPill(c);
+        renderFooter(c);
         c.draw();
         c.getMatrices().pop();
         SaviraToasts.render(c, width, 76, true);
@@ -361,60 +354,193 @@ public final class SaviraTitleScreen extends Screen {
         endGroup(c, k);
     }
 
-    // ---------- Centre: logo, buttons, Discord banner ----------
-    private float columnTop() { return (sh - 20 - 442) / 2f; }
+    // ---------- Main menu of the design (2026-11, "Im Spiel · Startbildschirm") ----------
+    private static final float COL_W = 440;
+    private static final int GLASS = 0x9E121317, GLASS_HOVER = 0xC7222329, EDGE = 0x17FFFFFF, EDGE_HOVER = 0x38FFFFFF;
+    private static final int TEXT = 0xFFE9EAEC, MUTED = 0xFF9A9DA4, SOFT = 0xFFA9ACB3, LIME = 0xFFD4F45C, ON_LIME = 0xFF1A1F05;
+    private float columnLeft() { return Math.max(48, Math.min(120, sw * .075f)); }
+    /** Height of the left column: logo, quick join, four rows of buttons, the utility row. */
+    private static final float COLUMN_H = 64 + 40 + 72 + 14 + 60 + 8 + 56 + 8 + 56 + 8 + 56 + 14 + 44;
+    private float columnTop() { return Math.max(96, (sh - COLUMN_H) / 2f); }
+
+    private void glass(DrawContext c, float x, float y, float w, float h, float hv) {
+        box(c, x, y, w, h, Paint.lerp(GLASS, GLASS_HOVER, hv));
+        frame(c, x, y, w, h, Paint.lerp(EDGE, EDGE_HOVER, hv));
+    }
+    /** The design's menu button: glass pill, icon disc left, label, arrow right (or a count). */
+    private void pill(DrawContext c, String label, char glyph, float x, float y, float w, float h, boolean primary, String right, Runnable run) {
+        float hv = hover(c, label, x, y, w, h);
+        if (primary) box(c, x, y, w, h, hv > 0 ? 0xFFF1F2F3 : DesignTheme.WHITE);
+        else glass(c, x, y, w, h, hv);
+        float disc = primary ? 40 : 38, dx = x + 10;
+        box(c, dx, y + (h - disc) / 2f, disc, disc, primary ? DesignTheme.INK : 0x14FFFFFF);
+        icon(c, glyph, dx + disc / 2f, y + h / 2f, primary ? 17 : 16, primary ? LIME : TEXT, false);
+        int fg = primary ? DesignTheme.INK : TEXT;
+        MenuType.middle(c, primary ? PIXEL : INTER, label, dx + disc + 14, y + h / 2f, primary ? 16 : 15, fg, u);
+        if (right == null) icon(c, MenuType.CARET_RIGHT, x + w - 22 - 7, y + h / 2f, 14, primary ? fg : DesignTheme.alpha(TEXT, .45f + .55f * hv), false);
+        else if (!right.isEmpty()) caps(c, right, x + w - 18 - width(SILK, right, 9, .08f), y + h / 2f, 9, MUTED, .08f);
+        unhover(c);
+        hit(x, y, w, h, label, () -> { SaviraSounds.play(SaviraSounds.Sound.CLICK); run.run(); });
+    }
+    private void round(DrawContext c, String label, char glyph, float x, float y, int color, Runnable run) {
+        float hv = hover(c, label, x, y, 44, 44);
+        glass(c, x, y, 44, 44, hv);
+        icon(c, glyph, x + 22, y + 22, 17, color, glyph == MenuType.LIGHTNING);
+        unhover(c);
+        hit(x, y, 44, 44, label, () -> { SaviraSounds.play(SaviraSounds.Sound.CLICK); run.run(); });
+    }
+
     private void renderCentre(DrawContext c) {
-        DesignTheme t = t(); Look l = look();
-        float x = sw / 2 - COLUMN / 2, y = columnTop();
-        // Logo, 120 px.
+        float x = columnLeft(), y = columnTop();
+        // Logo: the bolt in a white 64 px tile, "Savira" beside it, the splash text tilted in lime.
         float k = group(c, 0);
-        c.draw();
+        box(c, x, y, 64, 64, DesignTheme.WHITE);
+        icon(c, MenuType.LIGHTNING, x + 32, y + 32, 30, DesignTheme.INK, true);
+        MenuType.baseline(c, PIXEL, "Savira", x + 80, y + 46, 56, TEXT, -.045f, u);
+        caps(c, "PvP Client · " + SharedConstants.getGameVersion().getName(), x + 82, y + 59, 10, SOFT, .08f);
+        float pulse = anim() ? 1 + .035f * (float) Math.sin(Util.getMeasuringTimeMs() / 1000f * Math.PI * 2 / .9f) : 1;
         c.getMatrices().push();
-        c.getMatrices().translate(sw / 2 - 60, y, 0);
-        c.getMatrices().scale(7.5f, 7.5f, 1);
-        MenuStyle.logo(c, 0, 0, 1, 0xFFFFFFFF);
+        c.getMatrices().translate(x + 300, y + 12, 0);
+        c.getMatrices().multiply(RotationAxis.POSITIVE_Z.rotationDegrees(-12));
+        c.getMatrices().scale(pulse, pulse, 1);
+        caps(c, SPLASH, 0, 0, 11, LIME, .08f);
         c.getMatrices().pop();
         endGroup(c, k);
-        y += 120 + 26 + 10;
-        // Einzelspieler and Mehrspieler.
-        String[] labels = {"Einzelspieler", "Mehrspieler"};
-        char[] glyphs = {MenuType.USER, MenuType.USERS};
-        Runnable[] actions = {() -> client.setScreen(new SelectWorldScreen(this)), () -> client.setScreen(new MultiplayerScreen(this))};
-        for (int i = 0; i < 2; i++) {
-            float kg = group(c, i + 1), h = hover(c, labels[i], x, y, COLUMN, 46);
-            box(c, x, y, COLUMN, 46, Paint.lerp(l.glass(), l.hi(), h));
-            frame(c, x, y, COLUMN, 46, Paint.lerp(l.line(), l.mu(), h));
-            float tw = 19 + 12 + width(PIXEL, labels[i], 21, 0), sx = x + (COLUMN - tw) / 2;
-            icon(c, glyphs[i], sx + 9.5f, y + 23, 19, t.tx(), true);
-            pixel(c, labels[i], sx + 31, y + 23, 21, t.tx());
-            unhover(c);
-            Runnable run = actions[i];
-            hit(x, y, COLUMN, 46, labels[i], () -> { SaviraSounds.play(SaviraSounds.Sound.CLICK); run.run(); });
-            endGroup(c, kg);
-            y += 46 + 10;
+        y += 64 + 40;
+        float kj = group(c, 1);
+        renderQuickJoinCard(c, x, y);
+        endGroup(c, kj);
+        y += 72 + 14;
+        float k1 = group(c, 2);
+        pill(c, "Mehrspieler", MenuType.GLOBE, x, y, COL_W, 60, true, null, () -> client.setScreen(new MultiplayerScreen(this)));
+        y += 60 + 8;
+        pill(c, "Einzelspieler", MenuType.CUBE, x, y, COL_W, 56, false, null, () -> client.setScreen(new SelectWorldScreen(this)));
+        y += 56 + 8;
+        pill(c, "Minecraft Realms", MenuType.CLOUD, x, y, COL_W, 56, false, null, () -> client.setScreen(new net.minecraft.client.realms.gui.screen.RealmsMainScreen(this)));
+        y += 56 + 8;
+        float half = (COL_W - 8) / 2;
+        String mods = String.valueOf(Arrays.stream(HudModule.values()).filter(HudModule::enabled).count());
+        pill(c, "Mods", MenuType.LIGHTNING, x, y, half, 56, false, mods, () -> client.setScreen(new HudScreen()));
+        pill(c, "Optionen", MenuType.SLIDERS, x + half + 8, y, half, 56, false, "", () -> client.setScreen(new OptionsScreen(this, client.options)));
+        endGroup(c, k1);
+        y += 56 + 14;
+        // Language, accessibility, Savira's settings; quitting on the right.
+        float k2 = group(c, 3);
+        round(c, "Sprache", MenuType.TRANSLATE, x, y, 0xFFC9CBD0, () -> client.setScreen(new LanguageOptionsScreen(this, client.options, client.getLanguageManager())));
+        round(c, "Barrierefreiheit", MenuType.PERSON, x + 52, y, 0xFFC9CBD0, () -> client.setScreen(new AccessibilityOptionsScreen(this, client.options)));
+        round(c, "Savira-Einstellungen", MenuType.LIGHTNING, x + 104, y, LIME, () -> client.setScreen(new HudScreen()));
+        String quit = "Spiel beenden";
+        float qw = 16 + 14 + 8 + width(INTER, quit, 13, 0) + 16, qx = x + COL_W - qw;
+        boolean qh = over(qx, y, qw, 44);
+        box(c, qx, y, qw, 44, qh ? 0x1AFF5A46 : 0x0AFFFFFF);
+        int qc = qh ? 0xFFFF8A7D : SOFT;
+        icon(c, MenuType.POWER, qx + 16 + 7, y + 22, 14, qc, false);
+        inter(c, quit, qx + 16 + 14 + 8, y + 22, 13, qc);
+        hit(qx, y, qw, 44, quit, () -> { SaviraSounds.play(SaviraSounds.Sound.CLICK); client.scheduleStop(); });
+        endGroup(c, k2);
+    }
+    private static final String SPLASH = "Neues Logo, neues Gesicht!";
+
+    /** "Zuletzt gespielt": the first quick join server with its live player count, and Joinen. */
+    private void renderQuickJoinCard(DrawContext c, float x, float y) {
+        Server s = SERVERS.get(0);
+        glass(c, x, y, COL_W, 72, 0);
+        box(c, x + 14, y + 12, 48, 48, s.tile());
+        MenuType.centered(c, PIXEL, s.name().substring(0, 2), x + 38, y + 36, 15, TEXT, 0, u);
+        icon(c, MenuType.LIGHTNING, x + 76 + 5, y + 21, 10, LIME, true);
+        caps(c, "Zuletzt gespielt", x + 76 + 16, y + 21, 8, MUTED, .08f);
+        inter(c, s.name(), x + 76, y + 37, 15, TEXT);
+        ServerInfo info = serverInfos.isEmpty() ? null : serverInfos.get(0);
+        String status = info != null && info.getStatus() == ServerInfo.Status.SUCCESSFUL && info.players != null
+            ? info.ping + " ms   " + String.format(Locale.GERMANY, "%,d", info.players.online()) + " online"
+            : info != null && (info.getStatus() == ServerInfo.Status.UNREACHABLE || info.getStatus() == ServerInfo.Status.INCOMPATIBLE) ? "Nicht erreichbar" : "Wird abgefragt …";
+        box(c, x + 76, y + 53 - 2.5f, 5, 5, status.endsWith("online") ? LIME : MUTED);
+        caps(c, status, x + 76 + 11, y + 53, 8, MUTED, .08f);
+        String join = "Joinen";
+        float jw = 16 + 10 + 8 + width(PIXEL, join, 13, 0) + 18, jx = x + COL_W - 12 - jw, jy = y + 14;
+        boolean jh = over(jx, jy, jw, 44);
+        box(c, jx, jy, jw, 44, jh ? Paint.lerp(LIME, DesignTheme.INK, .05f) : LIME);
+        icon(c, MenuType.PLAY, jx + 16 + 5, jy + 22, 10, ON_LIME, true);
+        MenuType.middle(c, PIXEL, join, jx + 16 + 10 + 8, jy + 22, 13, ON_LIME, u);
+        hit(jx, jy, jw, 44, "Beitreten: " + s.name(), () -> join(0));
+    }
+
+    /** Friends and the account, top right. */
+    private void renderAccountBar(DrawContext c) {
+        float k = group(c, 4);
+        String name = client.getSession().getUsername();
+        float aw = 5 + 34 + 10 + Math.max(width(PIXEL, name, 13, 0), width(SILK, "Microsoft · Online", 8, .08f)) + 16, ax = sw - 40 - aw, y = 34;
+        float ha = hover(c, "Konto", ax, y, aw, 44);
+        glass(c, ax, y, aw, 44, ha);
+        c.draw();
+        PlayerSkinDrawer.draw(c, client.getSkinProvider().getSkinTextures(client.getGameProfile()), Math.round(ax + 5), Math.round(y + 5), 34);
+        MenuType.middle(c, PIXEL, name, ax + 5 + 34 + 10, y + 16, 13, TEXT, u);
+        caps(c, "Microsoft · Online", ax + 5 + 34 + 10, y + 30, 8, LIME, .08f);
+        unhover(c);
+        String friends = "Freunde", soon = "Bald";
+        float fw = 14 + 16 + 10 + width(INTER, friends, 13, 0) + 10 + 6 + 6 + width(SILK, soon, 9, .08f) + 16, fx = ax - 8 - fw;
+        float hf = hover(c, friends, fx, y, fw, 44);
+        glass(c, fx, y, fw, 44, hf);
+        icon(c, MenuType.USERS, fx + 14 + 8, y + 22, 16, TEXT, false);
+        inter(c, friends, fx + 14 + 16 + 10, y + 22, 13, TEXT);
+        float sx = fx + 14 + 16 + 10 + width(INTER, friends, 13, 0) + 10;
+        box(c, sx, y + 19, 6, 6, MUTED);
+        caps(c, soon, sx + 12, y + 22, 9, MUTED, .08f);
+        unhover(c);
+        hit(fx, y, fw, 44, friends, () -> { SaviraSounds.play(SaviraSounds.Sound.CLICK); toast("Freunde", "Freunde, Einladungen und Partys kommen bald."); });
+        endGroup(c, k);
+    }
+
+    /** Your player on the right with its name pill, standing on the dotted floor of the design. */
+    private void renderStage(DrawContext c) {
+        float cx = Math.max(columnLeft() + COL_W + 220, sw * .75f);
+        if (cx + 140 > sw) return;
+        float k = group(c, 2);
+        // The dotted floor, fading out from the middle.
+        for (float gx = cx - 240; gx <= cx + 240; gx += 13) for (float gy = sh * .44f; gy <= sh * .81f; gy += 13) {
+            float dx = (gx - cx) / 240f, dy = (gy - sh * .75f) / (sh * .37f);
+            float a = 1 - (dx * dx + dy * dy);
+            if (a > .05f) box(c, gx - 1.3f, gy - 1.3f, 2.6f, 2.6f, DesignTheme.alpha(0xFFFFFFFF, .22f * Math.min(1, a * 1.6f)));
         }
-        // Mod-Menü (accent) and Store (green), side by side.
-        float kr = group(c, 3), half = (COLUMN - 10) / 2;
-        float hm = hover(c, "Mod-Menü", x, y, half, 48);
-        box(c, x, y, half, 48, hm > 0 ? Paint.lerp(t.ac(), 0xFFFFFFFF, .08f * hm) : t.ac());
-        box(c, x, y + 44, half, 4, t.acd());
-        float mw = 19 + 10 + width(PIXEL, "Mod-Menü", 21, 0), mx0 = x + (half - mw) / 2;
-        icon(c, MenuType.LIGHTNING, mx0 + 9.5f, y + 22, 19, t.acx(), true);
-        pixel(c, "Mod-Menü", mx0 + 29, y + 22, 21, t.acx());
+        for (int i = 0; i < 8; i++) box(c, cx - 105 + i * 6, sh * .77f + i * .8f, 210 - i * 12, 28 - i * 1.6f, 0x14000000);
+        String name = client.getSession().getUsername();
+        float nw = width(SILK, name, 10, .08f) + 22 + 13, ny = sh * .213f;
+        box(c, cx - nw / 2, ny, nw, 22, DesignTheme.WHITE);
+        box(c, cx - nw / 2 + 11, ny + 8, 6, 6, DesignTheme.INK);
+        caps(c, name, cx - nw / 2 + 24, ny + 11, 10, DesignTheme.INK, .08f);
+        box(c, cx - .5f, ny + 22, 1, 18, 0x99FFFFFF);
+        float size = sh * .2f, neck = ny + 40 + size * .62f;
+        bannerPlayer(c, cx, neck, 0, size);
+        endGroup(c, k);
+    }
+
+    /** The news pill at the bottom: the newest entry, turning by itself; a click shows the next. */
+    private void renderNewsPill(DrawContext c) {
+        News n = NEWS.get(newsIndex);
+        String tag = "Neu in " + launcherVersion();
+        float tw = width(SILK, tag, 9, .08f) + 20, title = width(INTER, n.title(), 13, 0);
+        float w = 6 + tw + 12 + title + 12 + 28 + 6, x = sw / 2 - w / 2, y = sh - 32 - 40;
+        float hv = hover(c, "News", x, y, w, 40);
+        newsHover = hv > .5f;
+        glass(c, x, y, w, 40, hv);
+        box(c, x + 6, y + 6, tw, 28, LIME);
+        caps(c, tag, x + 16, y + 20, 9, ON_LIME, .08f);
+        inter(c, n.title(), x + 6 + tw + 12, y + 20, 13, TEXT);
+        box(c, x + w - 6 - 28, y + 6, 28, 28, 0x14FFFFFF);
+        icon(c, MenuType.CARET_RIGHT, x + w - 6 - 14, y + 20, 12, TEXT, false);
         unhover(c);
-        hit(x, y, half, 48, "Mod-Menü", () -> { SaviraSounds.play(SaviraSounds.Sound.CLICK); client.setScreen(new HudScreen()); });
-        float sx = x + half + 10, hs = hover(c, "Store", sx, y, half, 48);
-        int green = DesignTheme.oklch(.84f, .17f, 148, 1);
-        box(c, sx, y, half, 48, hs > 0 ? Paint.lerp(DesignTheme.oklch(.3f, .08f, 148, .78f), DesignTheme.oklch(.36f, .09f, 148, .9f), hs) : DesignTheme.oklch(.3f, .08f, 148, .78f));
-        frame(c, sx, y, half, 48, DesignTheme.oklch(.55f, .14f, 148, .55f));
-        float stw = 19 + 10 + width(PIXEL, "Store", 21, 0), stx = sx + (half - stw) / 2;
-        icon(c, MenuType.CART, stx + 9.5f, y + 24, 19, green, false);
-        pixel(c, "Store", stx + 29, y + 24, 21, green);
-        unhover(c);
-        hit(sx, y, half, 48, "Store", () -> { SaviraSounds.play(SaviraSounds.Sound.CLICK); toast("Savira-Store", "Der Store mit Cosmetics kommt bald."); });
-        endGroup(c, kr);
-        y += 48 + 10 + 14;
-        renderBanner(c, x, y);
+        hit(x, y, w, 40, "Nächste Neuigkeit", () -> { SaviraSounds.play(SaviraSounds.Sound.CLICK); showNews(newsIndex + 1); });
+    }
+
+    private void renderFooter(DrawContext c) {
+        float y = sh - 30 - 4.5f, x = 40;
+        String[] parts = {"Minecraft " + SharedConstants.getGameVersion().getName(), net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("fabricloader").map(m -> "Fabric " + m.getMetadata().getVersion().getFriendlyString()).orElse("Fabric"), "Savira " + launcherVersion()};
+        for (int i = 0; i < parts.length; i++) {
+            caps(c, parts[i], x, y, 9, i == 2 ? LIME : MUTED, .08f);
+            x += width(SILK, parts[i], 9, .08f) + 14;
+        }
+        String copy = "Copyright Mojang AB";
+        caps(c, copy, sw - 40 - width(SILK, copy, 9, .08f), y, 9, MUTED, .08f);
     }
 
     /** The Discord banner with your own player at the right, floating; waving while hovered. */
@@ -454,14 +580,15 @@ public final class SaviraTitleScreen extends Screen {
     }
     private PlayerEntityModel<LivingEntity> wideModel, slimModel;
     /** Your skin as a 3D figure: breathing, head following the mouse; waving while hovered. */
-    private void bannerPlayer(DrawContext c, float x, float neck, float wave) {
+    private void bannerPlayer(DrawContext c, float x, float neck, float wave) { bannerPlayer(c, x, neck, wave, 62); }
+    private void bannerPlayer(DrawContext c, float x, float neck, float wave, float size) {
         SkinTextures skin = client.getSkinProvider().getSkinTextures(client.getGameProfile());
         if (wideModel == null) {
             wideModel = new PlayerEntityModel<>(client.getEntityModelLoader().getModelPart(EntityModelLayers.PLAYER), false);
             slimModel = new PlayerEntityModel<>(client.getEntityModelLoader().getModelPart(EntityModelLayers.PLAYER_SLIM), true);
         }
         PlayerEntityModel<LivingEntity> model = skin.model() == SkinTextures.Model.SLIM ? slimModel : wideModel;
-        float t = Util.getMeasuringTimeMs() / 1000f, size = 62;
+        float t = Util.getMeasuringTimeMs() / 1000f;
         model.child = false;
         model.head.resetTransform(); model.body.resetTransform();
         model.rightArm.resetTransform(); model.leftArm.resetTransform();
@@ -525,7 +652,6 @@ public final class SaviraTitleScreen extends Screen {
             boolean hov = popover == Popover.NONE && over(rx, ry, rw, 54);
             if (hov) { box(c, rx, ry, rw, 54, l.hi()); frame(c, rx, ry, rw, 54, l.line()); }
             box(c, rx + 8, ry + 8, 38, 38, s.tile());
-            box(c, rx + 8, ry + 43, 38, 3, 0x40000000);
             MenuType.centered(c, SILK, s.name().substring(0, 1), rx + 27, ry + 26, 14, DesignTheme.oklch(.98f, .005f, 268, 1), 0, u);
             pixel(c, s.name(), rx + 58, ry + 19, 17, t.tx());
             String status;
@@ -681,7 +807,6 @@ public final class SaviraTitleScreen extends Screen {
                     boolean hov = over(x + 12, ry, w - 24, 50);
                     if (hov) box(c, x + 12, ry, w - 24, 50, l.hi());
                     box(c, x + 20, ry + 8, 34, 34, link.tile());
-                    box(c, x + 20, ry + 39, 34, 3, 0x40000000);
                     icon(c, link.glyph(), x + 37, ry + 24, 18, DesignTheme.KNOB, true);
                     pixel(c, link.label(), x + 66, ry + 17, 17, t.tx());
                     inter(c, link.sub(), x + 66, ry + 35, 12, l.mu());

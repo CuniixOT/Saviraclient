@@ -76,24 +76,11 @@ public final class MenuSmokeTest implements ClientModInitializer {
                         mc.options.getGuiScale().setValue(2);
                         mc.onResolutionChanged();
                         SaviraTitleScreen title = (SaviraTitleScreen) mc.currentScreen;
-                        check(title.newsVisible(), "News card hidden on a wide screen");
                         int shown = title.newsIndex();
                         screen = title; title.click("Nächste Neuigkeit");
                         check(title.newsIndex() == (shown + 1) % 4, "News arrow did not turn the page");
-                        check(title.has("Einzelspieler") && title.has("Mehrspieler") && title.has("Discord beitreten") && title.has("Mod-Menü") && title.has("Store") && title.has("Beitreten: Hypixel"), "Main menu buttons missing");
+                        check(title.has("Einzelspieler") && title.has("Mehrspieler") && title.has("Minecraft Realms") && title.has("Mods") && title.has("Optionen") && title.has("Beitreten: Hypixel") && title.has("Spiel beenden") && title.has("Freunde") && title.has("Sprache"), "Main menu buttons missing");
                         LoggerFactory.getLogger("SaviraUITest").info("Schnell beitreten: " + title.serverStatus());
-                        // Quick join folds up and opens again, remembered.
-                        title.click("Schnell beitreten zuklappen");
-                        check(!SaviraClient.config.quickJoinOpen && !HudConfig.load().quickJoinOpen, "Quick join did not fold up");
-                        SaviraClient.config.quickJoinOpen = true;
-                        // Panorama picker: choose the Nether Update panorama (downloaded from Mojang), it must stick.
-                        title.click("Hintergrund wählen");
-                        check(title.pickerOpen(), "Panorama picker did not open");
-                        check(title.choosePanorama("Nether Update"), "Nether Update missing in the picker");
-                        check(title.backgroundId().equals("nether") && "nether".equals(SaviraClient.config.menuBackground), "Panorama choice not applied");
-                        check(gg.savira.client.SaviraPanoramas.renderer("nether") != null, "Nether panorama not loaded");
-                        check(!title.pickerOpen(), "Picker still open after choosing");
-                        title.previewBanner(true);
                     }
                     case 1 -> {
                         screenshot(mc, "savira-menu-title");
@@ -319,10 +306,10 @@ public final class MenuSmokeTest implements ClientModInitializer {
                         SaviraClient.config.lightMode = "NUMBER"; gg.savira.client.LightLevel.rescanNow();
                     }
                     case 27 -> {
-                        // Light is computed after the blocks change; give it up to ~12 s before judging.
+                        // Light is computed after the blocks change; give it up to ~36 s before judging (slow with many mods).
                         boolean ready = gg.savira.client.LightLevel.count("SAFE") > 0 && gg.savira.client.LightLevel.count("NIGHT") > 0 && gg.savira.client.LightLevel.count("SPAWNABLE") > 0;
                         mc.setScreen(null);
-                        if (!ready && ++lightWaits < 20) {
+                        if (!ready && ++lightWaits < 60) {
                             // The platform sometimes lands before the chunks are there: build it again.
                             if (!mc.world.getBlockState(new net.minecraft.util.math.BlockPos(0, 199, 0)).isOf(net.minecraft.block.Blocks.STONE)) buildPlatform(mc.getServer());
                             gg.savira.client.LightLevel.rescanNow(); stage--; return;

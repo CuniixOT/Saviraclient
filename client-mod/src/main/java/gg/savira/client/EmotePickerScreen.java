@@ -93,7 +93,7 @@ public final class EmotePickerScreen extends Screen {
     private boolean onClear(double mx, double my) { return Emotes.slot(slot) != null && in(mx, my, x0 + PAD, y0 + winH() - FOOT + 9, clearW(), 34); }
     private static float ease(float t) { t = Math.clamp(t, 0f, 1f); return 1 - (1 - t) * (1 - t) * (1 - t); }
 
-    private void box(DrawContext c, float x, float y, float w, float h, int color) { if (w > 0 && h > 0) Paint.round(c, x, y, w, h, 0, color, px()); }
+    private void box(DrawContext c, float x, float y, float w, float h, int color) { HudScreen.fill(c, x, y, w, h, color, px()); }
     private void frame(DrawContext c, float x, float y, float w, float h, int color) { HudScreen.frame(c, x, y, w, h, color, px()); }
 
     @Override
@@ -148,7 +148,6 @@ public final class EmotePickerScreen extends Screen {
         boolean shop = onShop(mx, my), close = onClose(mx, my);
         float bx = shopX();
         box(c, bx, y0 + 8, shopW(), 36, shop ? Paint.lerp(t.ac(), 0xFFFFFFFF, .08f) : t.ac());
-        box(c, bx, y0 + 41, shopW(), 3, t.acd());
         MenuType.icon(c, MenuType.LOCK, bx + 21, mid - 1, 14, t.acx(), false, u);
         MenuType.middle(c, SILK, "SHOP", bx + 35, mid - 1, 11, t.acx(), .06f, u);
         if (close) box(c, closeX(), y0 + 8, 36, 36, t.hi());

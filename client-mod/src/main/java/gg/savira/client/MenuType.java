@@ -11,9 +11,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Type of the in-game menus, the same as the launcher's: Minecraft Ten for titles and labels,
- * SmallCaps in lower case for small labels (the launcher's .pixel), Geist for text; Phosphor icons.
- * Minecraft Ten is drawn at .75 of the size, on its pixel grid (multiples of 4 and 8), to match the design.
+ * Type of the in-game menus, the same as the launcher's (design 2026-11): Inter SemiBold for titles,
+ * JetBrains Mono in capitals for small labels (the launcher's .mono), Inter for text; Phosphor icons.
  *
  * Minecraft draws font glyphs without filtering, so a scaled font loses pixels. Each family
  * therefore comes in one font per pixel size (font/px_18.json …, see scripts/menu-fonts.mjs); a
@@ -24,19 +23,19 @@ public final class MenuType {
     private MenuType() {}
 
     public enum Face {
-        PIXEL("px", .875f, .75f, false), SILK("sk", .5f, 1.1f, true), INTER("ui", .71f, 1f, false), ICON("ic", 0, 1, false), ICON_FILL("icf", 0, 1, false);
+        PIXEL("px", .73f, 1f, false), SILK("sk", .73f, 1f, true), INTER("ui", .73f, 1f, false), ICON("ic", 0, 1, false), ICON_FILL("icf", 0, 1, false);
         final String prefix;
         /** Height of the letters drawn (capitals, or small capitals in lower case) in em, to centre them on a line. */
         final float cap;
         /** Size of this face for a design size, so the families match each other. */
         final float scale;
-        /** Written in lower case, which this font shows as small capitals. */
+        /** Written in capitals, like the design's mono labels. */
         final boolean lower;
         int[] sizes;
         Face(String prefix, float cap, float scale, boolean lower) { this.prefix = prefix; this.cap = cap; this.scale = scale; this.lower = lower; }
     }
     static {
-        Face.PIXEL.sizes = sizes(8, 28, 4, 32, 80, 8);
+        Face.PIXEL.sizes = sizes(6, 24, 1, 26, 80, 2);
         Face.SILK.sizes = sizes(6, 30, 1, 0, -1, 1);
         Face.INTER.sizes = sizes(6, 24, 1, 26, 40, 2);
         Face.ICON.sizes = sizes(8, 30, 1, 32, 44, 2);
@@ -65,7 +64,7 @@ public final class MenuType {
 
     /** Text with its baseline at y. Letter spacing in em, like CSS letter-spacing. */
     public static void baseline(DrawContext c, Face face, String s, float x, float y, float size, int color, float spacing, float u) {
-        if (face.lower) s = s.toLowerCase(java.util.Locale.ROOT);
+        if (face.lower) s = s.toUpperCase(java.util.Locale.GERMAN);
         size *= face.scale;
         float px = px(u);
         int fontSize = size(face, size * px);
@@ -109,7 +108,7 @@ public final class MenuType {
     }
 
     public static float width(Face face, String s, float size, float spacing, float u) {
-        if (face.lower) s = s.toLowerCase(java.util.Locale.ROOT);
+        if (face.lower) s = s.toUpperCase(java.util.Locale.GERMAN);
         size *= face.scale;
         float px = px(u);
         int fontSize = size(face, size * px);
@@ -141,6 +140,8 @@ public final class MenuType {
     }
 
     /** Phosphor code points used by the menu. */
+    /** Icons of the main menu design (2026-11): globe, cube, cloud, power, person, sliders. */
+    public static final char GLOBE = '', CUBE = '', CLOUD = '', POWER = '', PERSON = '', SLIDERS = '';
     public static final char LIGHTNING = '', SHIRT = '', USERS = '', SUN = '', MOON = '', GEAR = '',
         X = '', SEARCH = '', CARET_LEFT = '', CARET_RIGHT = '', RESET = '', CHECK = '', PLUS = '',
         DOWNLOAD = '', UPLOAD = '', COPY = '', TRASH = '', PLAY = '', GAUGE = '', CURSOR_CLICK = '',
