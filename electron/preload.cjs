@@ -123,5 +123,15 @@ contextBridge.exposeInMainWorld('savira', {
     const listener = (_event, settings) => callback(settings);
     ipcRenderer.on('settings', listener);
     return () => ipcRenderer.removeListener('settings', listener);
+  },
+  season: {
+    state: () => ipcRenderer.invoke('season-state'),
+    claimQuest: (id) => ipcRenderer.invoke('season-claim-quest', id),
+    claimTier: (level) => ipcRenderer.invoke('season-claim-tier', level),
+    onChange: (callback) => {
+      const listener = (_event, season) => callback(season);
+      ipcRenderer.on('season', listener);
+      return () => ipcRenderer.removeListener('season', listener);
+    }
   }
 });

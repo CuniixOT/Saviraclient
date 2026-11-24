@@ -14,15 +14,16 @@ const defaultProfiles = [
 // Accent values are handed to the Fabric mod; only its main menu (title screen) uses them.
 // Besides these presets a custom "#rrggbb" value is allowed.
 const accents = {
-  mint: 0x5ccf95, emerald: 0x22b07d, teal: 0x2ec4b6, cyan: 0x22b8e6, blue: 0x4f8dff, indigo: 0x6c6cf0, violet: 0x8f72f2,
+  lime: 0xd4f45c, mint: 0x5ccf95, emerald: 0x22b07d, teal: 0x2ec4b6, cyan: 0x22b8e6, blue: 0x4f8dff, indigo: 0x6c6cf0, violet: 0x8f72f2,
   pink: 0xe36bb5, rose: 0xe5566b, red: 0xe5484d, orange: 0xf07f2d, amber: 0xe8a33d, slate: 0x8b9dc3
 };
 const isCustomAccent = value => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
-const accentRgb = value => isCustomAccent(value) ? parseInt(value.slice(1), 16) : accents[value] ?? accents.mint;
+const accentRgb = value => isCustomAccent(value) ? parseInt(value.slice(1), 16) : accents[value] ?? accents.lime;
 const backgrounds = ['panorama', 'particles', 'plain', 'grid', 'aurora', 'stars', 'glyphs', 'waves', 'blocks', 'snow', 'rain', 'fireflies', 'hexgrid', 'network', 'embers'];
 const defaults = {
+  design: 2,
   memory: Math.min(4, maxMemory), javaPath: 'java', selectedProfileId: defaultProfiles[0].id, profiles: defaultProfiles.map(profile => ({ ...profile, memory: Math.min(4, maxMemory) * 1024 })), fullscreen: false,
-  accent: 'mint', background: 'panorama', autoUpdate: true, animations: true, hideOnLaunch: false, logsOnLaunch: false, discordPresence: true, radius: 12, emotes: true,
+  accent: 'lime', background: 'panorama', autoUpdate: true, animations: true, hideOnLaunch: false, logsOnLaunch: false, discordPresence: true, radius: 12, emotes: true,
   hud: { fps: true, cps: true, keystrokes: true, coordinates: false, ping: true, armor: true, potions: true, sprint: true, zoom: false, ram: true, scale: 1 }
 };
 const ICON = /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/;
@@ -82,7 +83,9 @@ function validateSettings(input) {
   if (typeof selectedProfileId !== 'string' || !profiles.some(profile => profile.id === selectedProfileId)) throw new Error('Das ausgewählte Spielprofil existiert nicht.');
   if (typeof input.fullscreen !== 'boolean') throw new Error('Ungültiger Fenstermodus.');
   // Settings saved before 0.2 have no appearance fields; fall back instead of rejecting them.
-  const accent = input.accent ?? defaults.accent, background = input.background ?? defaults.background;
+  // Design 2 (2026-11) made lime the default; the old default mint moves along once.
+  const stored = input.accent ?? defaults.accent, background = input.background ?? defaults.background;
+  const accent = (input.design ?? 1) < 2 && stored === 'mint' ? 'lime' : stored;
   if (typeof accent !== 'string' || !(Object.hasOwn(accents, accent) || isCustomAccent(accent))) throw new Error('Unbekannte Akzentfarbe.');
   if (!backgrounds.includes(background)) throw new Error('Unbekannter Hintergrund.');
   const flags = {};
@@ -100,7 +103,7 @@ function validateSettings(input) {
   }
   if (![0.75, 1, 1.25, 1.5].includes(input.hud.scale)) throw new Error('Ungültige HUD-Größe.');
   hud.scale = input.hud.scale;
-  return { memory: input.memory, javaPath: input.javaPath.trim(), selectedProfileId, profiles, fullscreen: input.fullscreen, accent: isCustomAccent(accent) ? accent.toLowerCase() : accent, background, ...flags, radius, hud };
+  return { design: 2, memory: input.memory, javaPath: input.javaPath.trim(), selectedProfileId, profiles, fullscreen: input.fullscreen, accent: isCustomAccent(accent) ? accent.toLowerCase() : accent, background, ...flags, radius, hud };
 }
 const HUD_KEYS = ['fps', 'cps', 'keystrokes', 'coordinates', 'ping', 'armor', 'potions', 'sprint', 'zoom', 'ram'];
 /** Settings with the module switches from the game's savira.json, or null when nothing changed. */

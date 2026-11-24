@@ -1,0 +1,126 @@
+/* Start page "H · Quick Play links, Skin rechts" from the design. */
+.content.page-home { padding: 0; overflow: hidden; }
+.home-h { position: relative; height: 100%; min-height: 600px; }
+.home-glow { position: absolute; inset: -40px; z-index: -1; width: calc(100% + 80px); height: calc(100% + 80px); object-fit: cover; filter: blur(34px) saturate(.6); opacity: .22; pointer-events: none; }
+.home-h::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(180deg, rgb(8 9 11 / .55) 0%, rgb(8 9 11 / .25) 35%, rgb(8 9 11 / .92) 82%); }
+
+.home-hero { position: absolute; left: 64px; top: 40px; width: min(600px, calc(52% - 64px)); z-index: 2; display: flex; flex-direction: column; }
+.home-kicker { font-size: 10px; color: var(--text-3); }
+.home-hero h1 { margin-top: 12px; font-size: clamp(34px, 3.6vw, 48px); font-weight: 500; letter-spacing: -.035em; line-height: 1.04; }
+.home-launch { display: flex; align-items: center; gap: 10px; margin-top: 24px; }
+.home-launch .profile-picker { position: relative; }
+.home-profile { display: flex; align-items: center; gap: 12px; height: 60px; padding: 0 16px 0 10px; border-radius: 18px; color: var(--text); text-align: left; transition: background .15s; }
+.home-profile:hover:not(:disabled) { background: rgb(255 255 255 / .12); }
+.home-profile .profile-icon, .home-profile img { border-radius: 11px; }
+.home-profile span { display: flex; flex-direction: column; gap: 3px; }
+.home-profile b { font-size: 14px; white-space: nowrap; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+.home-profile small { font-size: 9px; color: var(--text-3); }
+.home-profile > svg { margin-left: 6px; color: var(--text-3); }
+.home-launch .picker-menu { position: absolute; left: 0; top: 68px; bottom: auto; z-index: var(--z-popover); width: 280px; }
+.home-play { position: relative; overflow: hidden; flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 12px; height: 60px; padding: 0 30px 0 24px; border-radius: var(--pill); background: #fff; color: #0b0c0f; font-size: 17px; font-weight: 600; box-shadow: 0 10px 30px rgb(255 255 255 / .12); transition: transform .08s, background .15s; }
+.home-play:hover:not(:disabled) { background: #f1f2f3; }
+.home-play:active:not(:disabled) { transform: translateY(1px); }
+.home-play:disabled { opacity: 1; cursor: default; }
+.home-play small { font-size: 9px; color: #6b6e75; font-weight: 400; }
+.home-play-dot { position: relative; width: 28px; height: 28px; border-radius: 50%; background: #0b0c0f; color: var(--lime); display: grid; place-items: center; }
+.home-play-fill { position: absolute; inset: 0; transform-origin: left; transform: scaleX(var(--progress)); background: rgb(212 244 92 / .55); opacity: 0; transition: transform .3s; }
+.home-play.is-loading .home-play-fill { opacity: 1; }
+.home-play > *:not(.home-play-fill) { position: relative; }
+.home-play.is-failed { background: rgb(255 90 70 / .16); color: var(--danger); box-shadow: none; }
+.round-btn { width: 48px; height: 48px; border-radius: 50%; color: #c9cbd0; display: grid; place-items: center; flex-shrink: 0; transition: background .15s, color .15s; }
+.round-btn:hover { background: rgb(255 255 255 / .12); color: #fff; }
+.home-meta { display: flex; gap: 18px; margin-top: 14px; font-size: 9px; color: var(--text-3); }
+.home-meta span { display: flex; align-items: center; gap: 6px; }
+.home-meta i { width: 6px; height: 6px; border-radius: 50%; background: var(--text-4); }
+.home-meta i.on { background: var(--lime); }
+.home-meta i.ring { background: none; border: 1px solid var(--text-3); }
+.home-meta i.white { background: var(--text); }
+.home-error, .home-status-msg { display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; font-size: 13px; line-height: 1.45; color: var(--text-2); }
+.home-error { color: var(--danger); }
+.home-error svg { margin-top: 2px; }
+
+.quick-play { position: relative; overflow: hidden; margin-top: 22px; border-radius: 22px; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.quick-glow { position: absolute; right: -60px; top: -60px; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(closest-side, rgb(212 244 92 / .12), transparent); pointer-events: none; }
+.quick-play header { display: flex; align-items: center; justify-content: space-between; padding: 0 4px; }
+.quick-play header b { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.quick-play header b svg { color: var(--lime); }
+.quick-play header small { font-size: 9px; color: var(--text-3); }
+.quick-server { display: flex; align-items: center; gap: 14px; padding: 4px; }
+.quick-icon { width: 64px; height: 64px; flex-shrink: 0; border-radius: 18px; display: grid; place-items: center; font-size: 18px; font-weight: 600; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); image-rendering: pixelated; object-fit: cover; }
+.quick-server > span { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.quick-server b { font-size: 20px; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.quick-server small { display: flex; flex-wrap: wrap; gap: 14px; font-size: 9px; color: var(--text-3); }
+.quick-server small span { display: flex; align-items: center; gap: 6px; }
+.quick-server i.on { width: 6px; height: 6px; border-radius: 50%; background: var(--lime); }
+.quick-actions { display: flex; gap: 8px; }
+.quick-actions .btn { height: 48px; }
+.quick-join { flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px; height: 48px; border-radius: var(--pill); background: var(--lime); color: var(--on-lime); font-size: 14px; font-weight: 600; transition: filter .15s, transform .08s; }
+.quick-join:hover:not(:disabled) { filter: brightness(1.05); }
+.quick-join:active:not(:disabled) { transform: translateY(1px); }
+
+/* The 3D figure on the right with the dotted floor of the design. */
+.home-stage { position: absolute; left: 52%; right: 70px; top: 0; bottom: 250px; display: flex; flex-direction: column; align-items: center; }
+.home-stage::before { content: ""; position: absolute; left: 0; right: 0; bottom: 40px; height: 60%; pointer-events: none; background-image: radial-gradient(rgb(255 255 255 / .22) 1.3px, transparent 1.7px); background-size: 13px 13px; -webkit-mask-image: radial-gradient(ellipse 50% 60% at 50% 70%, #000 25%, transparent 75%); mask-image: radial-gradient(ellipse 50% 60% at 50% 70%, #000 25%, transparent 75%); }
+.home-stage .skin-stage { flex: 1; width: 100%; min-height: 0; }
+.anim-toggle { position: relative; display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 6px 0 16px; border-radius: var(--pill); color: var(--text); white-space: nowrap; }
+.anim-toggle b { font-size: 13px; }
+.anim-toggle small { font-size: 9px; color: var(--text-3); }
+.anim-toggle small.on { color: var(--lime); }
+
+/* Daily Quests and Season Pass tabs on the right edge. */
+.edge-tabs { position: absolute; right: 0; top: 78px; z-index: 6; display: flex; flex-direction: column; gap: 10px; }
+.edge-tab { position: relative; width: 40px; padding: 10px 0 14px; border-radius: 16px 0 0 16px; background: rgb(18 19 23 / .88); color: #c9cbd0; box-shadow: inset 1px 0 0 rgb(255 255 255 / .08), inset 0 1px 0 rgb(255 255 255 / .06), inset 0 -1px 0 rgb(255 255 255 / .06), 0 10px 30px rgb(0 0 0 / .35); display: flex; flex-direction: column; align-items: center; gap: 12px; transition: background .15s, color .15s; }
+.edge-tab:hover { background: rgb(30 31 37 / .95); color: #fff; }
+.edge-tab.open { background: #fff; color: #0b0c0f; }
+.edge-icon { width: 28px; height: 28px; border-radius: 9px; background: rgb(255 255 255 / .08); display: grid; place-items: center; }
+.edge-tab.open .edge-icon { background: rgb(11 12 15 / .08); }
+.edge-icon.amber, .edge-tab.open .edge-icon.amber { background: var(--amber); color: var(--on-amber); }
+.edge-label { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 8px; letter-spacing: .18em; }
+.edge-dot { position: absolute; top: 4px; left: 4px; width: 9px; height: 9px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 0 2px var(--surface); }
+.edge-count { position: absolute; top: 2px; left: 2px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: var(--pill); background: var(--amber); color: var(--on-amber); font-size: 8px; font-weight: 700; letter-spacing: 0; display: grid; place-items: center; box-shadow: 0 0 0 2px var(--surface); }
+.edge-panel { position: absolute; right: 52px; top: 68px; z-index: 5; width: 370px; max-height: calc(100% - 300px); overflow-y: auto; padding: 16px; border-radius: 22px; background: rgb(18 19 23 / .96); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .09), 0 24px 60px rgb(0 0 0 / .55); display: flex; flex-direction: column; gap: 6px; animation: slidein .22s cubic-bezier(.2, .8, .2, 1) both; }
+.edge-panel > header { display: flex; align-items: center; justify-content: space-between; padding: 0 4px 8px; }
+.edge-panel > header b { font-size: 15px; }
+.edge-panel > header small { font-size: 8px; color: var(--text-3); }
+.edge-panel > header > span:first-child { display: flex; flex-direction: column; gap: 3px; }
+.edge-foot { font-size: 11px; color: var(--text-3); padding: 8px 4px 0; }
+.season-mini { gap: 14px; }
+.season-mini > .btn { height: 42px; }
+.level-pill { display: flex; align-items: center; gap: 8px; padding: 5px 12px 5px 5px; border-radius: var(--pill); background: rgb(242 169 59 / .12); }
+.level-pill b { width: 26px; height: 26px; border-radius: 50%; background: var(--amber); color: var(--on-amber); display: grid; place-items: center; font-size: 12px; }
+.level-pill small { font-size: 9px; color: var(--amber); }
+@keyframes slidein { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+
+/* News reel: the active card grows, a bar runs down its time. */
+.news-reel { position: absolute; left: 56px; right: 56px; bottom: 26px; display: flex; flex-direction: column; gap: 12px; }
+.news-reel > header { display: flex; align-items: center; gap: 18px; height: 22px; padding: 0 8px; }
+.news-reel h2 { font-size: 14px; }
+.reel-progress { flex: 1; display: flex; gap: 6px; }
+.reel-progress > span { flex: 1; height: 3px; border-radius: 99px; background: rgb(255 255 255 / .12); overflow: hidden; }
+.reel-progress i { display: block; height: 100%; border-radius: 99px; }
+.reel-progress .seg { width: 0; background: #fff; animation: seg 7s linear forwards; }
+.reel-progress .seg.paused { animation-play-state: paused; }
+.reel-progress .seg-done { width: 100%; background: rgb(255 255 255 / .45); }
+@keyframes seg { from { width: 0; } to { width: 100%; } }
+.reel-cards { display: flex; gap: 12px; height: clamp(140px, 22vh, 196px); }
+.reel-card { position: relative; flex: 1 1 0; min-width: 0; padding: 0; border-radius: 22px; overflow: hidden; background: var(--surface-2); color: var(--text); text-align: left; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); transition: flex-grow .55s cubic-bezier(.2, .8, .2, 1), box-shadow .3s; }
+.reel-card.active { flex-grow: 2.6; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .35), 0 18px 40px rgb(0 0 0 / .45); }
+.reel-card img, .reel-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.reel-card img.kb { animation: kb 7s ease-out forwards; }
+@keyframes kb { from { transform: scale(1); } to { transform: scale(1.06); } }
+.reel-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgb(8 9 11 / 0) 25%, rgb(8 9 11 / .94) 100%); }
+.reel-copy { position: absolute; left: 20px; right: 20px; bottom: 18px; display: flex; flex-direction: column; gap: 6px; }
+.reel-copy small { font-size: 9px; color: #c9cbd0; }
+.reel-copy b { font-size: 17px; letter-spacing: -.02em; line-height: 1.1; }
+.reel-card.active .reel-copy b { font-size: 26px; }
+.reel-copy em { font-style: normal; font-size: 13px; color: #c9cbd0; line-height: 1.45; max-width: 520px; animation: reveal .45s .2s ease-out both; }
+@keyframes reveal { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.reel-new { position: absolute; left: 16px; top: 16px; font-size: 9px; background: var(--lime); color: var(--on-lime); padding: 5px 9px; border-radius: var(--pill); }
+
+@media (max-height: 760px) {
+  .home-hero h1 { font-size: 34px; }
+  .home-launch { margin-top: 16px; }
+  .quick-play { margin-top: 14px; }
+  .reel-cards { height: 128px; }
+  .home-stage { bottom: 190px; }
+}

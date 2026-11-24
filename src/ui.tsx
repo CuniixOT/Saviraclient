@@ -4,6 +4,7 @@ import logo from './assets/logo.png';
 
 // Must match electron/settings.cjs, which hands the same colours to the mod's main menu.
 export const accents: Record<AccentPreset, { label: string; hex: string }> = {
+  lime: { label: 'Limette', hex: '#d4f45c' },
   mint: { label: 'Mint', hex: '#5ccf95' },
   emerald: { label: 'Smaragd', hex: '#22b07d' },
   teal: { label: 'Türkis', hex: '#2ec4b6' },
@@ -19,7 +20,7 @@ export const accents: Record<AccentPreset, { label: string; hex: string }> = {
   slate: { label: 'Schiefer', hex: '#8b9dc3' }
 };
 export const isCustomAccent = (accent: string): accent is `#${string}` => /^#[0-9a-f]{6}$/i.test(accent);
-export const accentHex = (accent: Accent | undefined) => !accent ? accents.mint.hex : isCustomAccent(accent) ? accent : accents[accent]?.hex ?? accents.mint.hex;
+export const accentHex = (accent: Accent | undefined) => !accent ? accents.lime.hex : isCustomAccent(accent) ? accent : accents[accent]?.hex ?? accents.lime.hex;
 
 export function Logo({ wordmark = true }: { wordmark?: boolean }) {
   return <span className="logo">

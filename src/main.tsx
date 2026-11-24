@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import '@fontsource-variable/geist';
+import '@fontsource-variable/inter';
+import '@fontsource-variable/jetbrains-mono';
 import { App } from './App';
 import { Setup } from './Setup';
 import { LogWindow } from './LogWindow';
@@ -8,6 +9,9 @@ import './styles.css';
 import './profile.css';
 import './browse.css';
 import './servers.css';
+import './theme.css';
+import './home.css';
+import './season.css';
 
 // The same bundle serves the launcher and its installer; main.cjs picks the mode via the URL.
 const mode = new URLSearchParams(location.search).get('mode');

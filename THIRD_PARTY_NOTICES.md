@@ -29,15 +29,17 @@ Savira selbst steht unter der MIT-Lizenz (`LICENSE`). Die folgenden mitgeliefert
 
 Savira ist nicht mit NoRiskClient, Mojang oder Microsoft verbunden.
 
-### Weitere Schriften
+### Inter (`client-mod/src/main/resources/assets/savira/font/inter.ttf`, `inter_semibold.ttf`; Launcher: `@fontsource-variable/inter`)
 
-- Geist (`@fontsource-variable/geist`), SIL Open Font License 1.1
+- Schrift „Inter“ von The Inter Project Authors, https://github.com/rsms/inter (Release 4.1, `extras/ttf/Inter-Medium.ttf` und `Inter-SemiBold.ttf`)
+- Lizenz: **SIL Open Font License 1.1**, siehe `licenses/OFL-Inter.txt`
+- Unverändert übernommen; Titel und Text im Launcher, im Rechts-Shift-Menü, im Hauptmenü und im Emote-Rad des Spiels.
 
-### Geist (`client-mod/src/main/resources/assets/savira/font/geist.ttf`)
+### JetBrains Mono (`client-mod/src/main/resources/assets/savira/font/jetbrains_mono.ttf`; Launcher: `@fontsource-variable/jetbrains-mono`)
 
-- Schrift „Geist“ von The Geist Project Authors, https://github.com/vercel/geist-font, bezogen aus https://github.com/google/fonts (`ofl/geist`)
-- Lizenz: **SIL Open Font License 1.1**, siehe `licenses/OFL-Geist.txt`
-- Unverändert übernommen; Fließtext im Rechts-Shift-Menü, im Hauptmenü und im Emote-Rad des Spiels, wie im Launcher.
+- Schrift „JetBrains Mono“ von The JetBrains Mono Project Authors, https://github.com/JetBrains/JetBrainsMono (`fonts/ttf/JetBrainsMono-Medium.ttf`)
+- Lizenz: **SIL Open Font License 1.1**, siehe `licenses/OFL-JetBrainsMono.txt`
+- Unverändert übernommen; Beschriftungen in Großbuchstaben im Launcher und im Spiel.
 
 ### Phosphor Icons (`client-mod/src/main/resources/assets/savira/font/phosphor.ttf`, `phosphor_fill.ttf`)
 

@@ -35,16 +35,34 @@ try {
   const bridge = await page.evaluate(() => ({ bridge: Boolean(window.savira), node: typeof window.require }));
   expect(bridge).toEqual({ bridge: true, node: 'undefined' });
   expect(await page.getByLabel(/3D-Figur von Steve/).evaluate(canvas => canvas.width > 1 && canvas.height > 1)).toBe(true);
-  const launchButton = page.getByRole('button', { name: 'Anmelden', exact: true });
+  const launchButton = page.getByRole('button', { name: /^Anmelden/ });
   await expect(launchButton).toBeVisible();
   const launchBox = await launchButton.boundingBox();
   const viewportHeight = await page.evaluate(() => innerHeight);
   expect(launchBox.y + launchBox.height).toBeLessThanOrEqual(viewportHeight);
   await page.waitForTimeout(1500);
   await shot('desktop');
+  // Daily Quests and Season Pass: panels on the start page, the full page in the navigation.
+  await page.getByRole('button', { name: 'Daily Quests' }).click();
+  await expect(page.getByRole('region', { name: 'Daily Quests' })).toContainText('30 Minuten spielen');
+  await shot('home-daily');
+  await page.getByRole('button', { name: 'Season Pass', exact: true }).last().click();
+  await expect(page.getByRole('region', { name: 'Season Pass' })).toContainText('Level');
+  await shot('home-season');
+  await page.getByRole('button', { name: 'Season Pass', exact: true }).last().click();
+  await page.getByRole('button', { name: 'Season Pass', exact: true }).first().click();
+  await expect(page.getByRole('heading', { name: 'Season Pass' })).toBeVisible();
+  await expect(page.getByText('Weekly Quests')).toBeVisible();
+  await page.waitForTimeout(400);
+  await shot('season');
+  await page.getByRole('button', { name: 'Benachrichtigungen' }).click();
+  await expect(page.getByRole('dialog', { name: 'Benachrichtigungen' })).toBeVisible();
+  await shot('notifications');
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Spielen', exact: true }).click();
   const sendStatus = status => app.evaluate(({ BrowserWindow }, next) => BrowserWindow.getAllWindows()[0].webContents.send('status', next), status);
   await sendStatus({ phase: 'installing', message: 'Minecraft: assets (1187/3410)', progress: 41 });
-  await expect(page.getByRole('button', { name: 'lädt 41%' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Lädt 41%/ })).toBeVisible();
   await shot('installing');
   await sendStatus({ phase: 'error', message: 'Java wurde nicht gefunden. Bitte Java 21 installieren und unter Einstellungen auswählen.', progress: 0 });
   await expect(page.getByRole('alert')).toContainText('Java wurde nicht gefunden');
@@ -108,7 +126,8 @@ try {
 
   // Skins: add from a PNG file, preview in 3D, switch model, rename, swap, search, delete.
   const skinFile = path.join(root, 'public', 'default-skin.png');
-  await page.getByRole('button', { name: 'Skins', exact: true }).click();
+  await page.getByRole('button', { name: 'Garderobe', exact: true }).click();
+  await page.getByRole('tab', { name: 'Skins', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Skins' })).toBeVisible();
   await page.getByRole('button', { name: 'Neuen Skin hinzufügen' }).click();
   await expect(page.getByRole('dialog', { name: 'Skin hinzufügen' })).toBeVisible();
@@ -174,7 +193,8 @@ try {
   await page.getByRole('tab', { name: 'meine skins' }).click();
 
   // Capes: tabs, upload with 3D preview, wear, favourite, rename, template, vanilla needs an account.
-  await page.getByRole('button', { name: 'Capes', exact: true }).click();
+  await page.getByRole('button', { name: 'Garderobe', exact: true }).click();
+  await page.getByRole('tab', { name: 'Capes', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Capes', exact: true })).toBeVisible();
   await page.getByRole('tab', { name: 'alle' }).click();
   await expect(page.getByText('Kommt mit dem nächsten Update')).toBeVisible();
@@ -244,7 +264,8 @@ try {
   await page.locator('.skin-stage canvas').dragTo(page.locator('.skin-stage canvas'), { sourcePosition: { x: 200, y: 300 }, targetPosition: { x: 470, y: 300 } });
   await page.waitForTimeout(500);
   await shot('home-cape');
-  await page.getByRole('button', { name: 'Capes', exact: true }).click();
+  await page.getByRole('button', { name: 'Garderobe', exact: true }).click();
+  await page.getByRole('tab', { name: 'Capes', exact: true }).click();
   await page.getByRole('tab', { name: 'meine capes' }).click();
   await page.locator('.cape-card', { hasText: 'Turnier-Cape' }).getByRole('button', { name: 'ablegen' }).click();
   await expect.poll(async () => (await page.evaluate(() => window.savira.capes.current())).data).toBeNull();
@@ -270,7 +291,7 @@ try {
   await radius.focus();
   await page.keyboard.press('End');
   await expect(page.locator('output[for="radius"]')).toHaveText('20 px');
-  await expect.poll(() => cornerOf('.panel')).toBe('30px');
+  await expect.poll(async () => Math.round(parseFloat(await cornerOf('.panel')))).toBe(37);
   await expect(page.locator('.toast')).toContainText('Eckenradius: 20 px.');
   await page.waitForTimeout(400);
   await shot('radius-20');
@@ -281,7 +302,7 @@ try {
   await shot('radius-0');
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('ArrowRight');
-  await expect.poll(() => cornerOf('.panel')).toBe('3px');
+  await expect.poll(async () => Math.round(parseFloat(await cornerOf('.panel')))).toBe(4);
   // New background effects; the skin animation is switched on the start page.
   await page.getByRole('tab', { name: 'hintergrund' }).click();
   await expect(page.getByRole('radio', { name: /Waben/ })).toBeVisible();
@@ -313,7 +334,7 @@ try {
   await expect(page.getByRole('dialog', { name: 'Savira Coins' })).toContainText('Cosmetics');
   await shot('coins');
   await page.keyboard.press('Escape');
-  await page.locator('.account-chip').click();
+  await page.locator('.topbar .chip-pill').click();
   await expect(page.getByRole('dialog', { name: 'Minecraft-Konten' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'mit microsoft anmelden' })).toBeVisible();
   await shot('account');
@@ -340,12 +361,12 @@ try {
   });
   await app.close(); app = null;
   await start();
-  await page.locator('.account-chip').click();
+  await page.locator('.topbar .chip-pill').click();
   const accounts = page.getByRole('list', { name: 'Gespeicherte Konten' });
   await expect(accounts.getByRole('listitem')).toHaveCount(2);
-  await expect(page.locator('.account-chip')).toContainText('HawaiiCunix');
+  await expect(page.locator('.topbar .chip-pill')).toContainText('HawaiiCunix');
   await accounts.locator('.account-pick', { hasText: 'Zweitkonto' }).click();
-  await expect(page.locator('.account-chip')).toContainText('Zweitkonto');
+  await expect(page.locator('.topbar .chip-pill')).toContainText('Zweitkonto');
   await expect(accounts.locator('.account-pick', { hasText: 'Zweitkonto' })).toHaveAttribute('aria-current', 'true');
   await expect(page.getByRole('button', { name: 'konto hinzufügen' })).toBeVisible();
   await shot('accounts');

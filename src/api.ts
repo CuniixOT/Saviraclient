@@ -63,11 +63,11 @@ export type ServerStatus = { online: number; max: number; ms: number; version: s
 export type Screenshot = { file: string; time: number; thumbnail: string | null };
 export type ExportEntry = { name: string; folder: boolean; modified: number; selected: boolean };
 export type PackVersion = { id: string; number: string; name: string; date: string; downloads: number; gameVersions: string[]; loaders: string[]; changelog: string };
-export type AccentPreset = 'mint' | 'emerald' | 'teal' | 'cyan' | 'blue' | 'indigo' | 'violet' | 'pink' | 'rose' | 'red' | 'orange' | 'amber' | 'slate';
+export type AccentPreset = 'lime' | 'mint' | 'emerald' | 'teal' | 'cyan' | 'blue' | 'indigo' | 'violet' | 'pink' | 'rose' | 'red' | 'orange' | 'amber' | 'slate';
 /** A preset name or a custom "#rrggbb" colour. */
 export type Accent = AccentPreset | `#${string}`;
 export type BackgroundMode = 'panorama' | 'particles' | 'plain' | 'grid' | 'aurora' | 'stars' | 'glyphs' | 'waves' | 'blocks' | 'snow' | 'rain' | 'fireflies' | 'hexgrid' | 'network' | 'embers';
-export type Settings = { memory: number; javaPath: string; selectedProfileId: string; profiles: GameProfile[]; fullscreen: boolean; accent: Accent; background: BackgroundMode; autoUpdate: boolean; animations: boolean; hideOnLaunch: boolean; logsOnLaunch: boolean; discordPresence: boolean; radius: number; emotes: boolean; hud: Hud };
+export type Settings = { design?: number; memory: number; javaPath: string; selectedProfileId: string; profiles: GameProfile[]; fullscreen: boolean; accent: Accent; background: BackgroundMode; autoUpdate: boolean; animations: boolean; hideOnLaunch: boolean; logsOnLaunch: boolean; discordPresence: boolean; radius: number; emotes: boolean; hud: Hud };
 export type Account = { name: string; uuid: string; skin: string | null };
 export type Status = { phase: 'idle' | 'preparing' | 'installing' | 'running' | 'error'; message: string; progress: number };
 export type Accounts = { account: Account | null; accounts: Account[] };
@@ -96,6 +96,20 @@ interface Bridge {
   capes?: CapesBridge;
   profiles?: ProfilesBridge;
   debug?: DebugBridge;
+  season?: SeasonBridge;
+}
+export type Quest = { id: string; title: string; icon: 'clock' | 'play' | 'globe' | 'calendar'; cur: number; max: number; xp: number; done: boolean; claimed: boolean };
+export type SeasonTier = { level: number; free: { kind: string; name: string; claimed: boolean; ready: boolean }; premium: { kind: string; name: string } };
+export type Season = {
+  season: { id: number; name: string; start: string; end: string; endsInDays: number };
+  xp: number; level: number; maxLevel: number; xpPerLevel: number; levelXp: number; coins: number;
+  tiers: SeasonTier[]; daily: Quest[]; weekly: Quest[]; dailyResetAt: number; weeklyResetAt: number;
+};
+interface SeasonBridge {
+  state(): Promise<Result<Season>>;
+  claimQuest(id: string): Promise<Result<{ view: Season; xp: number }>>;
+  claimTier(level: number): Promise<Result<{ view: Season; reward: string }>>;
+  onChange(callback: (season: Season) => void): () => void;
 }
 export type SkinVariant = 'classic' | 'slim';
 /** source "skinmc:<id>": taken from the SkinMC gallery. */
@@ -171,7 +185,7 @@ interface UpdateBridge {
 }
 declare global { interface Window { savira?: Bridge } }
 export const isDesktop = Boolean(window.savira);
-export const defaultSettings: Settings = { memory: 4, javaPath: 'java', selectedProfileId: 'savira-1-21-1', profiles: [{ id: 'savira-1-21-1', name: 'Savira 1.21.1', version: '1.21.1', loader: 'fabric', loaderVersion: '0.20.1', savira: true, memory: 4096, group: '', icon: null, lastPlayed: null, playTime: 0, pack: null }, { id: 'vanilla-1-21-1', name: 'Vanilla 1.21.1', version: '1.21.1', loader: 'vanilla', loaderVersion: null, savira: false, memory: 4096, group: '', icon: null, lastPlayed: null, playTime: 0, pack: null }], fullscreen: false, accent: 'mint', background: 'panorama', autoUpdate: true, animations: true, hideOnLaunch: false, logsOnLaunch: false, discordPresence: true, radius: 12, emotes: true, hud: { fps: true, cps: true, keystrokes: true, coordinates: false, ping: true, armor: true, potions: true, sprint: true, zoom: false, ram: true, scale: 1 } };
+export const defaultSettings: Settings = { memory: 4, javaPath: 'java', selectedProfileId: 'savira-1-21-1', profiles: [{ id: 'savira-1-21-1', name: 'Savira 1.21.1', version: '1.21.1', loader: 'fabric', loaderVersion: '0.20.1', savira: true, memory: 4096, group: '', icon: null, lastPlayed: null, playTime: 0, pack: null }, { id: 'vanilla-1-21-1', name: 'Vanilla 1.21.1', version: '1.21.1', loader: 'vanilla', loaderVersion: null, savira: false, memory: 4096, group: '', icon: null, lastPlayed: null, playTime: 0, pack: null }], fullscreen: false, accent: 'lime', background: 'panorama', autoUpdate: true, animations: true, hideOnLaunch: false, logsOnLaunch: false, discordPresence: true, radius: 12, emotes: true, hud: { fps: true, cps: true, keystrokes: true, coordinates: false, ping: true, armor: true, potions: true, sprint: true, zoom: false, ram: true, scale: 1 } };
 const unavailable = async <T,>(): Promise<Result<T>> => ({ ok: false, error: 'Diese Funktion ist im Desktop-Launcher verfügbar. Starte Savira mit „npm run dev“.' });
 export const api: Bridge = window.savira ?? {
   state: async () => {
@@ -281,3 +295,5 @@ export const profilesApi: ProfilesBridge = window.savira?.profiles ?? {
   worlds: async () => ({ ok: true, data: { worlds: [], servers: [] } }), play: unavailable, screenshots: async () => ({ ok: true, data: [] }), openScreenshot: unavailable, deleteScreenshot: unavailable,
   stats: async () => ({ ok: true, data: { size: 0 } }), duplicate: unavailable, exportEntries: async () => ({ ok: true, data: [] }), exportPack: unavailable, packVersions: async () => ({ ok: true, data: [] }), switchPack: unavailable
 };
+
+export const seasonApi: SeasonBridge = window.savira?.season ?? { state: unavailable, claimQuest: unavailable, claimTier: unavailable, onChange: () => () => {} };

@@ -19,6 +19,7 @@ const { normalizeSkinUrl, validSkinPng } = require('./skin.cjs');
 const { createSkinLibrary, assertSkin } = require('./skins.cjs');
 const skinMc = require('./skinmc.cjs').createSkinMc();
 const defaultMods = require('./defaultmods.cjs');
+const { createSeason } = require('./season.cjs');
 const { createCapeLibrary } = require('./capes.cjs');
 const { createPanoramaStore } = require('./panoramas.cjs');
 const setup = require('./setup.cjs');
@@ -46,7 +47,13 @@ if (process.platform === 'win32') app.setAppUserModelId('gg.savira.launcher');
 // relaunch, so a test launcher never collides with a real Savira running on the same machine.
 if (process.env.SAVIRA_TEST_USER_DATA) app.setPath('userData', path.resolve(process.env.SAVIRA_TEST_USER_DATA));
 let win, logWin = null, settings = structuredClone(defaults), account = null, accounts = [], busy = false, loggingIn = false;
-let store = null, presence = null, wardrobe = null, capes = null, panoramas = null, page = 'home';
+let store = null, presence = null, wardrobe = null, capes = null, panoramas = null, season = null, page = 'home';
+// Quest progress and level changes go straight to the open launcher.
+async function seasonChanged(work) {
+  if (!season) return;
+  try { await work(); if (win && !win.isDestroyed()) win.webContents.send('season', season.view()); }
+  catch (error) { log.warn('Season-Fortschritt konnte nicht gespeichert werden', error); }
+}
 const launcherStarted = Date.now();
 // The running (or last) Minecraft process and its log buffer for the log window.
 let session = null, gameChild = null;
@@ -513,6 +520,7 @@ async function launch(quickPlay = null) {
     launcher.on('close', code => {
       busy = false; gameChild = null;
       const played = session ? Math.max(0, Math.round((Date.now() - session.snapshot().startedAt) / 1000)) : 0;
+      void seasonChanged(() => season.recordPlay(played / 60));
       void storeSettings({ ...settings, profiles: settings.profiles.map(item => item.id === profile.id ? { ...item, playTime: (item.playTime || 0) + played } : item) }).catch(() => {});
       if (profile.savira) void syncHudFromGame(gameRoot);
       session?.end();
@@ -536,6 +544,7 @@ async function launch(quickPlay = null) {
     sendToLogs('logs-reset', logsState());
     log.info(`Minecraft läuft (PID ${child.pid})`);
     await markPlayed(profile.id);
+    void seasonChanged(() => season.recordStart(quickPlay?.server || null));
     if (busy) {
       publish({ phase: 'running', message: 'Minecraft läuft. Viel Spaß mit Savira.', progress: 100 });
       if (settings.hideOnLaunch) win?.hide();
@@ -662,6 +671,10 @@ else {
       return refreshAccounts();
     });
     // Wardrobe: saved skins, adding from file, name, UUID or link, and wearing one.
+    // Season Pass and quests.
+    handle('season-state', async () => season.view());
+    handle('season-claim-quest', id => season.claimQuest(id));
+    handle('season-claim-tier', level => season.claimTier(level));
     handle('skins-list', wardrobeState);
     handle('skins-fetch', resolveSkin);
     handle('skins-save', async input => {
@@ -907,6 +920,8 @@ else {
     await capes.load();
     wardrobe = createSkinLibrary({ dir: path.join(root(), 'wardrobe') });
     await wardrobe.load();
+    season = createSeason({ file: path.join(root(), 'season.json') });
+    await season.load();
     store = createAccountStore({ dir: root(), encrypt: text => safeStorage.encryptString(text), decrypt: bytes => safeStorage.decryptString(bytes) });
     presence = createPresence({ clientId: discordClientId, log: message => log.info(message) });
     presence.setEnabled(settings.discordPresence);

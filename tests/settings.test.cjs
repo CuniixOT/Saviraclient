@@ -26,7 +26,7 @@ test('migrates the persisted two-profile setting', () => {
 test('fills appearance defaults for settings saved before 0.2', () => {
   const { accent, background, autoUpdate, ...older } = defaults;
   const result = validateSettings(older);
-  assert.equal(result.accent, 'mint');
+  assert.equal(result.accent, 'lime');
   assert.equal(result.background, 'panorama');
   assert.equal(result.autoUpdate, true);
 });
