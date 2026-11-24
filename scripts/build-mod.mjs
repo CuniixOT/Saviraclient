@@ -39,12 +39,11 @@ try {
   }
   const archive = path.join(tools, `gradle-${version}.zip`);
   await writeFile(archive, bytes);
-  if (process.platform === 'win32') {
-    const quote = value => `'${value.replaceAll("'", "''")}'`;
-    await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `Expand-Archive -LiteralPath ${quote(archive)} -DestinationPath ${quote(tools)} -Force`]);
-  } else {
-    await run('unzip', ['-q', '-o', archive, '-d', tools]);
-  }
+  // Windows 10+ ships bsdtar, which reads zip files; called by its full path, since Git's GNU tar
+  // (often first in PATH) cannot. PowerShell's Expand-Archive broke on the GitHub runners.
+  if (process.platform === 'win32') await run(path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe'), ['-xf', archive, '-C', tools]);
+  else await run('unzip', ['-q', '-o', archive, '-d', tools]);
+  try { await access(gradleJar); } catch { throw new Error(`Gradle ${version} wurde nicht entpackt: ${gradleJar} fehlt.`); }
 }
 const java = process.env.JAVA_HOME ? path.join(process.env.JAVA_HOME, 'bin', process.platform === 'win32' ? 'java.exe' : 'java') : 'java';
 await run(java, ['-classpath', gradleJar, 'org.gradle.launcher.GradleMain', '--no-daemon', 'build', ...(process.argv.includes('--menu') ? ['remapMenuTest'] : [])], path.join(root, 'client-mod'));
