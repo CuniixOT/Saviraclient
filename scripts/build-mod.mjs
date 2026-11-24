@@ -22,10 +22,21 @@ try {
   console.log(`Gradle ${version} wird einmalig heruntergeladen …`);
   await mkdir(tools, { recursive: true });
   const url = `https://services.gradle.org/distributions/gradle-${version}-bin.zip`;
-  const [response, checksumResponse] = await Promise.all([fetch(url), fetch(`${url}.sha256`)]);
-  if (!response.ok || !checksumResponse.ok) throw new Error('Gradle-Download fehlgeschlagen.');
-  const bytes = Buffer.from(await response.arrayBuffer());
-  if (createHash('sha256').update(bytes).digest('hex') !== (await checksumResponse.text()).trim()) throw new Error('Gradle-Prüfsumme stimmt nicht.');
+  // CI starts without Gradle whenever its cache expired; a dropped download is tried again.
+  let bytes;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const [response, checksumResponse] = await Promise.all([fetch(url), fetch(`${url}.sha256`)]);
+      if (!response.ok || !checksumResponse.ok) throw new Error(`Gradle-Download fehlgeschlagen (HTTP ${response.status} / ${checksumResponse.status}).`);
+      bytes = Buffer.from(await response.arrayBuffer());
+      if (createHash('sha256').update(bytes).digest('hex') !== (await checksumResponse.text()).trim()) throw new Error('Gradle-Prüfsumme stimmt nicht.');
+      break;
+    } catch (error) {
+      if (attempt >= 4) throw error;
+      console.log(`${error.message} Neuer Versuch ${attempt + 1}/4 …`);
+      await new Promise(resolve => setTimeout(resolve, attempt * 5000));
+    }
+  }
   const archive = path.join(tools, `gradle-${version}.zip`);
   await writeFile(archive, bytes);
   if (process.platform === 'win32') {
