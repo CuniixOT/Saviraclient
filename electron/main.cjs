@@ -144,7 +144,7 @@ async function authenticate(interactive, legacyToken) {
   log.info(`Angemeldet als ${account.name}${interactive ? ' (Microsoft-Fenster)' : ' (gespeicherte Sitzung)'}`);
   return mc;
 }
-const pageLabels = { home: 'Startseite', profiles: 'Profile', mods: 'Mods', servers: 'Server', skins: 'Skins', capes: 'Capes', settings: 'Einstellungen', about: 'Über Savira' };
+const pageLabels = { home: 'Startseite', profiles: 'Profile', mods: 'Mods', servers: 'Server', skins: 'Skins', capes: 'Capes', wardrobe: 'Garderobe', news: 'Neuigkeiten', season: 'Season Pass', cases: 'Kisten', settings: 'Einstellungen', about: 'Über Savira' };
 // Skin sources for the wardrobe: a Minecraft name or UUID (via Mojang) or a direct https image link.
 async function download(url, limit = 1_000_000) {
   const response = await fetch(url, { signal: AbortSignal.timeout(20000), headers: { 'User-Agent': 'Savira/0.1.0' } });
@@ -679,6 +679,9 @@ else {
     handle('season-state', async () => season.view());
     handle('season-claim-quest', id => season.claimQuest(id));
     handle('season-claim-tier', level => season.claimTier(level));
+    handle('season-claim-all', () => season.claimAll());
+    handle('cases-buy', (id, amount) => season.buyCase(id, amount));
+    handle('cases-open', id => season.openCase(id));
     handle('skins-list', wardrobeState);
     handle('skins-fetch', resolveSkin);
     handle('skins-save', async input => {

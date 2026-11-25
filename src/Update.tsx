@@ -34,8 +34,8 @@ function UpdateAction({ updates, gameRunning }: { updates: Updates; gameRunning:
   </div>;
   if (status.state === 'installing') return <p className="update-hint"><ArrowClockwise size={15} className="spin" />Savira startet gleich neu …</p>;
   return <>
-    <button className="btn btn-accent pixel w-full update-cta" disabled={gameRunning} onClick={updates.update}>
-      <ArrowCircleUp size={18} weight="bold" />{status.state === 'ready' ? 'installieren & neu starten' : 'jetzt aktualisieren'}
+    <button className="btn btn-primary w-full update-cta" disabled={gameRunning} onClick={updates.update}>
+      <ArrowCircleUp size={18} weight="bold" />{status.state === 'ready' ? 'Installieren und neu starten' : 'Jetzt aktualisieren'}
     </button>
     <p className="update-hint">{gameRunning ? 'Minecraft läuft. Das Update ist nach dem Beenden des Spiels möglich.' : `Lädt ${mb(status.size)}, installiert und startet Savira neu. Deine Einstellungen bleiben erhalten.`}</p>
   </>;
@@ -57,10 +57,10 @@ export function UpdateChip({ updates, gameRunning }: { updates: Updates; gameRun
   return <div className="update" ref={ref}>
     <button className="update-chip" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(!open)}>
       {status.state === 'downloading' ? <CloudArrowDown size={15} weight="bold" /> : <Sparkle size={15} weight="fill" />}
-      <span className="pixel">{status.state === 'downloading' ? `${status.progress}%` : `update ${status.version}`}</span>
+      <span className="mono">{status.state === 'downloading' ? `${status.progress} %` : status.state === 'ready' ? 'Neu starten' : `Update ${status.version}`}</span>
     </button>
     {open && <section className="update-menu glass" role="dialog" aria-label="Update">
-      <header><p className="kicker pixel">neue version</p><h2 className="pixel">Savira {status.version}</h2>{status.date && <small>{day(status.date)}</small>}</header>
+      <header><p className="kicker">Neue Version</p><h2>Savira {status.version}</h2>{status.date && <small>{day(status.date)}</small>}</header>
       {status.notes.length > 0 && <ul className="update-notes">{status.notes.map(note => <li key={note}><CheckCircle size={15} weight="fill" />{note}</li>)}</ul>}
       {updates.error && <p className="update-error" role="alert"><Warning size={15} weight="fill" />{updates.error}</p>}
       <UpdateAction updates={updates} gameRunning={gameRunning} />

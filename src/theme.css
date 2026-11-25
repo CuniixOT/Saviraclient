@@ -158,3 +158,16 @@ textarea.input { border-radius: var(--radius); }
 .topbar .window-actions::before { content: ""; position: absolute; left: 0; top: 50%; height: 20px; margin-top: -10px; width: 1px; background: rgb(255 255 255 / .1); }
 
 .topbar .chip-pill > span:not(.online):not(.offline) { white-space: nowrap; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+
+/* Update chip next to the version: outside the window's drag area, so it can be clicked. */
+.topbar .update { -webkit-app-region: no-drag; position: relative; }
+.update-chip { display: flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px 0 10px; border-radius: var(--pill); background: var(--lime); color: var(--on-lime); box-shadow: 0 0 20px rgb(212 244 92 / .3); transition: filter .15s, transform .08s; }
+.update-chip:hover { filter: brightness(1.06); }
+.update-chip span { font-size: 9px; font-weight: 700; }
+.update-chip[aria-expanded="true"] { background: #fff; color: #0b0c0f; box-shadow: none; }
+.update-menu { left: 0; right: auto; top: calc(100% + 10px); width: 340px; padding: 16px; border: 0; border-radius: var(--radius-lg); background: rgb(20 21 25 / .97); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08), 0 24px 60px rgb(0 0 0 / .6); animation: popdown .18s ease-out both; transform-origin: top left; }
+.update-menu h2 { font-size: 22px; letter-spacing: -.02em; }
+.update-menu header small { font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .08em; font-size: 9px; }
+.update-notes svg { color: var(--lime); }
+.update-cta { height: 46px; }
+.update-inline { border: 0; border-radius: var(--radius); background: rgb(255 255 255 / .03); box-shadow: inset 0 0 0 1px rgb(212 244 92 / .3); }

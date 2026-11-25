@@ -109,16 +109,26 @@ interface NewsBridge {
   patch(bodyPath: string): Promise<Result<NewsBlock[]>>;
 }
 export type Quest = { id: string; title: string; icon: 'clock' | 'play' | 'globe' | 'calendar'; cur: number; max: number; xp: number; done: boolean; claimed: boolean };
-export type SeasonTier = { level: number; free: { kind: string; name: string; claimed: boolean; ready: boolean }; premium: { kind: string; name: string } };
+export type Rarity = 'L' | 'E' | 'R' | 'U' | 'C';
+export type SeasonReward = { icon: string; kind: string; qty: string; name: string; rarity: Rarity; desc: string; reached: boolean; claimed: boolean; ready: boolean };
+export type SeasonTier = { level: number; free: SeasonReward; premium: SeasonReward };
+export type CaseItem = { id: string; rarity: Rarity; icon: string; name: string; kind: string; chance: number };
+export type CaseDef = { id: string; name: string; tag: string; desc: string; price: number; owned: number; odds: Record<Rarity, number>; items: CaseItem[] };
+export type Inventory = { gems: number; keys: number; boostUntil: number; cosmetics: string[] };
 export type Season = {
   season: { id: number; name: string; start: string; end: string; endsInDays: number };
-  xp: number; level: number; maxLevel: number; xpPerLevel: number; levelXp: number; coins: number;
+  xp: number; level: number; maxLevel: number; xpPerLevel: number; levelXp: number; coins: number; premium: boolean;
   tiers: SeasonTier[]; daily: Quest[]; weekly: Quest[]; dailyResetAt: number; weeklyResetAt: number;
+  inventory: Inventory; cases: CaseDef[]; buyAmounts: number[];
 };
+export type CaseWin = { view: Season; item: Omit<CaseItem, 'chance'>; duplicate: boolean; refund: number; used: 'case' | 'key' };
 interface SeasonBridge {
   state(): Promise<Result<Season>>;
   claimQuest(id: string): Promise<Result<{ view: Season; xp: number }>>;
   claimTier(level: number): Promise<Result<{ view: Season; reward: string }>>;
+  claimAll(): Promise<Result<{ view: Season; count: number; rewards: string[] }>>;
+  buyCase(id: string, amount: number): Promise<Result<{ view: Season; bought: number }>>;
+  openCase(id: string): Promise<Result<CaseWin>>;
   onChange(callback: (season: Season) => void): () => void;
 }
 export type SkinVariant = 'classic' | 'slim';
@@ -306,5 +316,5 @@ export const profilesApi: ProfilesBridge = window.savira?.profiles ?? {
   stats: async () => ({ ok: true, data: { size: 0 } }), duplicate: unavailable, exportEntries: async () => ({ ok: true, data: [] }), exportPack: unavailable, packVersions: async () => ({ ok: true, data: [] }), switchPack: unavailable
 };
 
-export const seasonApi: SeasonBridge = window.savira?.season ?? { state: unavailable, claimQuest: unavailable, claimTier: unavailable, onChange: () => () => {} };
+export const seasonApi: SeasonBridge = window.savira?.season ?? { state: unavailable, claimQuest: unavailable, claimTier: unavailable, claimAll: unavailable, buyCase: unavailable, openCase: unavailable, onChange: () => () => {} };
 export const newsApi: NewsBridge = window.savira?.news ?? { feed: unavailable, patch: unavailable };

@@ -1,5 +1,5 @@
 import { _electron as electron, expect } from '@playwright/test';
-import { mkdir, mkdtemp, readFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
@@ -9,6 +9,8 @@ const tools = path.join(root, '.tools');
 await mkdir(tools, { recursive: true });
 const userData = await mkdtemp(path.join(tools, 'smoke-'));
 const env = { ...process.env, SAVIRA_TEST_USER_DATA: userData };
+// A season in progress: level 7, a few rewards claimed, coins for a case.
+await writeFile(path.join(userData, 'season.json'), JSON.stringify({ season: 1, xp: 2350, coins: 2500, claimedTiers: [1, 2, 3, 4, 5, 6], inventory: { cases: { savira: 3, legend: 0, starter: 5 }, keys: 0 } }));
 delete env.ELECTRON_RUN_AS_NODE;
 let app;
 let page;
@@ -42,6 +44,14 @@ try {
   expect(launchBox.y + launchBox.height).toBeLessThanOrEqual(viewportHeight);
   await page.waitForTimeout(1500);
   await shot('desktop');
+  // A new version: the chip beside the version must open its card with the install button.
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('update-status', { state: 'available', version: '9.9.9', notes: ['Testnotiz'], date: '2026-11-25T12:00:00.000Z', size: 120000000, progress: 0, error: '', checkedAt: null }));
+  await page.getByRole('button', { name: /Update 9\.9\.9/ }).click();
+  await expect(page.getByRole('dialog', { name: 'Update' })).toContainText('Savira 9.9.9');
+  await expect(page.getByRole('button', { name: /Jetzt aktualisieren/ })).toBeVisible();
+  await shot('update-card');
+  await page.keyboard.press('Escape');
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('update-status', { state: 'none', version: null, notes: [], date: null, size: 0, progress: 0, error: '', checkedAt: null }));
   // Daily Quests and Season Pass: panels on the start page, the full page in the navigation.
   await page.getByRole('button', { name: 'Daily Quests' }).click();
   await expect(page.getByRole('region', { name: 'Daily Quests' })).toContainText('30 Minuten spielen');
@@ -51,10 +61,29 @@ try {
   await shot('home-season');
   await page.getByRole('button', { name: 'Season Pass', exact: true }).last().click();
   await page.getByRole('button', { name: 'Season Pass', exact: true }).first().click();
-  await expect(page.getByRole('heading', { name: 'Season Pass' })).toBeVisible();
-  await expect(page.getByText('Weekly Quests')).toBeVisible();
+  await expect(page.getByRole('heading', { name: /SEASON PASS/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Belohnungen abholen \(1\)/ })).toBeVisible();
   await page.waitForTimeout(400);
   await shot('season');
+  await page.getByRole('tab', { name: /Wöchentlich/ }).click();
+  await expect(page.getByText('5 Stunden spielen')).toBeVisible();
+  await page.getByRole('button', { name: /Belohnungen abholen/ }).click();
+  await expect(page.getByRole('button', { name: 'Alles abgeholt' })).toBeVisible();
+  // Kisten: buy with coins, open with the reel, the win dialog.
+  await page.getByRole('button', { name: 'Kisten', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Kisten' })).toBeVisible();
+  await page.waitForTimeout(400);
+  await shot('cases');
+  await page.getByRole('button', { name: /^Kaufen/ }).click();
+  await expect(page.getByText('+1 Savira Case gekauft')).toBeVisible();
+  await page.getByRole('button', { name: 'Kiste öffnen' }).click();
+  await page.waitForTimeout(2500);
+  await shot('cases-reel');
+  await expect(page.getByRole('dialog', { name: 'Gewinn' })).toBeVisible({ timeout: 10000 });
+  await page.waitForTimeout(500);
+  await shot('cases-win');
+  await page.getByRole('button', { name: 'Einsammeln' }).click();
+  await expect(page.getByText('Du hast:')).toContainText('4');
   // Neuigkeiten: live feeds of Savira, minecraft.net and Mojang's patch notes, filters and the detail view.
   await page.getByRole('button', { name: 'News', exact: true }).click();
   await expect(page.getByRole('heading', { name: /Neuigkeiten/ })).toBeVisible();
@@ -347,7 +376,7 @@ try {
   await page.getByRole('button', { name: 'Über Savira' }).click();
   await expect(page.getByRole('heading', { name: 'über savira' })).toBeVisible();
   // Savira Coins: chip left of the account, card with balance and the coming shop.
-  await page.getByRole('button', { name: 'Savira Coins: 0' }).click();
+  await page.getByRole('button', { name: 'Savira Coins: 1.750' }).click();
   await expect(page.getByRole('dialog', { name: 'Savira Coins' })).toContainText('Cosmetics');
   await shot('coins');
   await page.keyboard.press('Escape');

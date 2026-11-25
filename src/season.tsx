@@ -1,28 +1,48 @@
 import { Calendar, Check, Clock, GlobeHemisphereWest, Lock, Play } from '@phosphor-icons/react';
 import { useCallback, useEffect, useState } from 'react';
-import { seasonApi, unwrap, type Quest, type Season, type SeasonTier } from './api';
+import { seasonApi, unwrap, type CaseWin, type Quest, type Rarity, type Season, type SeasonTier } from './api';
+import coin from './assets/rewards/coin.png';
+import gem from './assets/rewards/gem.png';
+import chest from './assets/rewards/chest.png';
+import xp from './assets/rewards/xp.png';
+import key from './assets/rewards/key.png';
+import capeCross from './assets/rewards/cape-cross.png';
+import capeSeason from './assets/rewards/cape-season.png';
+import capeAnimated from './assets/rewards/cape-animated.png';
 
-/** Season Pass state, kept in sync with the launcher's main process. */
+type Toast = { strong: string; text: string; tone: 'lime' | 'amber' };
+
+/** Season Pass, inventory and cases, kept in sync with the launcher's main process. */
 export function useSeason(onError: (message: string) => void) {
   const [season, setSeason] = useState<Season | null>(null);
-  const [toast, setToast] = useState<{ strong: string; text: string; tone: 'lime' | 'amber' } | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
   useEffect(() => {
     unwrap(seasonApi.state()).then(setSeason).catch(() => { /* Browser preview: no season. */ });
     return seasonApi.onChange(setSeason);
   }, []);
   useEffect(() => { if (!toast) return; const timer = setTimeout(() => setToast(null), 2600); return () => clearTimeout(timer); }, [toast]);
   const claimQuest = useCallback((id: string) => {
-    unwrap(seasonApi.claimQuest(id)).then(({ view, xp }) => { setSeason(view); setToast({ strong: `+${xp} XP`, text: ' für deinen Season Pass', tone: 'lime' }); }).catch(e => onError(e.message));
+    unwrap(seasonApi.claimQuest(id)).then(({ view, xp }) => { setSeason(view); setToast({ strong: `+${xp} XP`, text: ' für deinen Season Pass erhalten', tone: 'lime' }); }).catch(e => onError(e.message));
   }, [onError]);
   const claimTier = useCallback((level: number) => {
-    unwrap(seasonApi.claimTier(level)).then(({ view, reward }) => { setSeason(view); setToast({ strong: reward, text: ' abgeholt', tone: 'amber' }); }).catch(e => onError(e.message));
+    unwrap(seasonApi.claimTier(level)).then(({ view, reward }) => { setSeason(view); setToast({ strong: reward, text: ' wurde in dein Inventar gelegt', tone: 'amber' }); }).catch(e => onError(e.message));
   }, [onError]);
-  return { season, claimQuest, claimTier, toast };
+  const claimAll = useCallback(() => {
+    unwrap(seasonApi.claimAll()).then(({ view, count }) => { setSeason(view); setToast({ strong: count === 1 ? '1 Belohnung' : `${count} Belohnungen`, text: ' wurden in dein Inventar gelegt', tone: 'amber' }); }).catch(e => onError(e.message));
+  }, [onError]);
+  const buyCase = useCallback(async (id: string, amount: number) => {
+    const { view } = await unwrap(seasonApi.buyCase(id, amount));
+    setSeason(view);
+  }, []);
+  /** Opens a case; the caller shows the reel and applies the view once it stops. */
+  const openCase = useCallback((id: string): Promise<CaseWin> => unwrap(seasonApi.openCase(id)), []);
+  return { season, setSeason, claimQuest, claimTier, claimAll, buyCase, openCase, toast };
 }
 export type SeasonState = ReturnType<typeof useSeason>;
 
 export const claimableQuests = (season: Season | null) => season ? [...season.daily, ...season.weekly].filter(q => q.done && !q.claimed).length : 0;
 export const readyTiers = (season: Season | null) => season ? season.tiers.filter(t => t.free.ready).length : 0;
+export const ownedCases = (season: Season | null) => season ? season.cases.reduce((sum, c) => sum + c.owned, 0) : 0;
 
 const de = (value: number) => value.toLocaleString('de-DE');
 /** "Reset in 6 Std. 12 Min." / "Reset in 3 Tagen" */
@@ -30,6 +50,44 @@ export function resetIn(at: number) {
   const minutes = Math.max(0, Math.round((at - Date.now()) / 60000));
   if (minutes >= 48 * 60) return `Reset in ${Math.round(minutes / 1440)} Tagen`;
   return `Reset in ${Math.floor(minutes / 60)} Std. ${minutes % 60} Min.`;
+}
+
+/** Colours per rarity: [label, colour, soft fill, edge, rays]. */
+export const RARITY: Record<Rarity, { label: string; col: string; soft: string; edge: string; ray: string }> = {
+  L: { label: 'Legendär', col: '#f2a93b', soft: 'rgba(242,169,59,0.18)', edge: 'rgba(242,169,59,0.55)', ray: 'rgba(242,169,59,0.28)' },
+  E: { label: 'Episch', col: '#b48cff', soft: 'rgba(180,140,255,0.18)', edge: 'rgba(180,140,255,0.5)', ray: 'rgba(180,140,255,0.26)' },
+  R: { label: 'Selten', col: '#6fb8ff', soft: 'rgba(111,184,255,0.16)', edge: 'rgba(111,184,255,0.45)', ray: 'rgba(111,184,255,0.24)' },
+  U: { label: 'Ungewöhnlich', col: '#5fd38a', soft: 'rgba(95,211,138,0.14)', edge: 'rgba(95,211,138,0.4)', ray: 'rgba(95,211,138,0.22)' },
+  C: { label: 'Gewöhnlich', col: '#a9acb3', soft: 'rgba(255,255,255,0.07)', edge: 'rgba(255,255,255,0.14)', ray: 'rgba(255,255,255,0.12)' },
+};
+
+const IMAGES: Record<string, string> = { coin, gem, chest, xp, key, 'cape-cross': capeCross, 'cape-season': capeSeason, 'cape-animated': capeAnimated };
+const PATHS: Record<string, string> = {
+  wings: 'M12 12C9 7 5 5 2 6c1 4 4 7 10 7 6 0 9-3 10-7-3-1-7 1-10 6z',
+  particles: 'M5 12h.01M12 5h.01M19 12h.01M12 19h.01M8 8h.01M16 8h.01M8 16h.01M16 16h.01',
+  emote: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01',
+};
+export const isCape = (icon: string) => icon.startsWith('cape');
+
+/**
+ * The picture of a reward or case item: pixel art for currencies, items and capes, a line icon on
+ * a tinted tile for the cosmetics without art yet. size is the width of a square item.
+ */
+export function ItemArt({ icon, size = 52, tint = '#f2a93b', soft = 'rgba(242,169,59,0.14)', className }: { icon: string; size?: number; tint?: string; soft?: string; className?: string }) {
+  const src = IMAGES[icon];
+  if (src) {
+    const cape = isCape(icon);
+    return <img className={`item-art ${className || ''}`} src={src} alt="" draggable={false} style={{ width: cape ? Math.round(size * 0.66) : size, height: cape ? Math.round(size * 1.08) : size }} />;
+  }
+  const box = Math.round(size * 1.08);
+  return <span className={`item-tile ${className || ''}`} style={{ width: box, height: box, borderRadius: Math.round(box * 0.28), background: soft, color: tint }}>
+    <svg width={Math.round(box * 0.54)} height={Math.round(box * 0.54)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={PATHS[icon] || PATHS.particles} /></svg>
+  </span>;
+}
+
+/** Small reward picture for compact lists (start page). */
+export function RewardIcon({ kind, size = 16 }: { kind: string; size?: number }) {
+  return <ItemArt icon={kind} size={size + 4} />;
 }
 
 const questIcons = { clock: Clock, play: Play, globe: GlobeHemisphereWest, calendar: Calendar };
@@ -57,23 +115,6 @@ export function XpBar({ season, big = false }: { season: Season; big?: boolean }
   </div>;
 }
 
-/** A reward tile; kind picks the icon. */
-export function RewardIcon({ kind, size = 16 }: { kind: string; size?: number }) {
-  const paths: Record<string, string> = {
-    coins: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM9 9h4.5a1.5 1.5 0 0 1 0 3H10.5a1.5 1.5 0 0 0 0 3H15M12 7v2M12 15v2',
-    emote: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01',
-    cape: 'M5 4h14l-3 8 3 8H5',
-    wings: 'M12 12C9 7 5 5 2 6c1 4 4 7 10 7 6 0 9-3 10-7-3-1-7 1-10 6z',
-    frame: 'M4 4h16v16H4zM8 8h8v8H8z',
-    banner: 'M6 3h12v18l-6-4-6 4z',
-    title: 'M4 7V4h16v3M9 20h6M12 4v16',
-    particles: 'M5 12h.01M12 5h.01M19 12h.01M12 19h.01M8 8h.01M16 8h.01M8 16h.01M16 16h.01',
-    hat: 'M3 18h18M6 18V9a6 6 0 0 1 12 0v9',
-    kill: 'M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M19 5l-3 3M8 16l-3 3',
-  };
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[kind] || paths.coins} /></svg>;
-}
-
 /** The five tiers around the current level, for the compact panel on the start page. */
 export function TierStrip({ season }: { season: Season }) {
   const from = Math.max(0, Math.min(season.tiers.length - 5, season.level - 2));
@@ -82,7 +123,7 @@ export function TierStrip({ season }: { season: Season }) {
     return <div key={tier.level} className={`tier-mini ${state} ${tier.level === season.level ? 'current' : ''}`}>
       <small className="mono">Lvl {tier.level}</small>
       <span><RewardIcon kind={tier.free.kind} /></span>
-      <em>{tier.free.name}</em>
+      <em>{tier.free.qty} {tier.free.name}</em>
       {state === 'done' ? <Check className="tier-flag ok" size={10} weight="bold" /> : state === 'locked' ? <Lock className="tier-flag" size={10} weight="bold" /> : null}
     </div>;
   })}</div>;

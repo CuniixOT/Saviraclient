@@ -10,14 +10,15 @@ import { SettingsPage } from './SettingsPage';
 import { AboutPage } from './AboutPage';
 import { WardrobePage } from './WardrobePage';
 import { SeasonPage } from './SeasonPage';
+import { CasesPage } from './CasesPage';
 import { NewsPage } from './NewsPage';
 import { SkinHead, accentHex } from './ui';
 import { UpdateChip, useUpdates } from './Update';
 import { CoinsChip } from './Coins';
-import { claimableQuests, readyTiers, SeasonToast, useSeason } from './season';
+import { claimableQuests, ownedCases, readyTiers, SeasonToast, useSeason } from './season';
 import { news } from './news';
 
-type Page = 'home' | 'profiles' | 'mods' | 'servers' | 'wardrobe' | 'news' | 'season' | 'settings' | 'about';
+type Page = 'home' | 'profiles' | 'mods' | 'servers' | 'wardrobe' | 'news' | 'season' | 'cases' | 'settings' | 'about';
 const nav: { id: Page; label: string }[] = [
   { id: 'home', label: 'Spielen' },
   { id: 'profiles', label: 'Profile' },
@@ -125,6 +126,7 @@ export function App() {
   const unread = notifications.filter(item => !seen.includes(item.id)).length;
   const markAll = () => { const ids = notifications.map(item => item.id); setSeen(ids); try { localStorage.setItem(SEEN_KEY, JSON.stringify(ids)); } catch { /* Only a convenience. */ } };
   const seasonPing = claimableQuests(season) + readyTiers(season) > 0;
+  const cases = ownedCases(season) + (season?.inventory.keys ?? 0);
   const go = (next: Page) => { setPage(next); setNotifOpen(false); setAccountOpen(false); };
   const notifIcon = { quest: <Trophy size={15} weight="bold" />, reward: <Gift size={15} weight="bold" />, update: <Lightning size={15} weight="fill" />, news: <Lightning size={15} weight="bold" /> };
   const notifTint = { quest: 'rgb(212 244 92 / .14)', reward: 'rgb(242 169 59 / .16)', update: '#2f4a3c', news: '#2d3550' };
@@ -151,6 +153,10 @@ export function App() {
         <button className="nav-icon" aria-label="Season Pass" title="Season Pass" aria-current={page === 'season' ? 'page' : undefined} onClick={() => go('season')}>
           <Ticket size={16} weight={page === 'season' ? 'fill' : 'regular'} />{seasonPing && <span className="nav-ping" />}
         </button>
+        <button className="nav-icon" aria-label="Kisten" title="Kisten" aria-current={page === 'cases' ? 'page' : undefined} onClick={() => go('cases')}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 10h18v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" /><path d="M4 10V7a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v3" /><path d="M10 10v3h4v-3" /></svg>
+          {cases > 0 && <span className="nav-count">{cases}</span>}
+        </button>
         <div className="notif-wrap" ref={notifRef}>
           <button className={`nav-icon ${notifOpen ? 'open' : ''}`} aria-label="Benachrichtigungen" aria-expanded={notifOpen} onClick={() => { setNotifOpen(open => !open); setAccountOpen(false); }}>
             <Bell size={16} />{unread > 0 && <span className="nav-count">{unread}</span>}
@@ -167,7 +173,7 @@ export function App() {
       </nav>
 
       <div className="topbar-right">
-        <CoinsChip balance={season?.coins ?? 0} />
+        <CoinsChip balance={season?.coins ?? 0} onCases={season ? () => go('cases') : undefined} />
         <div className="account" ref={accountRef}>
           <button className="chip-pill" aria-haspopup="dialog" aria-expanded={accountOpen} onClick={() => { setAccountOpen(open => !open); setNotifOpen(false); }}>
             <SkinHead skin={state?.account?.skin || null} size={30} />
@@ -215,6 +221,7 @@ export function App() {
         {page === 'servers' && <ServersPage settings={state.settings} locked={locked} onNotice={setNotice} onError={setError} onPlay={playOn} />}
         {page === 'wardrobe' && <WardrobePage state={state} locked={locked} onNotice={setNotice} onError={setError} onApplied={({ account, accounts }) => applyAccounts({ account, accounts })} onCapeChange={refreshCape} />}
         {page === 'season' && <SeasonPage season={seasonState} />}
+        {page === 'cases' && <CasesPage season={seasonState} onError={setError} />}
         {page === 'news' && <NewsPage onHome={() => go('home')} onError={setError} />}
         {page === 'settings' && <SettingsPage state={state} locked={locked} pending={pending} onSave={save} onFolder={openFolder} onNotice={setNotice} onError={setError} updates={updates} gameRunning={active} onRadiusPreview={setRadiusPreview}
           onPickJava={async () => { try { return await unwrap(api.selectJava()); } catch (e) { setError(e instanceof Error ? e.message : 'Java konnte nicht ausgewählt werden.'); return null; } }} />}

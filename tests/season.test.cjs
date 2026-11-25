@@ -33,17 +33,54 @@ test('quests count play time, starts and servers, and pay XP once', async () => 
   assert.equal(view.weekly.find(q => q.id === 'w:play300').cur, 31);
 });
 
-test('levels unlock coin rewards that can be claimed once', async () => {
+test('levels unlock rewards that land in the inventory once', async () => {
   const file = path.join(await fs.mkdtemp(path.join(os.tmpdir(), 'savira-season-')), 'season.json');
-  await fs.writeFile(file, JSON.stringify({ season: 1, xp: 2350, coins: 0, claimedTiers: [1] }));
+  await fs.writeFile(file, JSON.stringify({ season: 1, xp: 700, coins: 0, claimedTiers: [1] }));
   const season = createSeason({ file, now: at('2026-11-24T12:00:00') });
   const view = await season.load();
   assert.equal(view.level, 2);
-  assert.equal(view.levelXp, 350);
+  assert.equal(view.levelXp, 100);
   assert.deepEqual(view.tiers.slice(0, 3).map(t => [t.free.claimed, t.free.ready]), [[true, false], [false, true], [false, false]]);
+  assert.equal(view.tiers[0].premium.ready, false);
+  // Level 2 is an XP boost: quests pay double for two hours.
   const { view: after, reward } = await season.claimTier(2);
-  assert.equal(reward, '150 Coins');
-  assert.equal(after.coins, 150);
+  assert.equal(reward, '×2 XP-Boost');
+  assert.equal(after.inventory.boostUntil, new Date('2026-11-24T14:00:00').getTime());
   await assert.rejects(season.claimTier(2), /schon/);
   await assert.rejects(season.claimTier(3), /noch nicht/);
+  await assert.rejects(season.claimAll(), /nichts/);
+  await season.recordStart(null);
+  const { xp } = await season.claimQuest('d:start1');
+  assert.equal(xp, 200);
+});
+
+test('cases are bought with coins and opened into the inventory', async () => {
+  const file = path.join(await fs.mkdtemp(path.join(os.tmpdir(), 'savira-season-')), 'season.json');
+  await fs.writeFile(file, JSON.stringify({ season: 1, xp: 0, coins: 1000, inventory: { cases: { savira: 0 }, keys: 1 } }));
+  // random 0 always rolls the first legendary: the Season-Cape.
+  const season = createSeason({ file, now: at('2026-11-24T12:00:00'), random: () => 0 });
+  let view = await season.load();
+  assert.equal(view.cases.find(c => c.id === 'savira').owned, 0);
+  await assert.rejects(season.buyCase('savira', 2), /Ungültig/);
+  await assert.rejects(season.buyCase('legend', 1), /Nicht genug/);
+  ({ view } = await season.buyCase('savira', 1));
+  assert.equal(view.coins, 250);
+  let win = await season.openCase('savira');
+  assert.equal(win.item.name, 'Season-Cape');
+  assert.equal(win.duplicate, false);
+  assert.deepEqual(win.view.inventory.cosmetics, ['cape-season']);
+  // No case left: the key opens the next one, the same cape again pays coins instead.
+  win = await season.openCase('savira');
+  assert.equal(win.used, 'key');
+  assert.equal(win.duplicate, true);
+  assert.equal(win.view.coins, 650);
+  await assert.rejects(season.openCase('savira'), /Keine Kiste/);
+  const chances = view.cases[0].items.reduce((sum, item) => sum + item.chance, 0);
+  assert.ok(Math.abs(chances - 100) < 1e-9);
+});
+
+test('new players get one starter case', async () => {
+  const file = path.join(await fs.mkdtemp(path.join(os.tmpdir(), 'savira-season-')), 'season.json');
+  const view = await createSeason({ file, now: at('2026-11-24T12:00:00') }).load();
+  assert.equal(view.cases.find(c => c.id === 'starter').owned, 1);
 });

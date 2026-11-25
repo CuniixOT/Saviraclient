@@ -132,6 +132,9 @@ contextBridge.exposeInMainWorld('savira', {
     state: () => ipcRenderer.invoke('season-state'),
     claimQuest: (id) => ipcRenderer.invoke('season-claim-quest', id),
     claimTier: (level) => ipcRenderer.invoke('season-claim-tier', level),
+    claimAll: () => ipcRenderer.invoke('season-claim-all'),
+    buyCase: (id, amount) => ipcRenderer.invoke('cases-buy', id, amount),
+    openCase: (id) => ipcRenderer.invoke('cases-open', id),
     onChange: (callback) => {
       const listener = (_event, season) => callback(season);
       ipcRenderer.on('season', listener);

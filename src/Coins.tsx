@@ -22,10 +22,10 @@ export function CoinIcon({ size = 18 }: { size?: number }) {
 const format = (value: number) => new Intl.NumberFormat('de-DE').format(value);
 
 /**
- * Savira Coins next to the account chip. The shop and the balance come with the Savira server;
- * until then the balance is 0 and the card explains what coins will be for.
+ * Savira Coins next to the account chip. Coins come from the Season Pass and from cases and buy
+ * more cases; the shop comes with the Savira server.
  */
-export function CoinsChip({ balance = 0 }: { balance?: number }) {
+export function CoinsChip({ balance = 0, onCases }: { balance?: number; onCases?: () => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -44,8 +44,9 @@ export function CoinsChip({ balance = 0 }: { balance?: number }) {
     {open && <section className="coins-menu glass" role="dialog" aria-label="Savira Coins">
       <header className="account-menu-head"><span className="pixel">savira coins</span><button className="btn btn-icon" aria-label="Schließen" onClick={() => setOpen(false)}><X size={14} /></button></header>
       <div className="coins-balance"><CoinIcon size={40} /><div><strong>{format(balance)}</strong><small>Dein Guthaben</small></div></div>
-      <p className="coins-text">Mit Savira Coins kaufst du bald <b>Cosmetics</b> wie Capes, Emotes und Effekte im Savira-Shop.</p>
-      <button className="btn w-full pixel" disabled><Storefront size={16} />shop · kommt bald</button>
+      <p className="coins-text">Coins bekommst du im Season Pass und aus Kisten. Damit kaufst du neue <b>Kisten</b>, bald auch Cosmetics im Savira-Shop.</p>
+      {onCases && <button className="btn btn-primary w-full" onClick={() => { setOpen(false); onCases(); }}>Zu den Kisten</button>}
+      <button className="btn w-full" disabled><Storefront size={16} />Shop · kommt bald</button>
     </section>}
   </div>;
 }
