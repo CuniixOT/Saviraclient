@@ -156,3 +156,5 @@ textarea.input { border-radius: var(--radius); }
 .notif-wrap > button:hover { color: #fff; }
 .topbar .window-actions { height: auto; align-items: center; border-left: 0; padding-left: 10px; margin-left: 2px; position: relative; }
 .topbar .window-actions::before { content: ""; position: absolute; left: 0; top: 50%; height: 20px; margin-top: -10px; width: 1px; background: rgb(255 255 255 / .1); }
+
+.topbar .chip-pill > span:not(.online):not(.offline) { white-space: nowrap; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }

@@ -55,6 +55,23 @@ try {
   await expect(page.getByText('Weekly Quests')).toBeVisible();
   await page.waitForTimeout(400);
   await shot('season');
+  // Neuigkeiten: live feeds of Savira, minecraft.net and Mojang's patch notes, filters and the detail view.
+  await page.getByRole('button', { name: 'News', exact: true }).click();
+  await expect(page.getByRole('heading', { name: /Neuigkeiten/ })).toBeVisible();
+  await expect(page.locator('.news-featured')).toBeVisible({ timeout: 30000 });
+  await page.waitForTimeout(1500);
+  await shot('news');
+  await page.getByRole('tab', { name: /Patchnotes/ }).click();
+  await page.getByRole('tab', { name: /Mojang/ }).click();
+  await page.locator('.news-featured').click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.waitForTimeout(1500);
+  await shot('news-detail');
+  await page.keyboard.press('Escape');
+  await page.getByRole('tab', { name: /Changelog/ }).click();
+  await page.getByRole('tab', { name: /Alle/ }).click();
+  await page.waitForTimeout(400);
+  await shot('news-changelog');
   await page.getByRole('button', { name: 'Benachrichtigungen' }).click();
   await expect(page.getByRole('dialog', { name: 'Benachrichtigungen' })).toBeVisible();
   await shot('notifications');

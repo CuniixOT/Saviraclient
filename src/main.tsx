@@ -12,6 +12,7 @@ import './servers.css';
 import './theme.css';
 import './home.css';
 import './season.css';
+import './news.css';
 
 // The same bundle serves the launcher and its installer; main.cjs picks the mode via the URL.
 const mode = new URLSearchParams(location.search).get('mode');

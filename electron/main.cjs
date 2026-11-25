@@ -20,6 +20,7 @@ const { createSkinLibrary, assertSkin } = require('./skins.cjs');
 const skinMc = require('./skinmc.cjs').createSkinMc();
 const defaultMods = require('./defaultmods.cjs');
 const { createSeason } = require('./season.cjs');
+const newsFeed = require('./newsfeed.cjs').createNewsFeed({ log });
 const { createCapeLibrary } = require('./capes.cjs');
 const { createPanoramaStore } = require('./panoramas.cjs');
 const setup = require('./setup.cjs');
@@ -671,6 +672,9 @@ else {
       return refreshAccounts();
     });
     // Wardrobe: saved skins, adding from file, name, UUID or link, and wearing one.
+    // Neuigkeiten: Savira, Minecraft and Mojang.
+    handle('news-feed', () => newsFeed.all());
+    handle('news-patch', bodyPath => newsFeed.patch(bodyPath));
     // Season Pass and quests.
     handle('season-state', async () => season.view());
     handle('season-claim-quest', id => season.claimQuest(id));

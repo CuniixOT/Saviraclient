@@ -124,6 +124,10 @@ contextBridge.exposeInMainWorld('savira', {
     ipcRenderer.on('settings', listener);
     return () => ipcRenderer.removeListener('settings', listener);
   },
+  news: {
+    feed: () => ipcRenderer.invoke('news-feed'),
+    patch: (bodyPath) => ipcRenderer.invoke('news-patch', bodyPath)
+  },
   season: {
     state: () => ipcRenderer.invoke('season-state'),
     claimQuest: (id) => ipcRenderer.invoke('season-claim-quest', id),

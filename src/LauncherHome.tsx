@@ -20,6 +20,7 @@ type Props = {
   onProfiles: () => void;
   onServers: () => void;
   onSeason: () => void;
+  onNews: () => void;
   onPlayServer: (address: string) => void;
   onFolder: () => void;
   onLogs: () => void;
@@ -39,7 +40,7 @@ const ago = (at: number) => {
   return `vor ${Math.round(minutes / 1440)} Tagen`;
 };
 
-export function LauncherHome({ state, pending, locked, active, season: seasonState, onLaunch, onProfile, onProfiles, onServers, onSeason, onPlayServer, onFolder, onLogs, onNotice, onSkinAnimation }: Props) {
+export function LauncherHome({ state, pending, locked, active, season: seasonState, onLaunch, onProfile, onProfiles, onServers, onSeason, onNews, onPlayServer, onFolder, onLogs, onNotice, onSkinAnimation }: Props) {
   const { season, claimQuest, claimTier } = seasonState;
   const [picker, setPicker] = useState(false);
   const [panel, setPanel] = useState<'daily' | 'season' | null>(null);
@@ -180,6 +181,7 @@ export function LauncherHome({ state, pending, locked, active, season: seasonSta
           {i === slide && <i key={slide} className={`seg ${paused ? 'paused' : ''}`} onAnimationEnd={() => setSlide(current => (current + 1) % news.length)} />}
           {i < slide && <i className="seg-done" />}
         </span>)}</div>
+        <button className="reel-all" onClick={onNews}>Alle News →</button>
       </header>
       <div className="reel-cards">{news.map((item, i) => <button key={item.title} className={`reel-card ${i === slide ? 'active' : ''}`} onClick={() => setSlide(i)} aria-label={item.title}>
         {item.image ? <img src={item.image} alt="" className={i === slide ? 'kb' : ''} draggable={false} /> : <span className="reel-art"><NewsArt kind={item.art} /></span>}

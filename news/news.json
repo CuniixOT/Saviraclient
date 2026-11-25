@@ -1,0 +1,36 @@
+{
+  "posts": [
+    {
+      "id": "design-2026-11",
+      "date": "2026-11-24",
+      "title": "Neues Design, Season Pass und Daily Quests.",
+      "text": "Der Launcher und die Menüs im Spiel im neuen Look, dazu Quests, die deinen Season Pass leveln.",
+      "image": "https://raw.githubusercontent.com/CuniixOT/Saviraclient/main/src/assets/news/brand.png",
+      "body": [
+        "Launcher, Hauptmenü und Rechts-Shift-Menü zeigen sich im neuen Design: dunkel, rund, mit Inter und JetBrains Mono.",
+        "Neu ist der Season Pass: Spielzeit, Spielstarts und Server-Beitritte erfüllen Daily und Weekly Quests, ihre XP leveln den Pass, jedes Level bringt Coins."
+      ]
+    },
+    {
+      "id": "logo",
+      "date": "2026-10-12",
+      "title": "Neues Logo, neues Gesicht.",
+      "text": "Im Launcher, im Spiel, auf dem Desktop und in Discord.",
+      "image": "https://raw.githubusercontent.com/CuniixOT/Saviraclient/main/src/assets/news/brand.png"
+    },
+    {
+      "id": "wardrobe",
+      "date": "2026-10-12",
+      "title": "Skins und Capes im Launcher.",
+      "text": "Skins verwalten, Vanilla-Capes wechseln und eigene Capes im Spiel tragen.",
+      "image": "https://raw.githubusercontent.com/CuniixOT/Saviraclient/main/src/assets/news/wardrobe.jpg"
+    },
+    {
+      "id": "accounts",
+      "date": "2026-10-11",
+      "title": "Mehrere Konten und Discord.",
+      "text": "Konten per Klick wechseln, dazu Discord-Präsenz und eigener Eckenradius.",
+      "image": "https://raw.githubusercontent.com/CuniixOT/Saviraclient/main/src/assets/news/accounts.jpg"
+    }
+  ]
+}

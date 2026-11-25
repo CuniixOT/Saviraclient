@@ -10,19 +10,21 @@ import { SettingsPage } from './SettingsPage';
 import { AboutPage } from './AboutPage';
 import { WardrobePage } from './WardrobePage';
 import { SeasonPage } from './SeasonPage';
+import { NewsPage } from './NewsPage';
 import { SkinHead, accentHex } from './ui';
 import { UpdateChip, useUpdates } from './Update';
 import { CoinsChip } from './Coins';
 import { claimableQuests, readyTiers, SeasonToast, useSeason } from './season';
 import { news } from './news';
 
-type Page = 'home' | 'profiles' | 'mods' | 'servers' | 'wardrobe' | 'season' | 'settings' | 'about';
+type Page = 'home' | 'profiles' | 'mods' | 'servers' | 'wardrobe' | 'news' | 'season' | 'settings' | 'about';
 const nav: { id: Page; label: string }[] = [
   { id: 'home', label: 'Spielen' },
   { id: 'profiles', label: 'Profile' },
   { id: 'mods', label: 'Mods' },
   { id: 'servers', label: 'Server' },
-  { id: 'wardrobe', label: 'Garderobe' }
+  { id: 'wardrobe', label: 'Garderobe' },
+  { id: 'news', label: 'News' }
 ];
 type Notification = { id: string; icon: 'quest' | 'reward' | 'update' | 'news'; text: string; meta: string; go?: Page };
 const SEEN_KEY = 'savira-seen-notifications';
@@ -200,7 +202,7 @@ export function App() {
     <main id="main" className={`content page-${page}`} tabIndex={-1}>
       {error && <div className="alert glass" role="alert"><Info size={18} weight="fill" /><span>{error}</span><button className="btn btn-icon" aria-label="Meldung schließen" onClick={() => setError('')}><X size={16} /></button></div>}
       {!state ? <div className="loading" aria-busy="true"><div className="skeleton stage-skeleton" /><div className="skeleton news-skeleton" />{error && <button className="btn" onClick={() => location.reload()}>Erneut laden</button>}</div> : <>
-        {page === 'home' && <LauncherHome state={state} pending={pending} locked={locked} active={active} season={seasonState} onProfiles={() => go('profiles')} onServers={() => go('servers')} onSeason={() => go('season')} onFolder={openFolder}
+        {page === 'home' && <LauncherHome state={state} pending={pending} locked={locked} active={active} season={seasonState} onProfiles={() => go('profiles')} onServers={() => go('servers')} onSeason={() => go('season')} onNews={() => go('news')} onFolder={openFolder}
           onLogs={() => unwrap(logsApi.open()).catch(e => setError(e.message))} onNotice={setNotice} onPlayServer={server => playOn(state.settings.selectedProfileId, server)}
           onLaunch={() => state.account ? action('launch', async () => { await unwrap(api.launch()); }) : login()}
           onProfile={selectedProfileId => save({ ...state.settings, selectedProfileId }, 'Profil gewechselt.')}
@@ -213,6 +215,7 @@ export function App() {
         {page === 'servers' && <ServersPage settings={state.settings} locked={locked} onNotice={setNotice} onError={setError} onPlay={playOn} />}
         {page === 'wardrobe' && <WardrobePage state={state} locked={locked} onNotice={setNotice} onError={setError} onApplied={({ account, accounts }) => applyAccounts({ account, accounts })} onCapeChange={refreshCape} />}
         {page === 'season' && <SeasonPage season={seasonState} />}
+        {page === 'news' && <NewsPage onHome={() => go('home')} onError={setError} />}
         {page === 'settings' && <SettingsPage state={state} locked={locked} pending={pending} onSave={save} onFolder={openFolder} onNotice={setNotice} onError={setError} updates={updates} gameRunning={active} onRadiusPreview={setRadiusPreview}
           onPickJava={async () => { try { return await unwrap(api.selectJava()); } catch (e) { setError(e instanceof Error ? e.message : 'Java konnte nicht ausgewählt werden.'); return null; } }} />}
         {page === 'about' && <AboutPage version={state.version} />}

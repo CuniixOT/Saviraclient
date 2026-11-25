@@ -97,6 +97,16 @@ interface Bridge {
   profiles?: ProfilesBridge;
   debug?: DebugBridge;
   season?: SeasonBridge;
+  news?: NewsBridge;
+}
+export type NewsSource = 'client' | 'minecraft' | 'mojang';
+export type NewsBlock = { kind: 'heading' | 'text' | 'item'; text: string };
+export type FeedItem = { id: string; src: NewsSource; type: 'news' | 'patch'; title: string; text: string; date: string | null; author: string; image: string | null; link: string | null; body?: NewsBlock[]; bodyPath?: string | null; version?: string | null };
+export type ChangelogEntry = { id: string; src: 'client'; version: string; title: string; date: string | null; items: string[] };
+export type NewsFeed = { items: FeedItem[]; changelog: ChangelogEntry[]; sources: { savira: boolean; minecraft: boolean; mojang: boolean } };
+interface NewsBridge {
+  feed(): Promise<Result<NewsFeed>>;
+  patch(bodyPath: string): Promise<Result<NewsBlock[]>>;
 }
 export type Quest = { id: string; title: string; icon: 'clock' | 'play' | 'globe' | 'calendar'; cur: number; max: number; xp: number; done: boolean; claimed: boolean };
 export type SeasonTier = { level: number; free: { kind: string; name: string; claimed: boolean; ready: boolean }; premium: { kind: string; name: string } };
@@ -297,3 +307,4 @@ export const profilesApi: ProfilesBridge = window.savira?.profiles ?? {
 };
 
 export const seasonApi: SeasonBridge = window.savira?.season ?? { state: unavailable, claimQuest: unavailable, claimTier: unavailable, onChange: () => () => {} };
+export const newsApi: NewsBridge = window.savira?.news ?? { feed: unavailable, patch: unavailable };
