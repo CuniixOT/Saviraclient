@@ -1,12 +1,7 @@
 # Release-Notizen
 
-Jede Zeile, die mit "- " beginnt, erscheint im Update-Hinweis des Launchers.
-Vor jedem Release anpassen, dann Version erhöhen und pushen.
-
-- Neu: Season Pass im neuen Design mit Free- und Premium-Reihe, Belohnungs-Vorschau und „Alle abholen“
-- Neu: Kisten-Tab oben in der Navigation: Kisten mit Coins kaufen und mit Walzen-Animation öffnen
-- Drei Kisten (Savira, Legend, Starter) mit sichtbaren Gewinnchancen, dazu eine Schnellöffnung
-- Belohnungen landen im Inventar: Coins, Edelsteine, Schlüssel, XP-Boosts, Kisten und Kosmetik
-- XP-Boost verdoppelt Quest-XP, ein Schlüssel öffnet eine Kiste
-- Neue Spieler bekommen eine Starter Case geschenkt
-- Behoben: Der Update-Knopf oben neben der Version lässt sich wieder anklicken
+Jede Zeile, die mit "- Neu: Cosmetics-Tab in der Garderobe mit Kategorien und frei drehbarer 3D-Vorschau deines Skins
+- Cosmetics wie Hüte, Rucksäcke, Flügel und Pets sind schon zu sehen und kommen mit dem nächsten Update
+- Neu: Klick-Sound beim Kisten-Öffnen, der mit der Walze langsamer wird
+- Neu: Gewinn-Sound, wenn die Walze stehen bleibt
+- Season Pass im neuen Design und Kisten-Tab mit Inventar

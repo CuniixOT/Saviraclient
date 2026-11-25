@@ -70,16 +70,37 @@ try {
   await page.getByRole('button', { name: /Belohnungen abholen/ }).click();
   await expect(page.getByRole('button', { name: 'Alles abgeholt' })).toBeVisible();
   // Kisten: buy with coins, open with the reel, the win dialog.
+  // Garderobe › Cosmetics: categories, the 3D preview without name tag, cosmetics coming soon.
+  await page.getByRole('button', { name: 'Garderobe', exact: true }).click();
+  await page.getByRole('tab', { name: 'Cosmetics' }).click();
+  await expect(page.getByRole('region', { name: '3D-Vorschau' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Bald verfügbar' }).first()).toBeDisabled();
+  await page.getByRole('button', { name: /Hüte/ }).click();
+  await expect(page.getByText('Goldene Krone')).toBeVisible();
+  const stage = await page.locator('.cos-stage').boundingBox();
+  await page.mouse.move(stage.x + stage.width / 2, stage.y + stage.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(stage.x + stage.width / 2 + 80, stage.y + stage.height / 2 - 60, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(1200);
+  await shot('cosmetics');
   await page.getByRole('button', { name: 'Kisten', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Kisten' })).toBeVisible();
   await page.waitForTimeout(400);
   await shot('cases');
   await page.getByRole('button', { name: /^Kaufen/ }).click();
   await expect(page.getByText('+1 Savira Case gekauft')).toBeVisible();
+  // Count the click sounds: one per card that passes the marker.
+  await page.evaluate(() => { window.__played = []; const play = HTMLMediaElement.prototype.play; HTMLMediaElement.prototype.play = function () { window.__played.push(this.src); return play.call(this); }; });
   await page.getByRole('button', { name: 'Kiste öffnen' }).click();
   await page.waitForTimeout(2500);
   await shot('cases-reel');
   await expect(page.getByRole('dialog', { name: 'Gewinn' })).toBeVisible({ timeout: 10000 });
+  const played = await page.evaluate(() => window.__played);
+  const clicks = played.filter(src => src.includes('click')).length;
+  expect(played.filter(src => src.includes('win'))).toHaveLength(1);
+  console.log('Klick-Sounds beim Öffnen:', clicks);
+  expect(clicks).toBeGreaterThan(20);
   await page.waitForTimeout(500);
   await shot('cases-win');
   await page.getByRole('button', { name: 'Einsammeln' }).click();

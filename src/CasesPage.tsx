@@ -4,6 +4,25 @@ import type { CaseDef, CaseItem, CaseWin, Rarity } from './api';
 import { CoinIcon } from './Coins';
 import { ItemArt, isCape, RARITY, type SeasonState } from './season';
 import chestImage from './assets/rewards/chest.png';
+import clickSound from './assets/sounds/click.mp3';
+import winSound from './assets/sounds/win.mp3';
+
+// A few players in turn, so fast clicks can overlap instead of cutting each other off.
+let clickPool: HTMLAudioElement[] | null = null;
+let clickNext = 0;
+// The win jingle, quieter than the clicks so it does not blast.
+let winAudio: HTMLAudioElement | null = null;
+function playWin() {
+  winAudio ??= Object.assign(new Audio(winSound), { volume: 0.3, preload: 'auto' });
+  winAudio.currentTime = 0;
+  winAudio.play().catch(() => { /* Sound is optional. */ });
+}
+function playClick() {
+  clickPool ??= Array.from({ length: 6 }, () => { const audio = new Audio(clickSound); audio.volume = 0.5; audio.preload = 'auto'; return audio; });
+  const audio = clickPool[clickNext++ % clickPool.length];
+  audio.currentTime = 0;
+  audio.play().catch(() => { /* Sound is optional. */ });
+}
 
 const de = (value: number) => value.toLocaleString('de-DE');
 const pct = (value: number) => `${value.toLocaleString('de-DE', { maximumFractionDigits: 2 })} %`;
@@ -54,6 +73,27 @@ export function CasesPage({ season: { season, setSeason, buyCase, openCase }, on
   // Width of the reel window, to stop the winning card under the marker.
   const [view, setView] = useState(1268);
   useLayoutEffect(() => { if (spin && viewRef.current) setView(viewRef.current.clientWidth); }, [spin]);
+  // A click each time a card passes the marker: it follows the reel's real position, so the clicks
+  // come fast at first and slow down with the reel until it stops.
+  const reelRef = useRef<HTMLDivElement>(null);
+  const moving = Boolean(spin?.moving && !spin.won);
+  useEffect(() => {
+    if (!moving) return;
+    let frame = 0, last = -1, lastAt = 0;
+    const step = () => {
+      const reel = reelRef.current, viewport = viewRef.current;
+      if (reel && viewport) {
+        const x = new DOMMatrixReadOnly(getComputedStyle(reel).transform).m41;
+        const card = Math.floor((viewport.clientWidth / 2 - x) / CARD);
+        const now = performance.now();
+        if (last >= 0 && card !== last && now - lastAt > 35) { playClick(); lastAt = now; }
+        last = card;
+      }
+      frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [moving]);
 
   if (!season) return <div className="empty glass"><h2>Kisten</h2><p>Kisten gibt es im Desktop-Launcher.</p></div>;
   const def = season.cases.find(c => c.id === caseId) ?? season.cases[0];
@@ -82,7 +122,7 @@ export function CasesPage({ season: { season, setSeason, buyCase, openCase }, on
       setSpin({ reel, x: 0, moving: false, dur, result, won: false });
       const jitter = Math.floor(Math.random() * 110) - 55;
       timers.current.push(window.setTimeout(() => setSpin(s => s && { ...s, x: -(WIN_AT * CARD + 75 - (viewRef.current?.clientWidth ?? view) / 2 + jitter), moving: true }), 60));
-      timers.current.push(window.setTimeout(() => { setSpin(s => s && { ...s, won: true }); setSeason(result.view); }, dur * 1000 + 450));
+      timers.current.push(window.setTimeout(() => { setSpin(s => s && { ...s, won: true }); setSeason(result.view); playWin(); }, dur * 1000 + 450));
     } catch (e) { onError(e instanceof Error ? e.message : 'Die Kiste ließ sich nicht öffnen.'); }
     finally { setBusy(false); }
   }
@@ -135,7 +175,7 @@ export function CasesPage({ season: { season, setSeason, buyCase, openCase }, on
         </div>
       </div> : <div className="cs-reel-wrap">
         <div className="cs-reel-view" ref={viewRef}>
-          <div className="cs-reel" style={{ transform: `translateX(${spin.x}px)`, transition: spin.moving ? `transform ${spin.dur}s cubic-bezier(0.08, 0.6, 0.12, 1)` : 'none' }}>
+          <div className="cs-reel" ref={reelRef} style={{ transform: `translateX(${spin.x}px)`, transition: spin.moving ? `transform ${spin.dur}s cubic-bezier(0.08, 0.6, 0.12, 1)` : 'none' }}>
             {spin.reel.map((item, i) => <div key={i} className="cs-reel-slot"><ItemCard item={item} dim={spin.won && i !== WIN_AT} /></div>)}
           </div>
         </div>

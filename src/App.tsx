@@ -219,7 +219,7 @@ export function App() {
         {page === 'mods' && <ContentBrowser mode="page" profile={null} kind="mods" settings={state.settings} maxMemory={state.maxMemory} onNotice={setNotice}
           onSaveSettings={async (next, message) => save(next, message)} onSettings={(settings, message) => { setState(s => s ? { ...s, settings } : s); setNotice(message); }} />}
         {page === 'servers' && <ServersPage settings={state.settings} locked={locked} onNotice={setNotice} onError={setError} onPlay={playOn} />}
-        {page === 'wardrobe' && <WardrobePage state={state} locked={locked} onNotice={setNotice} onError={setError} onApplied={({ account, accounts }) => applyAccounts({ account, accounts })} onCapeChange={refreshCape} />}
+        {page === 'wardrobe' && <WardrobePage state={state} locked={locked} onNotice={setNotice} onError={setError} onApplied={({ account, accounts }) => applyAccounts({ account, accounts })} onCapeChange={refreshCape} season={season} />}
         {page === 'season' && <SeasonPage season={seasonState} />}
         {page === 'cases' && <CasesPage season={seasonState} onError={setError} />}
         {page === 'news' && <NewsPage onHome={() => go('home')} onError={setError} />}
